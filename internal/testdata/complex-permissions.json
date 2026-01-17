@@ -1,0 +1,16 @@
+{
+  "agents": {
+    "Sisyphus": {
+      "model": "anthropic/claude-4",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "git": "allow",
+          "npm": "ask",
+          "rm": "deny"
+        },
+        "webfetch": "allow"
+      }
+    }
+  }
+}

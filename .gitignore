@@ -1,0 +1,38 @@
+# Binaries
+omo-profiler
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Go workspace
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+/dist/
+/bin/
+
+# Local config (don't commit user's actual config)
+# Note: schema.json IS committed (it's embedded in the binary)
+
+# Sisyphus planning (project management metadata)
+.sisyphus/

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  "disabled_mcps": ["context7"],
+  "disabled_agents": ["oracle", "librarian"],
+  "disabled_skills": ["playwright"],
+  "disabled_hooks": ["auto-update-checker", "startup-toast"],
+  "disabled_commands": ["init-deep"],
+  "agents": {
+    "build": {
+      "model": "claude-sonnet-4-20250514",
+      "variant": "fast",
+      "category": "general",
+      "skills": ["git-master"],
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "prompt": "You are a helpful coding assistant.",
+      "prompt_append": "Always verify your work.",
+      "tools": {
+        "bash": true,
+        "webfetch": false
+      },
+      "disable": false,
+      "description": "Main build agent",
+      "mode": "primary",
+      "color": "#FF5733",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "webfetch": "ask",
+        "doom_loop": "deny",
+        "external_directory": "ask"
+      }
+    },
+    "plan": {
+      "model": "o3",
+      "category": "planning",
+      "permission": {
+        "bash": {
+          "git": "allow",
+          "npm": "ask",
+          "rm": "deny"
+        }
+      }
+    }
+  },
+  "categories": {
+    "general": {
+      "model": "claude-sonnet-4-20250514",
+      "variant": "balanced",
+      "temperature": 0.5,
+      "top_p": 0.95,
+      "maxTokens": 8192,
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 4096
+      },
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "tools": {
+        "edit": true,
+        "bash": true
+      },
+      "prompt_append": "Be concise."
+    },
+    "planning": {
+      "model": "o3",
+      "thinking": {
+        "type": "enabled"
+      }
+    }
+  },
+  "claude_code": {
+    "mcp": true,
+    "commands": true,
+    "skills": true,
+    "agents": true,
+    "hooks": true,
+    "plugins": false,
+    "plugins_override": {
+      "context7": true
+    }
+  },
+  "sisyphus_agent": {
+    "disabled": false,
+    "default_builder_enabled": true,
+    "planner_enabled": true,
+    "replace_plan": false
+  },
+  "comment_checker": {
+    "custom_prompt": "Check for TODO comments."
+  },
+  "experimental": {
+    "aggressive_truncation": true,
+    "auto_resume": false,
+    "preemptive_compaction": true,
+    "preemptive_compaction_threshold": 0.8,
+    "truncate_all_tool_outputs": false,
+    "dynamic_context_pruning": {
+      "enabled": true,
+      "notification": "detailed",
+      "turn_protection": {
+        "enabled": true,
+        "turns": 5
+      },
+      "protected_tools": ["task", "todowrite"],
+      "strategies": {
+        "deduplication": {
+          "enabled": true
+        },
+        "supersede_writes": {
+          "enabled": true,
+          "aggressive": false
+        },
+        "purge_errors": {
+          "enabled": true,
+          "turns": 10
+        }
+      }
+    },
+    "dcp_for_compaction": false
+  },
+  "auto_update": true,
+  "skills": ["git-master", "playwright"],
+  "ralph_loop": {
+    "enabled": true,
+    "default_max_iterations": 50,
+    "state_dir": "/tmp/ralph"
+  },
+  "background_task": {
+    "defaultConcurrency": 4,
+    "providerConcurrency": {
+      "anthropic": 3,
+      "openai": 5
+    },
+    "modelConcurrency": {
+      "claude-sonnet-4": 2
+    }
+  },
+  "notification": {
+    "force_enable": true
+  },
+  "git_master": {
+    "commit_footer": true,
+    "include_co_authored_by": false
+  }
+}

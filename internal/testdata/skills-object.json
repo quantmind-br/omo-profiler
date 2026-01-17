@@ -1,0 +1,15 @@
+{
+  "agents": {
+    "build": {
+      "model": "anthropic/claude-4"
+    }
+  },
+  "skills": {
+    "sources": ["./custom-skills"],
+    "enable": ["my-skill"],
+    "disable": ["other-skill"],
+    "my-skill": {
+      "config": "value"
+    }
+  }
+}
