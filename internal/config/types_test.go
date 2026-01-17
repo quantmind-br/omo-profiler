@@ -217,3 +217,33 @@ func TestOmitempty(t *testing.T) {
 		t.Errorf("expected %s, got %s", expected, marshaled)
 	}
 }
+
+func TestAgentSkillsRoundTrip(t *testing.T) {
+	cfg := &Config{
+		Agents: map[string]*AgentConfig{
+			"build": {Skills: []string{"playwright", "git-master"}},
+		},
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var result Config
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if result.Agents == nil || result.Agents["build"] == nil {
+		t.Fatal("build agent not found after round-trip")
+	}
+
+	skills := result.Agents["build"].Skills
+	if len(skills) != 2 {
+		t.Fatalf("expected 2 skills, got %d", len(skills))
+	}
+	if skills[0] != "playwright" || skills[1] != "git-master" {
+		t.Errorf("expected [playwright git-master], got %v", skills)
+	}
+}

@@ -117,9 +117,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Global keys (unless in text input mode)
+		// Global keys - but don't intercept 'q' in Wizard or Editor (text input)
 		switch {
 		case key.Matches(msg, Keys.Quit):
+			// Only quit with 'q' in Dashboard or List states
+			// Wizard and Editor handle their own quit via ctrl+c
+			if msg.String() == "q" && (a.state == stateWizard || a.state == stateEditor) {
+				break
+			}
 			return a, tea.Quit
 		case key.Matches(msg, Keys.Help):
 			a.showHelp = !a.showHelp
@@ -389,11 +394,11 @@ func (a App) View() string {
 		var style lipgloss.Style
 		switch a.toastType {
 		case toastSuccess:
-			style = SuccessStyle.Copy().Padding(0, 1)
+			style = SuccessStyle.Padding(0, 1)
 		case toastError:
-			style = ErrorStyle.Copy().Padding(0, 1)
+			style = ErrorStyle.Padding(0, 1)
 		default:
-			style = CyanAccentStyle.Copy().Padding(0, 1)
+			style = CyanAccentStyle.Padding(0, 1)
 		}
 		toastView = style.Render(a.toast)
 	}

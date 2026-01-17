@@ -225,9 +225,6 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 			return l, func() tea.Msg {
 				return NavigateToWizardMsg{}
 			}
-
-		case key.Matches(msg, l.keys.Search):
-			l.list.SetFilteringEnabled(true)
 		}
 
 	case ConfirmDeleteMsg:
@@ -257,9 +254,6 @@ func (l List) View() string {
 		content = l.list.View()
 	}
 
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	helpText := helpStyle.Render("enter switch • e edit • d delete • n new • / search • esc back")
-
 	if l.confirmingDelete {
 		confirmStyle := lipgloss.NewStyle().
 			Bold(true).
@@ -270,7 +264,7 @@ func (l List) View() string {
 		return lipgloss.JoinVertical(lipgloss.Left, content, "", confirmText)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, content, "", helpText)
+	return content
 }
 
 func (l List) SelectedProfile() string {

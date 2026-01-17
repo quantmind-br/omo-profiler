@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -12,6 +13,41 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 )
+
+func parseMapStringBool(s string) map[string]bool {
+	if s == "" {
+		return nil
+	}
+	result := make(map[string]bool)
+	for _, pair := range strings.Split(s, ",") {
+		pair = strings.TrimSpace(pair)
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if key == "" {
+			continue
+		}
+		result[key] = val == "true"
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func serializeMapStringBool(m map[string]bool) string {
+	if len(m) == 0 {
+		return ""
+	}
+	var pairs []string
+	for k, v := range m {
+		pairs = append(pairs, fmt.Sprintf("%s:%t", k, v))
+	}
+	return strings.Join(pairs, ", ")
+}
 
 // All 15 agents
 var allAgents = []string{
@@ -47,6 +83,7 @@ const (
 	fieldTemperature
 	fieldTopP
 	fieldSkills
+	fieldTools
 	fieldPrompt
 	fieldPromptAppend
 	fieldDisable
@@ -69,6 +106,7 @@ type agentConfig struct {
 	temperature  textinput.Model
 	topP         textinput.Model
 	skills       textinput.Model
+	tools        textinput.Model
 	prompt       textarea.Model
 	promptAppend textarea.Model
 	disable      bool
@@ -108,6 +146,10 @@ func newAgentConfig() agentConfig {
 	skills.Placeholder = "skill1, skill2"
 	skills.Width = 40
 
+	tools := textinput.New()
+	tools.Placeholder = "tool1:true, tool2:false"
+	tools.Width = 40
+
 	prompt := textarea.New()
 	prompt.Placeholder = "Custom prompt..."
 	prompt.SetWidth(50)
@@ -133,6 +175,7 @@ func newAgentConfig() agentConfig {
 		temperature:  temperature,
 		topP:         topP,
 		skills:       skills,
+		tools:        tools,
 		prompt:       prompt,
 		promptAppend: promptAppend,
 		description:  description,
@@ -258,6 +301,12 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 			if agentCfg.PromptAppend != "" {
 				ac.promptAppend.SetValue(agentCfg.PromptAppend)
 			}
+			if len(agentCfg.Skills) > 0 {
+				ac.skills.SetValue(strings.Join(agentCfg.Skills, ", "))
+			}
+			if len(agentCfg.Tools) > 0 {
+				ac.tools.SetValue(serializeMapStringBool(agentCfg.Tools))
+			}
 			if agentCfg.Disable != nil && *agentCfg.Disable {
 				ac.disable = true
 			}
@@ -337,6 +386,21 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 		if v := ac.promptAppend.Value(); v != "" {
 			agentCfg.PromptAppend = v
 		}
+		if v := ac.skills.Value(); v != "" {
+			parts := strings.Split(v, ",")
+			var skills []string
+			for _, p := range parts {
+				if s := strings.TrimSpace(p); s != "" {
+					skills = append(skills, s)
+				}
+			}
+			if len(skills) > 0 {
+				agentCfg.Skills = skills
+			}
+		}
+		if v := ac.tools.Value(); v != "" {
+			agentCfg.Tools = parseMapStringBool(v)
+		}
 		if ac.disable {
 			b := true
 			agentCfg.Disable = &b
@@ -381,6 +445,45 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 	}
 }
 
+func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
+	ac.model.Blur()
+	ac.variant.Blur()
+	ac.category.Blur()
+	ac.temperature.Blur()
+	ac.topP.Blur()
+	ac.skills.Blur()
+	ac.tools.Blur()
+	ac.prompt.Blur()
+	ac.promptAppend.Blur()
+	ac.description.Blur()
+	ac.color.Blur()
+
+	switch w.focusedField {
+	case fieldModel:
+		ac.model.Focus()
+	case fieldVariant:
+		ac.variant.Focus()
+	case fieldCategory:
+		ac.category.Focus()
+	case fieldTemperature:
+		ac.temperature.Focus()
+	case fieldTopP:
+		ac.topP.Focus()
+	case fieldSkills:
+		ac.skills.Focus()
+	case fieldTools:
+		ac.tools.Focus()
+	case fieldPrompt:
+		ac.prompt.Focus()
+	case fieldPromptAppend:
+		ac.promptAppend.Focus()
+	case fieldDescription:
+		ac.description.Focus()
+	case fieldColor:
+		ac.color.Focus()
+	}
+}
+
 func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -399,12 +502,15 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				w.inForm = false
+				ac.expanded = false
 				return w, nil
 			case "tab":
 				w.focusedField++
 				if w.focusedField > fieldPermExtDir {
 					w.focusedField = fieldModel
 				}
+				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				return w, nil
 			case "shift+tab":
 				if w.focusedField == fieldModel {
@@ -412,6 +518,8 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				} else {
 					w.focusedField--
 				}
+				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				return w, nil
 			case "left", "right":
 				// Cycle through options for dropdown fields
@@ -484,6 +592,10 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				ac.skills.Focus()
 				ac.skills, cmd = ac.skills.Update(msg)
 				cmds = append(cmds, cmd)
+			case fieldTools:
+				ac.tools.Focus()
+				ac.tools, cmd = ac.tools.Update(msg)
+				cmds = append(cmds, cmd)
 			case fieldPrompt:
 				ac.prompt.Focus()
 				ac.prompt, cmd = ac.prompt.Update(msg)
@@ -523,6 +635,9 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if ac.expanded {
 					w.inForm = true
 					w.focusedField = fieldModel
+					w.updateFieldFocus(ac)
+				} else {
+					w.inForm = false
 				}
 			}
 		case key.Matches(msg, w.keys.Next):
@@ -598,9 +713,12 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	fieldStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 	focusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
 
+	// Only show focus styling if this is the active agent being edited
+	isActiveAgent := name == allAgents[w.cursor]
+
 	renderField := func(label string, field agentFormField, value string) string {
 		style := fieldStyle
-		if w.inForm && w.focusedField == field {
+		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
 		}
 		return indent + style.Render(fmt.Sprintf("%-12s: ", label)) + value
@@ -608,7 +726,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 
 	renderDropdown := func(label string, field agentFormField, options []string, idx int) string {
 		style := fieldStyle
-		if w.inForm && w.focusedField == field {
+		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
 		}
 		val := "(none)"
@@ -620,7 +738,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 
 	renderBool := func(label string, field agentFormField, val bool) string {
 		style := fieldStyle
-		if w.inForm && w.focusedField == field {
+		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
 		}
 		checkbox := "[ ]"
@@ -637,6 +755,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View()))
 	lines = append(lines, renderField("top_p", fieldTopP, ac.topP.View()))
 	lines = append(lines, renderField("skills", fieldSkills, ac.skills.View()))
+	lines = append(lines, renderField("tools", fieldTools, ac.tools.View()))
 	lines = append(lines, renderField("prompt", fieldPrompt, ac.prompt.View()))
 	lines = append(lines, renderField("prompt_append", fieldPromptAppend, ac.promptAppend.View()))
 	lines = append(lines, renderBool("disable", fieldDisable, ac.disable))

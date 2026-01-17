@@ -16,6 +16,7 @@ type WizardCancelMsg struct{}
 
 const (
 	StepName = iota + 1
+	StepCategories
 	StepAgents
 	StepHooks
 	StepOther
@@ -23,11 +24,12 @@ const (
 )
 
 var stepNames = map[int]string{
-	StepName:   "Name",
-	StepAgents: "Agents",
-	StepHooks:  "Hooks",
-	StepOther:  "Other Settings",
-	StepReview: "Review & Save",
+	StepName:       "Name",
+	StepCategories: "Categories",
+	StepAgents:     "Agents",
+	StepHooks:      "Hooks",
+	StepOther:      "Other Settings",
+	StepReview:     "Review & Save",
 }
 
 type wizardKeyMap struct {
@@ -66,11 +68,12 @@ type Wizard struct {
 	editMode    bool // true when editing existing profile, false when creating new
 
 	// Sub-views for each step
-	nameStep   WizardName
-	agentsStep WizardAgents
-	hooksStep  WizardHooks
-	otherStep  WizardOther
-	reviewStep WizardReview
+	nameStep       WizardName
+	categoriesStep WizardCategories
+	agentsStep     WizardAgents
+	hooksStep      WizardHooks
+	otherStep      WizardOther
+	reviewStep     WizardReview
 
 	width  int
 	height int
@@ -81,15 +84,16 @@ type Wizard struct {
 // NewWizard creates a new wizard for creating a profile
 func NewWizard() Wizard {
 	return Wizard{
-		step:       StepName,
-		config:     config.Config{},
-		editMode:   false,
-		nameStep:   NewWizardName(),
-		agentsStep: NewWizardAgents(),
-		hooksStep:  NewWizardHooks(),
-		otherStep:  NewWizardOther(),
-		reviewStep: NewWizardReview(),
-		keys:       newWizardKeyMap(),
+		step:           StepName,
+		config:         config.Config{},
+		editMode:       false,
+		nameStep:       NewWizardName(),
+		categoriesStep: NewWizardCategories(),
+		agentsStep:     NewWizardAgents(),
+		hooksStep:      NewWizardHooks(),
+		otherStep:      NewWizardOther(),
+		reviewStep:     NewWizardReview(),
+		keys:           newWizardKeyMap(),
 	}
 }
 
@@ -100,6 +104,7 @@ func NewWizardForEdit(p *profile.Profile) Wizard {
 	w.profileName = p.Name
 	w.config = p.Config
 	w.nameStep.SetName(p.Name)
+	w.categoriesStep.SetConfig(&w.config)
 	w.agentsStep.SetConfig(&w.config)
 	w.hooksStep.SetConfig(&w.config)
 	w.otherStep.SetConfig(&w.config)
@@ -117,6 +122,7 @@ func (w *Wizard) SetSize(width, height int) {
 	// Reserve space for header/footer
 	contentHeight := height - 6
 	w.nameStep.SetSize(width, contentHeight)
+	w.categoriesStep.SetSize(width, contentHeight)
 	w.agentsStep.SetSize(width, contentHeight)
 	w.hooksStep.SetSize(width, contentHeight)
 	w.otherStep.SetSize(width, contentHeight)
@@ -161,6 +167,10 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 			w.profileName = w.nameStep.GetName()
 		}
 
+	case StepCategories:
+		w.categoriesStep, cmd = w.categoriesStep.Update(msg)
+		cmds = append(cmds, cmd)
+
 	case StepAgents:
 		w.agentsStep, cmd = w.agentsStep.Update(msg)
 		cmds = append(cmds, cmd)
@@ -188,6 +198,12 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 			return w, nil
 		}
 		w.profileName = w.nameStep.GetName()
+		w.step = StepCategories
+		w.categoriesStep.SetConfig(&w.config)
+		return w, w.categoriesStep.Init()
+
+	case StepCategories:
+		w.categoriesStep.Apply(&w.config)
 		w.step = StepAgents
 		w.agentsStep.SetConfig(&w.config)
 		return w, w.agentsStep.Init()
@@ -229,9 +245,12 @@ func (w Wizard) prevStep() (Wizard, tea.Cmd) {
 	switch w.step {
 	case StepName:
 		return w, func() tea.Msg { return WizardCancelMsg{} }
-	case StepAgents:
+	case StepCategories:
 		w.step = StepName
 		return w, w.nameStep.Init()
+	case StepAgents:
+		w.step = StepCategories
+		return w, w.categoriesStep.Init()
 	case StepHooks:
 		w.step = StepAgents
 		return w, w.agentsStep.Init()
@@ -254,6 +273,8 @@ func (w Wizard) View() string {
 	switch w.step {
 	case StepName:
 		content = w.nameStep.View()
+	case StepCategories:
+		content = w.categoriesStep.View()
 	case StepAgents:
 		content = w.agentsStep.View()
 	case StepHooks:
@@ -264,15 +285,10 @@ func (w Wizard) View() string {
 		content = w.reviewStep.View()
 	}
 
-	// Footer with navigation help
-	footer := w.renderFooter()
-
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		"",
 		content,
-		"",
-		footer,
 	)
 }
 
@@ -298,7 +314,8 @@ func (w Wizard) renderHeader() string {
 		steps[1], dimStyle.Render(" → "),
 		steps[2], dimStyle.Render(" → "),
 		steps[3], dimStyle.Render(" → "),
-		steps[4],
+		steps[4], dimStyle.Render(" → "),
+		steps[5],
 	)
 
 	title := titleStyle.Render("Create Profile")

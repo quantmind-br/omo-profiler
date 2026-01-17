@@ -219,11 +219,18 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 	case EditorLoadMsg:
 		e.loading = false
 		e.originalProfile = msg.Profile
-		// Deep copy for working profile
+		// Deep copy for working profile via JSON to avoid shared references
 		e.workingProfile = &profile.Profile{
-			Name:   msg.Profile.Name,
-			Config: msg.Profile.Config,
-			Path:   msg.Profile.Path,
+			Name: msg.Profile.Name,
+			Path: msg.Profile.Path,
+		}
+		// Deep copy the config
+		configBytes, err := json.Marshal(msg.Profile.Config)
+		if err == nil {
+			json.Unmarshal(configBytes, &e.workingProfile.Config)
+		} else {
+			// Fallback to shallow copy if marshal fails
+			e.workingProfile.Config = msg.Profile.Config
 		}
 		e.nameInput.SetValue(msg.Profile.Name)
 		e.initHooksState()
@@ -340,8 +347,9 @@ func (e Editor) handleContentKeys(msg tea.KeyMsg) (Editor, tea.Cmd) {
 	if e.section == sectionName {
 		var cmd tea.Cmd
 		e.nameInput, cmd = e.nameInput.Update(msg)
-		// Update working profile name
-		e.workingProfile.Name = e.nameInput.Value()
+		if e.workingProfile != nil {
+			e.workingProfile.Name = e.nameInput.Value()
+		}
 		return e, cmd
 	}
 
@@ -540,17 +548,20 @@ func (e Editor) saveProfile() tea.Msg {
 		return EditorValidationMsg{Errors: validationErrors}
 	}
 
-	// Handle rename
-	if e.workingProfile.Name != e.originalProfile.Name {
-		// Delete old profile
-		if err := profile.Delete(e.originalProfile.Name); err != nil {
-			return EditorSaveErrorMsg{Err: fmt.Errorf("failed to delete old profile: %w", err)}
-		}
-	}
+	// Handle rename - save new profile FIRST, then delete old
+	isRename := e.workingProfile.Name != e.originalProfile.Name
 
 	// Save profile
 	if err := e.workingProfile.Save(); err != nil {
 		return EditorSaveErrorMsg{Err: err}
+	}
+
+	// Only delete old profile after successful save
+	if isRename {
+		if err := profile.Delete(e.originalProfile.Name); err != nil {
+			// Log but don't fail - new profile is already saved
+			// The old profile will remain as orphan but no data is lost
+		}
 	}
 
 	return EditorSaveSuccessMsg{}
@@ -614,15 +625,12 @@ func (e Editor) View() string {
 		status = editorSubtitleStyle.Render("Saving...")
 	}
 
-	help := editorHelpStyle.Render("↑↓ navigate • tab switch focus • ctrl+s save • esc back")
-
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,
 		"",
 		mainView,
 		"",
 		status,
-		help,
 	)
 }
 

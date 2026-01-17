@@ -146,7 +146,10 @@ func (d Diff) Update(msg tea.Msg) (Diff, tea.Cmd) {
 		if d.selectingLeft || d.selectingRight {
 			return d.handleSelectionKeys(msg)
 		}
-		return d.handleNavigationKeys(msg)
+		cmd := d.handleNavigationKeys(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	if d.ready {
@@ -160,7 +163,7 @@ func (d Diff) Update(msg tea.Msg) (Diff, tea.Cmd) {
 	return d, tea.Batch(cmds...)
 }
 
-func (d Diff) handleNavigationKeys(msg tea.KeyMsg) (Diff, tea.Cmd) {
+func (d *Diff) handleNavigationKeys(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "up", "k":
 		d.scrollBoth(-1)
@@ -183,10 +186,10 @@ func (d Diff) handleNavigationKeys(msg tea.KeyMsg) (Diff, tea.Cmd) {
 	case "pgdown":
 		d.scrollBoth(d.leftViewport.Height)
 	}
-	return d, nil
+	return nil
 }
 
-func (d Diff) handleSelectionKeys(msg tea.KeyMsg) (Diff, tea.Cmd) {
+func (d *Diff) handleSelectionKeys(msg tea.KeyMsg) (Diff, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		if d.selectingLeft && d.leftIdx > 0 {
@@ -208,12 +211,12 @@ func (d Diff) handleSelectionKeys(msg tea.KeyMsg) (Diff, tea.Cmd) {
 			d.rightProfile = d.profiles[d.rightIdx]
 			d.selectingRight = false
 		}
-		return d, d.computeDiff
+		return *d, d.computeDiff
 	case "esc":
 		d.selectingLeft = false
 		d.selectingRight = false
 	}
-	return d, nil
+	return *d, nil
 }
 
 func (d *Diff) scrollBoth(delta int) {
@@ -337,16 +340,12 @@ func (d Diff) View() string {
 		content = diffSubtitleStyle.Render("Select profiles to compare")
 	}
 
-	help := diffHelpStyle.Render("tab: switch pane • enter: select profile • ↑↓: scroll • esc: back")
-
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,
 		"",
 		selectors,
 		"",
 		content,
-		"",
-		help,
 	)
 }
 
