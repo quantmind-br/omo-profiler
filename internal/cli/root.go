@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/diogenes/omo-profiler/internal/cli/cmd"
+	"github.com/diogenes/omo-profiler/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +19,10 @@ var rootCmd = &cobra.Command{
 	Long:    `omo-profiler is a TUI application for managing oh-my-opencode configuration profiles.`,
 	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Launch TUI when no subcommand is provided
-		cmd.Help()
+		if err := tui.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
