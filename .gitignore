@@ -1,5 +1,5 @@
 # Binaries
-omo-profiler
+/omo-profiler
 *.exe
 *.exe~
 *.dll
