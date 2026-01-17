@@ -1,12 +1,11 @@
 package tui
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diogenes/omo-profiler/internal/tui/views"
 )
 
 type appState int
@@ -17,14 +16,17 @@ const (
 	stateWizard
 	stateEditor
 	stateDiff
+	stateImport
+	stateExport
 )
 
 type App struct {
-	state    appState
-	width    int
-	height   int
-	help     help.Model
-	showHelp bool
+	state     appState
+	width     int
+	height    int
+	help      help.Model
+	showHelp  bool
+	dashboard views.Dashboard
 }
 
 func NewApp() App {
@@ -35,16 +37,19 @@ func NewApp() App {
 	h.Styles.FullDesc = HelpStyle
 
 	return App{
-		state: stateDashboard,
-		help:  h,
+		state:     stateDashboard,
+		help:      h,
+		dashboard: views.NewDashboard(),
 	}
 }
 
 func (a App) Init() tea.Cmd {
-	return nil
+	return a.dashboard.Init()
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -52,17 +57,53 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case key.Matches(msg, Keys.Help):
 			a.showHelp = !a.showHelp
+			return a, nil
 		case key.Matches(msg, Keys.Back):
 			if a.state != stateDashboard {
 				a.state = stateDashboard
+				a.dashboard, cmd = a.dashboard.Update(nil)
+				return a, a.dashboard.Refresh()
 			}
+			return a, nil
 		}
+
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
 		a.help.Width = msg.Width
+		a.dashboard.SetSize(msg.Width, msg.Height)
+
+	case views.NavToListMsg:
+		a.state = stateList
+		return a, nil
+
+	case views.NavToWizardMsg:
+		a.state = stateWizard
+		return a, nil
+
+	case views.NavToEditorMsg:
+		a.state = stateEditor
+		return a, nil
+
+	case views.NavToDiffMsg:
+		a.state = stateDiff
+		return a, nil
+
+	case views.NavToImportMsg:
+		a.state = stateImport
+		return a, nil
+
+	case views.NavToExportMsg:
+		a.state = stateExport
+		return a, nil
 	}
-	return a, nil
+
+	switch a.state {
+	case stateDashboard:
+		a.dashboard, cmd = a.dashboard.Update(msg)
+	}
+
+	return a, cmd
 }
 
 func (a App) View() string {
@@ -70,7 +111,7 @@ func (a App) View() string {
 
 	switch a.state {
 	case stateDashboard:
-		content = a.dashboardView()
+		content = a.dashboard.View()
 	case stateList:
 		content = a.listView()
 	case stateWizard:
@@ -79,11 +120,15 @@ func (a App) View() string {
 		content = a.editorView()
 	case stateDiff:
 		content = a.diffView()
+	case stateImport:
+		content = a.importView()
+	case stateExport:
+		content = a.exportView()
 	default:
 		content = "Unknown state"
 	}
 
-	helpView := a.help.View(Keys)
+	var helpView string
 	if a.showHelp {
 		helpView = a.help.View(Keys)
 	} else {
@@ -95,33 +140,6 @@ func (a App) View() string {
 		"",
 		helpView,
 	)
-}
-
-func (a App) dashboardView() string {
-	title := TitleStyle.Render("omo-profiler")
-	subtitle := SubtitleStyle.Render("Profile manager for oh-my-opencode")
-
-	body := fmt.Sprintf(`
-%s
-%s
-
-%s Dashboard View
-
-  Press %s to toggle full help
-  Press %s to quit
-`,
-		title,
-		subtitle,
-		AccentStyle.Render("→"),
-		CyanAccentStyle.Render("?"),
-		CyanAccentStyle.Render("q"),
-	)
-
-	if a.width > 0 && a.height > 0 {
-		body += fmt.Sprintf("\n  Window: %dx%d", a.width, a.height)
-	}
-
-	return body
 }
 
 func (a App) listView() string {
@@ -142,4 +160,14 @@ func (a App) editorView() string {
 func (a App) diffView() string {
 	return TitleStyle.Render("Profile Diff") + "\n\n" +
 		SubtitleStyle.Render("(placeholder - diff will appear here)")
+}
+
+func (a App) importView() string {
+	return TitleStyle.Render("Import Profile") + "\n\n" +
+		SubtitleStyle.Render("(placeholder - import will appear here)")
+}
+
+func (a App) exportView() string {
+	return TitleStyle.Render("Export Profile") + "\n\n" +
+		SubtitleStyle.Render("(placeholder - export will appear here)")
 }

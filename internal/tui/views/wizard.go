@@ -1,0 +1,354 @@
+package views
+
+import (
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
+)
+
+// Wizard message types
+type WizardNextMsg struct{}
+type WizardBackMsg struct{}
+type WizardSaveMsg struct{ Profile *profile.Profile }
+type WizardCancelMsg struct{}
+
+const (
+	StepName = iota + 1
+	StepAgents
+	StepHooks
+	StepOther
+	StepReview
+)
+
+var stepNames = map[int]string{
+	StepName:   "Name",
+	StepAgents: "Agents",
+	StepHooks:  "Hooks",
+	StepOther:  "Other Settings",
+	StepReview: "Review & Save",
+}
+
+type wizardKeyMap struct {
+	Next   key.Binding
+	Back   key.Binding
+	Cancel key.Binding
+	Save   key.Binding
+}
+
+func newWizardKeyMap() wizardKeyMap {
+	return wizardKeyMap{
+		Next: key.NewBinding(
+			key.WithKeys("tab", "enter"),
+			key.WithHelp("tab/enter", "next"),
+		),
+		Back: key.NewBinding(
+			key.WithKeys("shift+tab", "esc"),
+			key.WithHelp("shift+tab/esc", "back"),
+		),
+		Cancel: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "cancel"),
+		),
+		Save: key.NewBinding(
+			key.WithKeys("ctrl+s"),
+			key.WithHelp("ctrl+s", "save"),
+		),
+	}
+}
+
+// Wizard is the main wizard struct for creating/editing profiles
+type Wizard struct {
+	step        int
+	profileName string
+	config      config.Config
+	editMode    bool // true when editing existing profile, false when creating new
+
+	// Sub-views for each step
+	nameStep   WizardName
+	agentsStep WizardAgents
+	hooksStep  WizardHooks
+	otherStep  WizardOther
+	reviewStep WizardReview
+
+	width  int
+	height int
+	keys   wizardKeyMap
+	err    error
+}
+
+// NewWizard creates a new wizard for creating a profile
+func NewWizard() Wizard {
+	return Wizard{
+		step:       StepName,
+		config:     config.Config{},
+		editMode:   false,
+		nameStep:   NewWizardName(),
+		agentsStep: NewWizardAgents(),
+		hooksStep:  NewWizardHooks(),
+		otherStep:  NewWizardOther(),
+		reviewStep: NewWizardReview(),
+		keys:       newWizardKeyMap(),
+	}
+}
+
+// NewWizardForEdit creates a wizard for editing an existing profile
+func NewWizardForEdit(p *profile.Profile) Wizard {
+	w := NewWizard()
+	w.editMode = true
+	w.profileName = p.Name
+	w.config = p.Config
+	w.nameStep.SetName(p.Name)
+	w.agentsStep.SetConfig(&w.config)
+	w.hooksStep.SetConfig(&w.config)
+	w.otherStep.SetConfig(&w.config)
+	w.reviewStep.SetConfig(p.Name, &w.config)
+	return w
+}
+
+func (w Wizard) Init() tea.Cmd {
+	return w.nameStep.Init()
+}
+
+func (w *Wizard) SetSize(width, height int) {
+	w.width = width
+	w.height = height
+	// Reserve space for header/footer
+	contentHeight := height - 6
+	w.nameStep.SetSize(width, contentHeight)
+	w.agentsStep.SetSize(width, contentHeight)
+	w.hooksStep.SetSize(width, contentHeight)
+	w.otherStep.SetSize(width, contentHeight)
+	w.reviewStep.SetSize(width, contentHeight)
+}
+
+func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		w.SetSize(msg.Width, msg.Height)
+		return w, nil
+
+	case WizardNextMsg:
+		return w.nextStep()
+
+	case WizardBackMsg:
+		return w.prevStep()
+
+	case WizardCancelMsg:
+		return w, func() tea.Msg { return NavigateToDashboardMsg{} }
+
+	case WizardSaveMsg:
+		return w, func() tea.Msg { return NavigateToDashboardMsg{} }
+
+	case tea.KeyMsg:
+		// Global navigation keys
+		if key.Matches(msg, w.keys.Cancel) {
+			return w, func() tea.Msg { return WizardCancelMsg{} }
+		}
+	}
+
+	// Delegate to current step
+	switch w.step {
+	case StepName:
+		w.nameStep, cmd = w.nameStep.Update(msg)
+		cmds = append(cmds, cmd)
+		// Check for step completion
+		if w.nameStep.IsComplete() {
+			w.profileName = w.nameStep.GetName()
+		}
+
+	case StepAgents:
+		w.agentsStep, cmd = w.agentsStep.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case StepHooks:
+		w.hooksStep, cmd = w.hooksStep.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case StepOther:
+		w.otherStep, cmd = w.otherStep.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case StepReview:
+		w.reviewStep, cmd = w.reviewStep.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return w, tea.Batch(cmds...)
+}
+
+func (w Wizard) nextStep() (Wizard, tea.Cmd) {
+	switch w.step {
+	case StepName:
+		if !w.nameStep.IsComplete() {
+			return w, nil
+		}
+		w.profileName = w.nameStep.GetName()
+		w.step = StepAgents
+		w.agentsStep.SetConfig(&w.config)
+		return w, w.agentsStep.Init()
+
+	case StepAgents:
+		w.agentsStep.Apply(&w.config)
+		w.step = StepHooks
+		w.hooksStep.SetConfig(&w.config)
+		return w, w.hooksStep.Init()
+
+	case StepHooks:
+		w.hooksStep.Apply(&w.config)
+		w.step = StepOther
+		w.otherStep.SetConfig(&w.config)
+		return w, w.otherStep.Init()
+
+	case StepOther:
+		w.otherStep.Apply(&w.config)
+		w.step = StepReview
+		w.reviewStep.SetConfig(w.profileName, &w.config)
+		return w, w.reviewStep.Init()
+
+	case StepReview:
+		// Save profile
+		p := &profile.Profile{
+			Name:   w.profileName,
+			Config: w.config,
+		}
+		if err := profile.Save(p); err != nil {
+			w.err = err
+			return w, nil
+		}
+		return w, func() tea.Msg { return WizardSaveMsg{Profile: p} }
+	}
+	return w, nil
+}
+
+func (w Wizard) prevStep() (Wizard, tea.Cmd) {
+	switch w.step {
+	case StepName:
+		return w, func() tea.Msg { return WizardCancelMsg{} }
+	case StepAgents:
+		w.step = StepName
+		return w, w.nameStep.Init()
+	case StepHooks:
+		w.step = StepAgents
+		return w, w.agentsStep.Init()
+	case StepOther:
+		w.step = StepHooks
+		return w, w.hooksStep.Init()
+	case StepReview:
+		w.step = StepOther
+		return w, w.otherStep.Init()
+	}
+	return w, nil
+}
+
+func (w Wizard) View() string {
+	// Header with progress indicator
+	header := w.renderHeader()
+
+	// Current step content
+	var content string
+	switch w.step {
+	case StepName:
+		content = w.nameStep.View()
+	case StepAgents:
+		content = w.agentsStep.View()
+	case StepHooks:
+		content = w.hooksStep.View()
+	case StepOther:
+		content = w.otherStep.View()
+	case StepReview:
+		content = w.reviewStep.View()
+	}
+
+	// Footer with navigation help
+	footer := w.renderFooter()
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		content,
+		"",
+		footer,
+	)
+}
+
+func (w Wizard) renderHeader() string {
+	// Progress bar
+	progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+
+	var steps []string
+	for i := StepName; i <= StepReview; i++ {
+		stepNum := lipgloss.NewStyle().Bold(i == w.step)
+		if i == w.step {
+			steps = append(steps, progressStyle.Render(stepNum.Render(stepNames[i])))
+		} else if i < w.step {
+			steps = append(steps, successStyle.Render("✓ "+stepNames[i]))
+		} else {
+			steps = append(steps, dimStyle.Render(stepNames[i]))
+		}
+	}
+
+	progress := lipgloss.JoinHorizontal(lipgloss.Top,
+		steps[0], dimStyle.Render(" → "),
+		steps[1], dimStyle.Render(" → "),
+		steps[2], dimStyle.Render(" → "),
+		steps[3], dimStyle.Render(" → "),
+		steps[4],
+	)
+
+	title := titleStyle.Render("Create Profile")
+	if w.editMode {
+		title = titleStyle.Render("Edit Profile")
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, progress)
+}
+
+func (w Wizard) renderFooter() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+
+	var helpParts []string
+
+	if w.step == StepName {
+		helpParts = append(helpParts, "esc cancel")
+	} else {
+		helpParts = append(helpParts, "shift+tab back")
+	}
+
+	if w.step == StepReview {
+		helpParts = append(helpParts, "enter save")
+	} else {
+		helpParts = append(helpParts, "tab/enter next")
+	}
+
+	helpParts = append(helpParts, "ctrl+c cancel")
+
+	if w.err != nil {
+		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
+		return lipgloss.JoinVertical(lipgloss.Left,
+			errorStyle.Render("Error: "+w.err.Error()),
+			helpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, helpParts...)),
+		)
+	}
+
+	return helpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top,
+		helpParts[0], " • ", helpParts[1], " • ", helpParts[2]))
+}
+
+// GetProfile returns the built profile
+func (w Wizard) GetProfile() *profile.Profile {
+	return &profile.Profile{
+		Name:   w.profileName,
+		Config: w.config,
+	}
+}
+
+// IsEditMode returns true if editing an existing profile
+func (w Wizard) IsEditMode() bool {
+	return w.editMode
+}
