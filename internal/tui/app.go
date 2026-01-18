@@ -22,6 +22,7 @@ const (
 	stateDiff
 	stateImport
 	stateExport
+	stateModels
 )
 
 // Toast message types
@@ -73,11 +74,12 @@ type App struct {
 	toastActive bool
 
 	// Views
-	dashboard views.Dashboard
-	list      views.List
-	wizard    views.Wizard
-	editor    views.Editor
-	diff      views.Diff
+	dashboard     views.Dashboard
+	list          views.List
+	wizard        views.Wizard
+	editor        views.Editor
+	diff          views.Diff
+	modelRegistry views.ModelRegistry
 
 	// Context for editor
 	editProfileName string
@@ -131,7 +133,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case key.Matches(msg, Keys.Back):
 			// Don't intercept Esc if a view handles it internally
-			if a.state == stateWizard || a.state == stateEditor || a.state == stateDiff {
+			if a.state == stateWizard || a.state == stateEditor || a.state == stateDiff || a.state == stateModels {
 				// Let the view handle it
 				break
 			}
@@ -203,6 +205,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToExportMsg:
 		return a, a.showToast("Export not yet implemented", toastInfo, 2*time.Second)
+
+	case views.NavToModelsMsg:
+		a.modelRegistry = views.NewModelRegistry()
+		a.modelRegistry.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateModels)
+
+	case views.ModelRegistryBackMsg:
+		return a.navigateTo(stateDashboard)
 
 	// Navigation from List
 	case views.NavigateToDashboardMsg:
@@ -303,6 +313,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateDiff:
 		a.diff, cmd = a.diff.Update(msg)
 		cmds = append(cmds, cmd)
+
+	case stateModels:
+		a.modelRegistry, cmd = a.modelRegistry.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -326,6 +340,8 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 		cmd = a.editor.Init()
 	case stateDiff:
 		cmd = a.diff.Init()
+	case stateModels:
+		cmd = a.modelRegistry.Init()
 	}
 
 	return a, cmd
@@ -383,6 +399,8 @@ func (a App) View() string {
 			content = a.placeholderView("Import Profile")
 		case stateExport:
 			content = a.placeholderView("Export Profile")
+		case stateModels:
+			content = a.modelRegistry.View()
 		default:
 			content = "Unknown state"
 		}
@@ -438,6 +456,8 @@ func (a App) renderShortHelp() string {
 		hints = []string{"tab switch focus", "ctrl+s save", "esc back"}
 	case stateDiff:
 		hints = []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}
+	case stateModels:
+		hints = []string{"n new", "e edit", "d delete", "↑↓ navigate", "esc back"}
 	default:
 		hints = []string{"? help", "q quit"}
 	}
@@ -498,6 +518,16 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  tab        Switch pane"))
 		lines = append(lines, HelpStyle.Render("  enter      Select profile"))
 		lines = append(lines, HelpStyle.Render("  pgup/pgdn  Page scroll"))
+
+	case stateModels:
+		lines = append(lines, AccentStyle.Render("Model Registry:"))
+		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
+		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
+		lines = append(lines, HelpStyle.Render("  n          New model"))
+		lines = append(lines, HelpStyle.Render("  e          Edit model"))
+		lines = append(lines, HelpStyle.Render("  d          Delete model"))
+		lines = append(lines, HelpStyle.Render("  enter      Confirm"))
+		lines = append(lines, HelpStyle.Render("  esc        Back/Cancel"))
 	}
 
 	lines = append(lines, "")

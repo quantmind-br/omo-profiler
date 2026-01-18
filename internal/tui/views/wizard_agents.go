@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/models"
 )
 
 func parseMapStringBool(s string) map[string]bool {
@@ -100,7 +101,8 @@ const (
 type agentConfig struct {
 	enabled      bool
 	expanded     bool
-	model        textinput.Model
+	modelValue   string
+	modelDisplay string
 	variant      textinput.Model
 	category     textinput.Model
 	temperature  textinput.Model
@@ -119,13 +121,19 @@ type agentConfig struct {
 	permWebfetchIdx int
 	permDoomLoopIdx int
 	permExtDirIdx   int
+	// Model selector state
+	selectingModel       bool
+	modelSelector        ModelSelector
+	savingCustomModel    bool
+	customModelToSave    string
+	savePromptAnswer     string
+	saveDisplayNameInput textinput.Model
+	saveProviderInput    textinput.Model
+	saveFocusedField     int
+	saveError            string
 }
 
 func newAgentConfig() agentConfig {
-	model := textinput.New()
-	model.Placeholder = "model name"
-	model.Width = 30
-
 	variant := textinput.New()
 	variant.Placeholder = "variant"
 	variant.Width = 30
@@ -168,18 +176,27 @@ func newAgentConfig() agentConfig {
 	color.Placeholder = "#RRGGBB"
 	color.Width = 10
 
+	saveDisplayNameInput := textinput.New()
+	saveDisplayNameInput.Placeholder = "Display name"
+	saveDisplayNameInput.Width = 30
+
+	saveProviderInput := textinput.New()
+	saveProviderInput.Placeholder = "Provider (optional)"
+	saveProviderInput.Width = 30
+
 	return agentConfig{
-		model:        model,
-		variant:      variant,
-		category:     category,
-		temperature:  temperature,
-		topP:         topP,
-		skills:       skills,
-		tools:        tools,
-		prompt:       prompt,
-		promptAppend: promptAppend,
-		description:  description,
-		color:        color,
+		variant:              variant,
+		category:             category,
+		temperature:          temperature,
+		topP:                 topP,
+		skills:               skills,
+		tools:                tools,
+		prompt:               prompt,
+		promptAppend:         promptAppend,
+		description:          description,
+		color:                color,
+		saveDisplayNameInput: saveDisplayNameInput,
+		saveProviderInput:    saveProviderInput,
 	}
 }
 
@@ -291,7 +308,8 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 		if ac, ok := w.agents[name]; ok {
 			ac.enabled = true
 			if agentCfg.Model != "" {
-				ac.model.SetValue(agentCfg.Model)
+				ac.modelValue = agentCfg.Model
+				ac.modelDisplay = agentCfg.Model
 			}
 			if agentCfg.Variant != "" {
 				ac.variant.SetValue(agentCfg.Variant)
@@ -371,8 +389,8 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 
 		agentCfg := &config.AgentConfig{}
 
-		if v := ac.model.Value(); v != "" {
-			agentCfg.Model = v
+		if ac.modelValue != "" {
+			agentCfg.Model = ac.modelValue
 		}
 		if v := ac.variant.Value(); v != "" {
 			agentCfg.Variant = v
@@ -456,7 +474,6 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 }
 
 func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
-	ac.model.Blur()
 	ac.variant.Blur()
 	ac.category.Blur()
 	ac.temperature.Blur()
@@ -470,7 +487,7 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 
 	switch w.focusedField {
 	case fieldModel:
-		ac.model.Focus()
+		// Model field uses selector, no focus needed
 	case fieldVariant:
 		ac.variant.Focus()
 	case fieldCategory:
@@ -558,7 +575,35 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 		w.SetSize(msg.Width, msg.Height)
 		return w, nil
 
+	case ModelSelectedMsg:
+		ac.modelValue = msg.ModelID
+		ac.modelDisplay = msg.DisplayName
+		ac.selectingModel = false
+		return w, nil
+
+	case ModelSelectorCancelMsg:
+		ac.selectingModel = false
+		return w, nil
+
+	case PromptSaveCustomMsg:
+		ac.savingCustomModel = true
+		ac.customModelToSave = msg.ModelID
+		ac.savePromptAnswer = ""
+		ac.saveDisplayNameInput.SetValue("")
+		ac.saveProviderInput.SetValue("")
+		ac.saveError = ""
+		return w, nil
+
 	case tea.KeyMsg:
+		if ac.selectingModel {
+			ac.modelSelector, cmd = ac.modelSelector.Update(msg)
+			return w, cmd
+		}
+
+		if ac.savingCustomModel {
+			return w.handleSaveCustomModel(ac, msg)
+		}
+
 		// When in form editing mode
 		if w.inForm && ac.expanded {
 			switch msg.String() {
@@ -607,6 +652,10 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			case "enter":
 				// Cycle through options for dropdown fields
 				switch w.focusedField {
+				case fieldModel:
+					ac.selectingModel = true
+					ac.modelSelector = NewModelSelector()
+					return w, nil
 				case fieldDisable:
 					ac.disable = !ac.disable
 				case fieldMode:
@@ -628,9 +677,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			// Update focused text input
 			switch w.focusedField {
 			case fieldModel:
-				ac.model.Focus()
-				ac.model, cmd = ac.model.Update(msg)
-				cmds = append(cmds, cmd)
+				// Model uses selector, handled separately via enter key
 			case fieldVariant:
 				ac.variant.Focus()
 				ac.variant, cmd = ac.variant.Update(msg)
@@ -822,7 +869,11 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, renderField("model", fieldModel, ac.model.View()))
+	modelDisplayValue := ac.modelDisplay
+	if modelDisplayValue == "" {
+		modelDisplayValue = "[Select model...]"
+	}
+	lines = append(lines, renderField("model", fieldModel, modelDisplayValue))
 	lines = append(lines, renderField("variant", fieldVariant, ac.variant.View()))
 	lines = append(lines, renderField("category", fieldCategory, ac.category.View()))
 	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View()))
@@ -847,7 +898,107 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	return lines
 }
 
+func (w WizardAgents) handleSaveCustomModel(ac *agentConfig, msg tea.KeyMsg) (WizardAgents, tea.Cmd) {
+	if ac.savePromptAnswer == "" {
+		switch msg.String() {
+		case "y", "Y":
+			ac.savePromptAnswer = "y"
+			ac.saveFocusedField = 0
+			ac.saveDisplayNameInput.Focus()
+			return w, textinput.Blink
+		case "n", "N":
+			ac.savingCustomModel = false
+			ac.savePromptAnswer = ""
+			return w, nil
+		case "esc":
+			ac.savingCustomModel = false
+			ac.savePromptAnswer = ""
+			return w, nil
+		}
+		return w, nil
+	}
+
+	switch msg.String() {
+	case "enter":
+		displayName := strings.TrimSpace(ac.saveDisplayNameInput.Value())
+		if displayName == "" {
+			ac.saveError = "Display name is required"
+			return w, nil
+		}
+
+		registry, err := models.Load()
+		if err != nil {
+			ac.saveError = err.Error()
+			return w, nil
+		}
+
+		newModel := models.RegisteredModel{
+			DisplayName: displayName,
+			ModelID:     ac.customModelToSave,
+			Provider:    strings.TrimSpace(ac.saveProviderInput.Value()),
+		}
+
+		if err := registry.Add(newModel); err != nil {
+			ac.saveError = err.Error()
+			return w, nil
+		}
+
+		ac.modelDisplay = displayName
+		ac.savingCustomModel = false
+		ac.savePromptAnswer = ""
+		ac.saveError = ""
+		return w, nil
+
+	case "esc":
+		ac.savingCustomModel = false
+		ac.savePromptAnswer = ""
+		return w, nil
+
+	case "tab":
+		ac.saveFocusedField = (ac.saveFocusedField + 1) % 2
+		if ac.saveFocusedField == 0 {
+			ac.saveDisplayNameInput.Focus()
+			ac.saveProviderInput.Blur()
+		} else {
+			ac.saveProviderInput.Focus()
+			ac.saveDisplayNameInput.Blur()
+		}
+		return w, nil
+
+	case "shift+tab":
+		ac.saveFocusedField = (ac.saveFocusedField + 1) % 2
+		if ac.saveFocusedField == 0 {
+			ac.saveDisplayNameInput.Focus()
+			ac.saveProviderInput.Blur()
+		} else {
+			ac.saveProviderInput.Focus()
+			ac.saveDisplayNameInput.Blur()
+		}
+		return w, nil
+	}
+
+	var cmd tea.Cmd
+	if ac.saveFocusedField == 0 {
+		ac.saveDisplayNameInput, cmd = ac.saveDisplayNameInput.Update(msg)
+	} else {
+		ac.saveProviderInput, cmd = ac.saveProviderInput.Update(msg)
+	}
+	ac.saveError = ""
+	return w, cmd
+}
+
 func (w WizardAgents) View() string {
+	currentAgent := allAgents[w.cursor]
+	ac := w.agents[currentAgent]
+
+	if ac.selectingModel {
+		return ac.modelSelector.View()
+	}
+
+	if ac.savingCustomModel {
+		return w.renderSaveCustomPrompt(ac)
+	}
+
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
@@ -866,4 +1017,37 @@ func (w WizardAgents) View() string {
 		"",
 		content,
 	)
+}
+
+func (w WizardAgents) renderSaveCustomPrompt(ac *agentConfig) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
+
+	var lines []string
+	lines = append(lines, titleStyle.Render("Custom Model"))
+	lines = append(lines, "")
+	lines = append(lines, labelStyle.Render(fmt.Sprintf("Model ID: %s", ac.customModelToSave)))
+	lines = append(lines, "")
+
+	if ac.savePromptAnswer == "" {
+		lines = append(lines, labelStyle.Render("Save this model for future use? (y/n)"))
+		lines = append(lines, "")
+		lines = append(lines, helpStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+	} else {
+		lines = append(lines, labelStyle.Render("Display name:"))
+		lines = append(lines, ac.saveDisplayNameInput.View())
+		lines = append(lines, "")
+		lines = append(lines, labelStyle.Render("Provider (optional):"))
+		lines = append(lines, ac.saveProviderInput.View())
+		lines = append(lines, "")
+		if ac.saveError != "" {
+			lines = append(lines, errStyle.Render("Error: "+ac.saveError))
+			lines = append(lines, "")
+		}
+		lines = append(lines, helpStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

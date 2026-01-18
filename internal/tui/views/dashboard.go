@@ -15,12 +15,14 @@ type NavToEditorMsg struct{}
 type NavToDiffMsg struct{}
 type NavToImportMsg struct{}
 type NavToExportMsg struct{}
+type NavToModelsMsg struct{}
 
 const (
 	menuSwitch = iota
 	menuCreate
 	menuEdit
 	menuCompare
+	menuModels
 	menuImport
 	menuExport
 )
@@ -30,6 +32,7 @@ var menuItems = []string{
 	"Create New",
 	"Edit Current",
 	"Compare Profiles",
+	"Manage Models",
 	"Import Profile",
 	"Export Profile",
 }
@@ -77,6 +80,9 @@ var (
 
 	accentStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF6AC1"))
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F38BA8"))
 )
 
 func NewDashboard() Dashboard {
@@ -169,6 +175,8 @@ func (d Dashboard) handleSelect() tea.Cmd {
 			return NavToEditorMsg{}
 		case menuCompare:
 			return NavToDiffMsg{}
+		case menuModels:
+			return NavToModelsMsg{}
 		case menuImport:
 			return NavToImportMsg{}
 		case menuExport:

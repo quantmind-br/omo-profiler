@@ -37,4 +37,5 @@ func init() {
 	rootCmd.AddCommand(cmd.ExportCmd)
 	rootCmd.AddCommand(cmd.SwitchCmd)
 	rootCmd.AddCommand(cmd.ImportCmd)
+	rootCmd.AddCommand(cmd.ModelsCmd)
 }
