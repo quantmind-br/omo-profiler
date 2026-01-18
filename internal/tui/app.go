@@ -18,7 +18,6 @@ const (
 	stateDashboard appState = iota
 	stateList
 	stateWizard
-	stateEditor
 	stateDiff
 	stateImport
 	stateExport
@@ -115,7 +114,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Global keys - but don't intercept 'q' in Wizard or Editor (text input)
+		// Global keys - but don't intercept 'q' in Wizard (text input)
 		switch {
 		case key.Matches(msg, Keys.Quit):
 			// Only quit with 'q' in Dashboard or List states
