@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 
 	"github.com/diogenes/omo-profiler/internal/config"
 )
@@ -13,6 +14,35 @@ type ActiveConfig struct {
 	Config      config.Config
 	ProfileName string
 	IsOrphan    bool
+}
+
+type activeState struct {
+	Name string `json:"name"`
+}
+
+func activeStateFile() string {
+	return filepath.Join(config.ConfigDir(), ".active-profile")
+}
+
+func loadActiveState() (*activeState, error) {
+	data, err := os.ReadFile(activeStateFile())
+	if err != nil {
+		return nil, err
+	}
+	var state activeState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, err
+	}
+	return &state, nil
+}
+
+func saveActiveState(name string) error {
+	state := activeState{Name: name}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(activeStateFile(), data, 0644)
 }
 
 func GetActive() (*ActiveConfig, error) {
@@ -32,6 +62,21 @@ func GetActive() (*ActiveConfig, error) {
 		return nil, err
 	}
 
+	// Fast path: try cached active profile first (O(1) instead of O(N))
+	if state, err := loadActiveState(); err == nil && state.Name != "" {
+		if profile, err := Load(state.Name); err == nil {
+			if profile.MatchesConfig(&cfg) {
+				return &ActiveConfig{
+					Exists:      true,
+					Config:      cfg,
+					ProfileName: state.Name,
+					IsOrphan:    false,
+				}, nil
+			}
+		}
+	}
+
+	// Fallback: scan all profiles (state file missing/stale)
 	profiles, err := List()
 	if err != nil {
 		return nil, err
@@ -43,6 +88,7 @@ func GetActive() (*ActiveConfig, error) {
 			continue
 		}
 		if profile.MatchesConfig(&cfg) {
+			_ = saveActiveState(name)
 			return &ActiveConfig{
 				Exists:      true,
 				Config:      cfg,
@@ -75,7 +121,15 @@ func SetActive(name string) error {
 		return err
 	}
 
-	return os.WriteFile(config.ConfigFile(), data, 0644)
+	if err := os.WriteFile(config.ConfigFile(), data, 0644); err != nil {
+		return err
+	}
+
+	// Save active state for O(1) lookup
+	// Ignore errors - state file is optimization only
+	_ = saveActiveState(name)
+
+	return nil
 }
 
 func (p *Profile) MatchesConfig(cfg *config.Config) bool {
