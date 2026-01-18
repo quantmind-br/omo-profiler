@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/xeipuuv/gojsonschema"
@@ -11,6 +12,12 @@ import (
 
 //go:embed schema.json
 var schemaJSON []byte
+
+var (
+	validatorInstance *Validator
+	validatorOnce     sync.Once
+	validatorErr      error
+)
 
 // ValidationError represents a single validation error
 type ValidationError struct {
@@ -27,14 +34,25 @@ type Validator struct {
 	schema *gojsonschema.Schema
 }
 
-// NewValidator creates a new validator with the embedded schema
+// GetValidator returns the singleton validator instance.
+// The schema is parsed only once on first call.
+func GetValidator() (*Validator, error) {
+	validatorOnce.Do(func() {
+		loader := gojsonschema.NewBytesLoader(schemaJSON)
+		schema, err := gojsonschema.NewSchema(loader)
+		if err != nil {
+			validatorErr = err
+			return
+		}
+		validatorInstance = &Validator{schema: schema}
+	})
+	return validatorInstance, validatorErr
+}
+
+// NewValidator creates a new validator with the embedded schema.
+// Deprecated: Use GetValidator() for singleton access.
 func NewValidator() (*Validator, error) {
-	loader := gojsonschema.NewBytesLoader(schemaJSON)
-	schema, err := gojsonschema.NewSchema(loader)
-	if err != nil {
-		return nil, err
-	}
-	return &Validator{schema: schema}, nil
+	return GetValidator()
 }
 
 // Validate validates a config against the schema
