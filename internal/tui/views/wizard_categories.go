@@ -156,12 +156,12 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 			key.WithHelp("shift+tab", "back"),
 		),
 		Tab: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "next field"),
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "next field"),
 		),
 		ShiftTab: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "prev field"),
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "prev field"),
 		),
 	}
 }
@@ -387,7 +387,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					w.inForm = false
 					cc.expanded = false
 					return w, nil
-				case "tab":
+				case "down", "j":
 					w.focusedField++
 					if w.focusedField > catFieldPromptAppend {
 						w.focusedField = catFieldName
@@ -395,7 +395,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					w.updateFieldFocus(cc)
 					w.viewport.SetContent(w.renderContent())
 					return w, nil
-				case "shift+tab":
+				case "up", "k":
 					if w.focusedField == catFieldName {
 						w.focusedField = catFieldPromptAppend
 					} else {
@@ -639,7 +639,7 @@ func (w WizardCategories) View() string {
 	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("Tab/Shift+Tab: navigate • Enter: cycle options • Esc: close form")
+		desc = helpStyle.Render("↑/↓: navigate • Enter: cycle options • Esc: close form")
 	}
 
 	content := w.viewport.View()

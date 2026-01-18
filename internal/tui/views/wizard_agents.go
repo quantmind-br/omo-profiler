@@ -223,12 +223,12 @@ func newWizardAgentsKeyMap() wizardAgentsKeyMap {
 			key.WithHelp("shift+tab", "back"),
 		),
 		Tab: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "next field"),
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "next field"),
 		),
 		ShiftTab: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "prev field"),
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "prev field"),
 		),
 		Left: key.NewBinding(
 			key.WithKeys("left", "h"),
@@ -514,7 +514,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				w.inForm = false
 				ac.expanded = false
 				return w, nil
-			case "tab":
+			case "down", "j":
 				w.focusedField++
 				if w.focusedField > fieldPermExtDir {
 					w.focusedField = fieldModel
@@ -522,7 +522,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				return w, nil
-			case "shift+tab":
+			case "up", "k":
 				if w.focusedField == fieldModel {
 					w.focusedField = fieldPermExtDir
 				} else {
@@ -782,7 +782,7 @@ func (w WizardAgents) View() string {
 	desc := helpStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("Tab/Shift+Tab to navigate • ←/→ for options • Esc to close form")
+		desc = helpStyle.Render("↑/↓: navigate • ←/→ for options • Esc to close form")
 	}
 
 	content := w.viewport.View()
