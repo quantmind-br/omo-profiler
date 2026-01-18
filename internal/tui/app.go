@@ -77,12 +77,8 @@ type App struct {
 	dashboard     views.Dashboard
 	list          views.List
 	wizard        views.Wizard
-	editor        views.Editor
 	diff          views.Diff
 	modelRegistry views.ModelRegistry
-
-	// Context for editor
-	editProfileName string
 }
 
 func NewApp() App {
@@ -123,8 +119,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, Keys.Quit):
 			// Only quit with 'q' in Dashboard or List states
-			// Wizard and Editor handle their own quit via ctrl+c
-			if msg.String() == "q" && (a.state == stateWizard || a.state == stateEditor) {
+			// Wizard handles its own quit via ctrl+c
+			if msg.String() == "q" && a.state == stateWizard {
 				break
 			}
 			return a, tea.Quit
@@ -133,7 +129,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case key.Matches(msg, Keys.Back):
 			// Don't intercept Esc if a view handles it internally
-			if a.state == stateWizard || a.state == stateEditor || a.state == stateDiff || a.state == stateModels {
+			if a.state == stateWizard || a.state == stateDiff || a.state == stateModels {
 				// Let the view handle it
 				break
 			}
@@ -153,7 +149,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dashboard.SetSize(msg.Width, msg.Height-3)
 		a.list.SetSize(msg.Width, msg.Height-3)
 		a.wizard.SetSize(msg.Width, msg.Height-3)
-		a.editor.SetSize(msg.Width, msg.Height-3)
 
 	case spinner.TickMsg:
 		if a.loading {
@@ -284,18 +279,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.WizardCancelMsg:
 		return a.navigateTo(stateDashboard)
-
-	// Editor messages
-	case views.EditorSaveSuccessMsg:
-		cmds = append(cmds, a.showToast("Profile saved!", toastSuccess, 3*time.Second))
-		a.dashboard = views.NewDashboard()
-		a.dashboard.SetSize(a.width, a.height-3)
-		cmds = append(cmds, a.dashboard.Init())
-		a.state = stateDashboard
-		return a, tea.Batch(cmds...)
-
-	case views.EditorCancelMsg:
-		return a.navigateTo(stateDashboard)
 	}
 
 	// Delegate update to current view
@@ -310,10 +293,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case stateWizard:
 		a.wizard, cmd = a.wizard.Update(msg)
-		cmds = append(cmds, cmd)
-
-	case stateEditor:
-		a.editor, cmd = a.editor.Update(msg)
 		cmds = append(cmds, cmd)
 
 	case stateDiff:
@@ -342,8 +321,6 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 		cmd = a.list.Init()
 	case stateWizard:
 		cmd = a.wizard.Init()
-	case stateEditor:
-		cmd = a.editor.Init()
 	case stateDiff:
 		cmd = a.diff.Init()
 	case stateModels:
@@ -397,8 +374,6 @@ func (a App) View() string {
 			content = a.list.View()
 		case stateWizard:
 			content = a.wizard.View()
-		case stateEditor:
-			content = a.editor.View()
 		case stateDiff:
 			content = a.diff.View()
 		case stateImport:
@@ -458,8 +433,6 @@ func (a App) renderShortHelp() string {
 		hints = []string{"enter switch", "e edit", "d delete", "n new", "/ search", "esc back"}
 	case stateWizard:
 		hints = []string{"tab/enter next", "shift+tab back", "ctrl+s save", "ctrl+c cancel"}
-	case stateEditor:
-		hints = []string{"tab switch focus", "ctrl+s save", "esc back"}
 	case stateDiff:
 		hints = []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}
 	case stateModels:
@@ -508,14 +481,6 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  shift+tab  Previous step"))
 		lines = append(lines, HelpStyle.Render("  ctrl+s     Save profile"))
 		lines = append(lines, HelpStyle.Render("  ctrl+c     Cancel"))
-
-	case stateEditor:
-		lines = append(lines, AccentStyle.Render("Profile Editor:"))
-		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
-		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
-		lines = append(lines, HelpStyle.Render("  tab        Switch focus"))
-		lines = append(lines, HelpStyle.Render("  space      Toggle option"))
-		lines = append(lines, HelpStyle.Render("  ctrl+s     Save changes"))
 
 	case stateDiff:
 		lines = append(lines, AccentStyle.Render("Profile Diff:"))
