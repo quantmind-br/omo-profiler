@@ -192,6 +192,8 @@ type wizardAgentsKeyMap struct {
 	Back     key.Binding
 	Tab      key.Binding
 	ShiftTab key.Binding
+	Left     key.Binding
+	Right    key.Binding
 }
 
 func newWizardAgentsKeyMap() wizardAgentsKeyMap {
@@ -227,6 +229,14 @@ func newWizardAgentsKeyMap() wizardAgentsKeyMap {
 		ShiftTab: key.NewBinding(
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "prev field"),
+		),
+		Left: key.NewBinding(
+			key.WithKeys("left", "h"),
+			key.WithHelp("←/h", "collapse"),
+		),
+		Right: key.NewBinding(
+			key.WithKeys("right", "l"),
+			key.WithHelp("→/l", "expand"),
 		),
 	}
 }
@@ -521,47 +531,23 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				return w, nil
-			case "left", "right":
+			case "enter":
 				// Cycle through options for dropdown fields
 				switch w.focusedField {
 				case fieldDisable:
 					ac.disable = !ac.disable
 				case fieldMode:
-					if msg.String() == "right" {
-						ac.modeIdx = (ac.modeIdx + 1) % len(agentModes)
-					} else {
-						ac.modeIdx = (ac.modeIdx - 1 + len(agentModes)) % len(agentModes)
-					}
+					ac.modeIdx = (ac.modeIdx + 1) % len(agentModes)
 				case fieldPermEdit:
-					if msg.String() == "right" {
-						ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
-					} else {
-						ac.permEditIdx = (ac.permEditIdx - 1 + len(permissionValues)) % len(permissionValues)
-					}
+					ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
 				case fieldPermBash:
-					if msg.String() == "right" {
-						ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
-					} else {
-						ac.permBashIdx = (ac.permBashIdx - 1 + len(permissionValues)) % len(permissionValues)
-					}
+					ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
 				case fieldPermWebfetch:
-					if msg.String() == "right" {
-						ac.permWebfetchIdx = (ac.permWebfetchIdx + 1) % len(permissionValues)
-					} else {
-						ac.permWebfetchIdx = (ac.permWebfetchIdx - 1 + len(permissionValues)) % len(permissionValues)
-					}
+					ac.permWebfetchIdx = (ac.permWebfetchIdx + 1) % len(permissionValues)
 				case fieldPermDoomLoop:
-					if msg.String() == "right" {
-						ac.permDoomLoopIdx = (ac.permDoomLoopIdx + 1) % len(permissionValues)
-					} else {
-						ac.permDoomLoopIdx = (ac.permDoomLoopIdx - 1 + len(permissionValues)) % len(permissionValues)
-					}
+					ac.permDoomLoopIdx = (ac.permDoomLoopIdx + 1) % len(permissionValues)
 				case fieldPermExtDir:
-					if msg.String() == "right" {
-						ac.permExtDirIdx = (ac.permExtDirIdx + 1) % len(permissionValues)
-					} else {
-						ac.permExtDirIdx = (ac.permExtDirIdx - 1 + len(permissionValues)) % len(permissionValues)
-					}
+					ac.permExtDirIdx = (ac.permExtDirIdx + 1) % len(permissionValues)
 				}
 				return w, nil
 			}
@@ -639,6 +625,20 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				} else {
 					w.inForm = false
 				}
+			}
+		case key.Matches(msg, w.keys.Right):
+			// Expand only when not in form mode and agent is enabled
+			if !w.inForm && ac.enabled && !ac.expanded {
+				ac.expanded = true
+				w.inForm = true
+				w.focusedField = fieldModel
+				w.updateFieldFocus(ac)
+			}
+		case key.Matches(msg, w.keys.Left):
+			// Collapse only when not in form mode
+			if !w.inForm && ac.expanded {
+				ac.expanded = false
+				w.inForm = false
 			}
 		case key.Matches(msg, w.keys.Next):
 			if !w.inForm {

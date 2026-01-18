@@ -161,11 +161,11 @@ func newWizardOtherKeyMap() wizardOtherKeyMap {
 		),
 		Left: key.NewBinding(
 			key.WithKeys("left", "h"),
-			key.WithHelp("←/h", "prev option"),
+			key.WithHelp("←/h", "collapse"),
 		),
 		Right: key.NewBinding(
 			key.WithKeys("right", "l"),
-			key.WithHelp("→/l", "next option"),
+			key.WithHelp("→/l", "expand"),
 		),
 	}
 }
@@ -1253,6 +1253,16 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			if w.sectionExpanded[w.currentSection] {
 				w.inSubSection = true
 				w.subCursor = 0
+			}
+		case key.Matches(msg, w.keys.Right):
+			if !w.inSubSection && !w.sectionExpanded[w.currentSection] {
+				w.sectionExpanded[w.currentSection] = true
+				w.inSubSection = true
+				w.subCursor = 0
+			}
+		case key.Matches(msg, w.keys.Left):
+			if !w.inSubSection && w.sectionExpanded[w.currentSection] {
+				w.sectionExpanded[w.currentSection] = false
 			}
 		case key.Matches(msg, w.keys.Next):
 			return w, func() tea.Msg { return WizardNextMsg{} }

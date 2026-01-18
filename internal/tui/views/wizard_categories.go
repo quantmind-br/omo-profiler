@@ -106,6 +106,8 @@ func newCategoryConfig() categoryConfig {
 type wizardCategoriesKeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
+	Left     key.Binding
+	Right    key.Binding
 	New      key.Binding
 	Delete   key.Binding
 	Expand   key.Binding
@@ -125,6 +127,14 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 			key.WithKeys("down", "j"),
 			key.WithHelp("↓/j", "down"),
 		),
+		Left: key.NewBinding(
+			key.WithKeys("left", "h"),
+			key.WithHelp("←/h", "collapse"),
+		),
+		Right: key.NewBinding(
+			key.WithKeys("right", "l"),
+			key.WithHelp("→/l", "expand"),
+		),
 		New: key.NewBinding(
 			key.WithKeys("n"),
 			key.WithHelp("n", "new category"),
@@ -135,7 +145,7 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 		),
 		Expand: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "expand/collapse"),
+			key.WithHelp("enter", "edit"),
 		),
 		Next: key.NewBinding(
 			key.WithKeys("tab"),
@@ -470,6 +480,26 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 			if w.cursor < len(w.categories)-1 {
 				w.cursor++
 			}
+		case key.Matches(msg, w.keys.Right):
+			// Only when not in form mode
+			if !w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
+				cc := w.categories[w.cursor]
+				if !cc.expanded {
+					cc.expanded = true
+					w.inForm = true
+					w.focusedField = catFieldName
+					w.updateFieldFocus(cc)
+				}
+			}
+		case key.Matches(msg, w.keys.Left):
+			// Only when not in form mode
+			if !w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
+				cc := w.categories[w.cursor]
+				if cc.expanded {
+					cc.expanded = false
+					w.inForm = false
+				}
+			}
 		case key.Matches(msg, w.keys.New):
 			newCat := newCategoryConfig()
 			w.categories = append(w.categories, &newCat)
@@ -617,7 +647,7 @@ func (w WizardCategories) View() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
 	title := titleStyle.Render("Configure Categories")
-	desc := helpStyle.Render("n: new • d: delete • Enter: expand • Tab: next step")
+	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
 		desc = helpStyle.Render("Tab/Shift+Tab: navigate • ←/→: options • Esc: close form")
