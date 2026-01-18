@@ -404,26 +404,15 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					w.updateFieldFocus(cc)
 					w.viewport.SetContent(w.renderContent())
 					return w, nil
-				case "left", "right":
+				case "enter":
+					// Cycle through options for dropdown fields
 					switch w.focusedField {
 					case catFieldThinkingType:
-						if msg.String() == "right" {
-							cc.thinkingTypeIdx = (cc.thinkingTypeIdx + 1) % len(thinkingTypes)
-						} else {
-							cc.thinkingTypeIdx = (cc.thinkingTypeIdx - 1 + len(thinkingTypes)) % len(thinkingTypes)
-						}
+						cc.thinkingTypeIdx = (cc.thinkingTypeIdx + 1) % len(thinkingTypes)
 					case catFieldReasoningEffort:
-						if msg.String() == "right" {
-							cc.reasoningEffortIdx = (cc.reasoningEffortIdx + 1) % len(effortLevels)
-						} else {
-							cc.reasoningEffortIdx = (cc.reasoningEffortIdx - 1 + len(effortLevels)) % len(effortLevels)
-						}
+						cc.reasoningEffortIdx = (cc.reasoningEffortIdx + 1) % len(effortLevels)
 					case catFieldTextVerbosity:
-						if msg.String() == "right" {
-							cc.textVerbosityIdx = (cc.textVerbosityIdx + 1) % len(verbosityLevels)
-						} else {
-							cc.textVerbosityIdx = (cc.textVerbosityIdx - 1 + len(verbosityLevels)) % len(verbosityLevels)
-						}
+						cc.textVerbosityIdx = (cc.textVerbosityIdx + 1) % len(verbosityLevels)
 					}
 					return w, nil
 				}
@@ -617,7 +606,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + val + " [←/→]"
+		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + val + " [Enter]"
 	}
 
 	lines = append(lines, "")
@@ -650,7 +639,7 @@ func (w WizardCategories) View() string {
 	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("Tab/Shift+Tab: navigate • ←/→: options • Esc: close form")
+		desc = helpStyle.Render("Tab/Shift+Tab: navigate • Enter: cycle options • Esc: close form")
 	}
 
 	content := w.viewport.View()
