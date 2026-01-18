@@ -62,10 +62,11 @@ func newWizardKeyMap() wizardKeyMap {
 
 // Wizard is the main wizard struct for creating/editing profiles
 type Wizard struct {
-	step        int
-	profileName string
-	config      config.Config
-	editMode    bool // true when editing existing profile, false when creating new
+	step                int
+	profileName         string
+	originalProfileName string // for rename detection in edit mode
+	config              config.Config
+	editMode            bool // true when editing existing profile, false when creating new
 
 	// Sub-views for each step
 	nameStep       WizardName
@@ -102,6 +103,7 @@ func NewWizardForEdit(p *profile.Profile) Wizard {
 	w := NewWizard()
 	w.editMode = true
 	w.profileName = p.Name
+	w.originalProfileName = p.Name
 	w.config = p.Config
 	w.nameStep.SetName(p.Name)
 	w.categoriesStep.SetConfig(&w.config)
