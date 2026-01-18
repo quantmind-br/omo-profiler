@@ -32,6 +32,11 @@ func ConfigFile() string {
 	return filepath.Join(ConfigDir(), "oh-my-opencode.json")
 }
 
+// ModelsFile returns ~/.config/opencode/models.json
+func ModelsFile() string {
+	return filepath.Join(ConfigDir(), "models.json")
+}
+
 // EnsureDirs creates config and profiles directories if they don't exist
 func EnsureDirs() error {
 	if err := os.MkdirAll(ConfigDir(), 0755); err != nil {
