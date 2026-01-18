@@ -852,20 +852,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.expThreshold.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.expThreshold.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.expThreshold.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.expThreshold.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.expThreshold.Focus()
@@ -883,20 +887,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.dcpTurnProtTurns.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.dcpTurnProtTurns.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.dcpTurnProtTurns.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.dcpTurnProtTurns.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.dcpTurnProtTurns.Focus()
@@ -914,20 +922,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.dcpProtectedTools.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.dcpProtectedTools.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.dcpProtectedTools.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.dcpProtectedTools.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.dcpProtectedTools.Focus()
@@ -945,20 +957,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.dcpPurgeErrorsTurns.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.dcpPurgeErrorsTurns.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.dcpPurgeErrorsTurns.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.dcpPurgeErrorsTurns.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.dcpPurgeErrorsTurns.Focus()
@@ -975,9 +991,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx + 1) % len(dcpNotificationValues)
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "left", "h":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx - 1 + len(dcpNotificationValues)) % len(dcpNotificationValues)
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				}
 			}
@@ -987,20 +1005,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.ccPluginsOverride.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.ccPluginsOverride.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.ccPluginsOverride.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.ccPluginsOverride.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.ccPluginsOverride.Focus()
@@ -1018,20 +1040,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.btProviderConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.btProviderConcurrency.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.btProviderConcurrency.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.btProviderConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.btProviderConcurrency.Focus()
@@ -1049,20 +1075,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.btModelConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.btModelConcurrency.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.btModelConcurrency.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.btModelConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.btModelConcurrency.Focus()
@@ -1080,10 +1110,12 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.disabledMcps.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.disabledMcps.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				default:
 					w.disabledMcps.Focus()
@@ -1097,20 +1129,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.rlDefaultMaxIterations.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.rlDefaultMaxIterations.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.rlDefaultMaxIterations.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.rlDefaultMaxIterations.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.rlDefaultMaxIterations.Focus()
@@ -1128,20 +1164,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.rlStateDir.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.rlStateDir.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.rlStateDir.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.rlStateDir.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.rlStateDir.Focus()
@@ -1159,20 +1199,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.btDefaultConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "up", "k":
 					w.btDefaultConcurrency.Blur()
 					if w.subCursor > 0 {
 						w.subCursor--
 					}
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "down", "j":
 					w.btDefaultConcurrency.Blur()
 					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.btDefaultConcurrency.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "enter", " ":
 					w.btDefaultConcurrency.Focus()
@@ -1190,10 +1234,12 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.ccCustomPrompt.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.ccCustomPrompt.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				default:
 					w.ccCustomPrompt.Focus()
@@ -1207,10 +1253,12 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				case "esc":
 					w.skillsEditor.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				case "tab":
 					w.skillsEditor.Blur()
 					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
 					return w, nil
 				default:
 					w.skillsEditor.Focus()
@@ -1222,7 +1270,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				w.inSubSection = false
-				return w, nil
 			case "up", "k":
 				if w.subCursor > 0 {
 					w.subCursor--
@@ -1234,6 +1281,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			case "tab":
 				w.inSubSection = false
 			}
+			w.viewport.SetContent(w.renderContent())
 			return w, nil
 		}
 
