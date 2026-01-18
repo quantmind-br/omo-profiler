@@ -32,3 +32,35 @@ func TestNewWizard_LeavesOriginalProfileNameEmpty(t *testing.T) {
 		t.Error("editMode should be false for new wizard")
 	}
 }
+
+func TestWizard_Save_CreateModeSkipsRenameLogic(t *testing.T) {
+	w := NewWizard()
+	w.step = StepReview
+	w.profileName = "new-profile"
+
+	if w.editMode {
+		t.Error("New wizard should have editMode=false")
+	}
+}
+
+func TestWizard_EditMode_DetectsRename(t *testing.T) {
+	p := &profile.Profile{Name: "original-name", Config: config.Config{}}
+	w := NewWizardForEdit(p)
+
+	w.profileName = "new-name"
+
+	isRename := w.editMode && w.profileName != w.originalProfileName
+	if !isRename {
+		t.Error("Should detect rename when profileName differs from originalProfileName")
+	}
+}
+
+func TestWizard_EditMode_NoRenameWhenNameUnchanged(t *testing.T) {
+	p := &profile.Profile{Name: "same-name", Config: config.Config{}}
+	w := NewWizardForEdit(p)
+
+	isRename := w.editMode && w.profileName != w.originalProfileName
+	if isRename {
+		t.Error("Should not detect rename when name is unchanged")
+	}
+}

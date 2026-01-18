@@ -1,6 +1,8 @@
 package views
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -229,6 +231,15 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 		return w, w.reviewStep.Init()
 
 	case StepReview:
+		// Check for rename in edit mode
+		if w.editMode && w.profileName != w.originalProfileName {
+			// Check if new name already exists
+			if profile.Exists(w.profileName) {
+				w.err = fmt.Errorf("profile '%s' already exists", w.profileName)
+				return w, nil
+			}
+		}
+
 		// Save profile
 		p := &profile.Profile{
 			Name:   w.profileName,
@@ -238,6 +249,13 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 			w.err = err
 			return w, nil
 		}
+
+		// Delete old profile if renamed (AFTER successful save)
+		if w.editMode && w.profileName != w.originalProfileName {
+			// Delete old profile - ignore error (new profile is already saved)
+			_ = profile.Delete(w.originalProfileName)
+		}
+
 		return w, func() tea.Msg { return WizardSaveMsg{Profile: p} }
 	}
 	return w, nil
