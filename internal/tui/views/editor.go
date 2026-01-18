@@ -102,7 +102,7 @@ func newEditorKeyMap() editorKeyMap {
 		),
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "select/toggle"),
+			key.WithHelp("enter", "select"),
 		),
 		Escape: key.NewBinding(
 			key.WithKeys("esc"),
@@ -339,8 +339,17 @@ func (e Editor) handleContentKeys(msg tea.KeyMsg) (Editor, tea.Cmd) {
 			e.contentCursor++
 		}
 
-	case key.Matches(msg, e.keys.Enter), key.Matches(msg, e.keys.Toggle):
-		return e.handleContentAction()
+	case key.Matches(msg, e.keys.Toggle):
+		// Space only toggles in hooks and disabled sections
+		if e.section == sectionHooks || e.section == sectionDisabled {
+			return e.handleContentAction()
+		}
+
+	case key.Matches(msg, e.keys.Enter):
+		// Enter for save in review section
+		if e.section == sectionReview {
+			return e.handleContentAction()
+		}
 	}
 
 	// Handle text input for name section

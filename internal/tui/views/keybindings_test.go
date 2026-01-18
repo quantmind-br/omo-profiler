@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
 // keyMsg creates a tea.KeyMsg for regular character keys (letters, numbers, symbols)
@@ -269,5 +271,127 @@ func TestWizardOtherLeftRightIgnoredInSubSection(t *testing.T) {
 	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
 	if w.sectionExpanded[sectionDisabledAgents] {
 		t.Error("right arrow should be ignored when in subsection")
+	}
+}
+
+func TestWizardHooksSpaceToggles(t *testing.T) {
+	w := NewWizardHooks()
+	w.SetSize(80, 24)
+	w.cursor = 0
+	hook := allHooks[0]
+	initialState := w.disabled[hook]
+
+	w, _ = w.Update(keyMsg(" "))
+
+	if w.disabled[hook] == initialState {
+		t.Error("expected hook to toggle after pressing space")
+	}
+}
+
+func TestWizardHooksEnterDoesNotToggle(t *testing.T) {
+	w := NewWizardHooks()
+	w.SetSize(80, 24)
+	w.cursor = 0
+	hook := allHooks[0]
+	initialState := w.disabled[hook]
+
+	w, _ = w.Update(keyMsgSpecial(tea.KeyEnter))
+
+	// Enter should NOT toggle - it may trigger next step or do nothing
+	// But we check that disabled state is unchanged
+	if w.disabled[hook] != initialState {
+		t.Error("expected hook to NOT toggle after pressing enter (enter is not for toggle)")
+	}
+}
+
+func TestEditorSpaceTogglesInHooksSection(t *testing.T) {
+	e := NewEditor("test-profile")
+	e.section = sectionHooks
+	e.focus = focusContent
+	e.availableHooks = []string{"pre-tool", "post-tool"}
+	e.hooksEnabled = map[string]bool{
+		"pre-tool":  true,
+		"post-tool": false,
+	}
+	e.contentCursor = 0
+	e.contentItems = e.availableHooks
+	e.workingProfile = &profile.Profile{
+		Name: "test",
+		Path: "/tmp/test",
+		Config: config.Config{
+			DisabledHooks: []string{},
+		},
+	}
+
+	initialState := e.hooksEnabled["pre-tool"]
+	e, _ = e.Update(keyMsg(" "))
+
+	if e.hooksEnabled["pre-tool"] == initialState {
+		t.Error("expected pre-tool hook to toggle after pressing space in hooks section")
+	}
+}
+
+func TestEditorSpaceTogglesInDisabledSection(t *testing.T) {
+	e := NewEditor("test-profile")
+	e.section = sectionDisabled
+	e.focus = focusContent
+	e.contentCursor = 0
+	e.contentItems = []string{"MCPs: test-mcp"}
+	e.workingProfile = &profile.Profile{
+		Name: "test",
+		Path: "/tmp/test",
+		Config: config.Config{
+			DisabledMCPs: []string{"test-mcp"},
+		},
+	}
+
+	initialMCPs := len(e.workingProfile.Config.DisabledMCPs)
+	e, _ = e.Update(keyMsg(" "))
+
+	if len(e.workingProfile.Config.DisabledMCPs) == initialMCPs {
+		t.Error("expected disabled MCPs to change after pressing space in disabled section")
+	}
+}
+
+func TestEditorEnterSavesInReviewSection(t *testing.T) {
+	e := NewEditor("test-profile")
+	e.section = sectionReview
+	e.focus = focusContent
+	e.contentCursor = 0
+	e.contentItems = []string{"Save Profile"}
+	e.workingProfile = &profile.Profile{
+		Name:   "test",
+		Path:   "/tmp/test",
+		Config: config.Config{},
+	}
+	e.originalProfile = &profile.Profile{
+		Name:   "test",
+		Path:   "/tmp/test",
+		Config: config.Config{},
+	}
+
+	e, cmd := e.Update(keyMsgSpecial(tea.KeyEnter))
+
+	if cmd == nil {
+		t.Error("expected save command to be returned when pressing enter in review section")
+	}
+}
+
+func TestEditorSpaceDoesNothingInReviewSection(t *testing.T) {
+	e := NewEditor("test-profile")
+	e.section = sectionReview
+	e.focus = focusContent
+	e.contentCursor = 0
+	e.contentItems = []string{"Save Profile"}
+	e.workingProfile = &profile.Profile{
+		Name:   "test",
+		Path:   "/tmp/test",
+		Config: config.Config{},
+	}
+
+	e, cmd := e.Update(keyMsg(" "))
+
+	if cmd != nil {
+		t.Error("expected no command when pressing space in review section")
 	}
 }

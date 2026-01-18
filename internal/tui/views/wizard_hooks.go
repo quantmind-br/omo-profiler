@@ -66,8 +66,8 @@ func newWizardHooksKeyMap() wizardHooksKeyMap {
 			key.WithHelp("↓/j", "down"),
 		),
 		Toggle: key.NewBinding(
-			key.WithKeys(" ", "enter"),
-			key.WithHelp("space/enter", "toggle"),
+			key.WithKeys(" "),
+			key.WithHelp("space", "toggle"),
 		),
 		Next: key.NewBinding(
 			key.WithKeys("tab"),
@@ -241,7 +241,7 @@ func (w WizardHooks) View() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
 	title := titleStyle.Render("Configure Hooks")
-	desc := helpStyle.Render("Space/Enter to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")
+	desc := helpStyle.Render("Space to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")
 
 	disabledCount := 0
 	for _, d := range w.disabled {
