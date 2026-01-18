@@ -369,6 +369,49 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	}
 }
 
+// getLineForField calculates the viewport line for the focused field
+func (w WizardCategories) getLineForField(field categoryFormField) int {
+	baseLine := 0
+	for i := 0; i < w.cursor; i++ {
+		baseLine++ // category header
+		if w.categories[i].expanded {
+			baseLine += 18 // expanded form ~18 lines
+		}
+	}
+	baseLine++ // current category header
+	baseLine++ // empty line
+
+	fieldOffsets := map[categoryFormField]int{
+		catFieldName:            0,
+		catFieldModel:           1,
+		catFieldVariant:         2,
+		catFieldTemperature:     3,
+		catFieldTopP:            4,
+		catFieldMaxTokens:       5,
+		catFieldThinkingType:    7, // after empty line
+		catFieldThinkingBudget:  8,
+		catFieldReasoningEffort: 10,
+		catFieldTextVerbosity:   11,
+		catFieldTools:           13,
+		catFieldPromptAppend:    14,
+	}
+
+	return baseLine + fieldOffsets[field]
+}
+
+// ensureFieldVisible scrolls the viewport to keep the focused field visible
+func (w *WizardCategories) ensureFieldVisible() {
+	if !w.ready {
+		return
+	}
+	line := w.getLineForField(w.focusedField)
+	if line < w.viewport.YOffset {
+		w.viewport.SetYOffset(line)
+	} else if line >= w.viewport.YOffset+w.viewport.Height {
+		w.viewport.SetYOffset(line - w.viewport.Height + 1)
+	}
+}
+
 func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -394,6 +437,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					}
 					w.updateFieldFocus(cc)
 					w.viewport.SetContent(w.renderContent())
+					w.ensureFieldVisible()
 					return w, nil
 				case "up", "k":
 					if w.focusedField == catFieldName {
@@ -403,6 +447,26 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					}
 					w.updateFieldFocus(cc)
 					w.viewport.SetContent(w.renderContent())
+					w.ensureFieldVisible()
+					return w, nil
+				case "tab":
+					w.focusedField++
+					if w.focusedField > catFieldPromptAppend {
+						w.focusedField = catFieldName
+					}
+					w.updateFieldFocus(cc)
+					w.viewport.SetContent(w.renderContent())
+					w.ensureFieldVisible()
+					return w, nil
+				case "shift+tab":
+					if w.focusedField == catFieldName {
+						w.focusedField = catFieldPromptAppend
+					} else {
+						w.focusedField--
+					}
+					w.updateFieldFocus(cc)
+					w.viewport.SetContent(w.renderContent())
+					w.ensureFieldVisible()
 					return w, nil
 				case "enter":
 					// Cycle through options for dropdown fields
@@ -639,7 +703,7 @@ func (w WizardCategories) View() string {
 	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("↑/↓: navigate • Enter: cycle options • Esc: close form")
+		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
 	}
 
 	content := w.viewport.View()

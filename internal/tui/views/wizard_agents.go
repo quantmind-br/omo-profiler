@@ -494,6 +494,58 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	}
 }
 
+// getLineForField calculates the viewport line for the focused field
+func (w WizardAgents) getLineForField(field agentFormField) int {
+	// Base lines: count lines for agents before the current one
+	baseLine := 0
+	for i := 0; i < w.cursor; i++ {
+		baseLine++ // agent header line
+		ac := w.agents[allAgents[i]]
+		if ac.expanded && ac.enabled {
+			baseLine += 22 // expanded form ~22 lines
+		}
+	}
+	baseLine++ // current agent header
+	baseLine++ // empty line before form
+
+	// Field offsets within the form
+	fieldOffsets := map[agentFormField]int{
+		fieldModel:        0,
+		fieldVariant:      1,
+		fieldCategory:     2,
+		fieldTemperature:  3,
+		fieldTopP:         4,
+		fieldSkills:       5,
+		fieldTools:        6,
+		fieldPrompt:       7,
+		fieldPromptAppend: 10,
+		fieldDisable:      13,
+		fieldDescription:  14,
+		fieldMode:         15,
+		fieldColor:        16,
+		fieldPermEdit:     18,
+		fieldPermBash:     19,
+		fieldPermWebfetch: 20,
+		fieldPermDoomLoop: 21,
+		fieldPermExtDir:   22,
+	}
+
+	return baseLine + fieldOffsets[field]
+}
+
+// ensureFieldVisible scrolls the viewport to keep the focused field visible
+func (w *WizardAgents) ensureFieldVisible() {
+	if !w.ready {
+		return
+	}
+	line := w.getLineForField(w.focusedField)
+	if line < w.viewport.YOffset {
+		w.viewport.SetYOffset(line)
+	} else if line >= w.viewport.YOffset+w.viewport.Height {
+		w.viewport.SetYOffset(line - w.viewport.Height + 1)
+	}
+}
+
 func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -521,6 +573,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
+				w.ensureFieldVisible()
 				return w, nil
 			case "up", "k":
 				if w.focusedField == fieldModel {
@@ -530,6 +583,26 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
+				w.ensureFieldVisible()
+				return w, nil
+			case "tab":
+				w.focusedField++
+				if w.focusedField > fieldPermExtDir {
+					w.focusedField = fieldModel
+				}
+				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
+				w.ensureFieldVisible()
+				return w, nil
+			case "shift+tab":
+				if w.focusedField == fieldModel {
+					w.focusedField = fieldPermExtDir
+				} else {
+					w.focusedField--
+				}
+				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
+				w.ensureFieldVisible()
 				return w, nil
 			case "enter":
 				// Cycle through options for dropdown fields
@@ -782,7 +855,7 @@ func (w WizardAgents) View() string {
 	desc := helpStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("↑/↓: navigate • ←/→ for options • Esc to close form")
+		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
 	}
 
 	content := w.viewport.View()
