@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/schema"
 )
 
 // Wizard message types
@@ -231,6 +232,25 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 		return w, w.reviewStep.Init()
 
 	case StepReview:
+		// Validate config against schema FIRST
+		validator, err := schema.GetValidator()
+		if err != nil {
+			w.err = fmt.Errorf("validator error: %w", err)
+			return w, nil
+		}
+
+		validationErrors, err := validator.Validate(&w.config)
+		if err != nil {
+			w.err = fmt.Errorf("validation error: %w", err)
+			return w, nil
+		}
+
+		if len(validationErrors) > 0 {
+			// Format first validation error for display
+			w.err = fmt.Errorf("validation failed: %s", validationErrors[0].Error())
+			return w, nil
+		}
+
 		// Check for rename in edit mode
 		if w.editMode && w.profileName != w.originalProfileName {
 			// Check if new name already exists

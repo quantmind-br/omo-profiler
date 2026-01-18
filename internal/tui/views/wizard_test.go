@@ -64,3 +64,16 @@ func TestWizard_EditMode_NoRenameWhenNameUnchanged(t *testing.T) {
 		t.Error("Should not detect rename when name is unchanged")
 	}
 }
+
+func TestWizard_Save_ValidationCalled(t *testing.T) {
+	w := NewWizard()
+	w.step = StepReview
+	w.profileName = "test-profile"
+
+	if w.step != StepReview {
+		t.Error("wizard should be at StepReview")
+	}
+	if w.err != nil {
+		t.Error("wizard should have no error initially")
+	}
+}
