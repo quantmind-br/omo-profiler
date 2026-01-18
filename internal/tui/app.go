@@ -186,15 +186,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.navigateTo(stateWizard)
 
 	case views.NavToEditorMsg:
-		// Edit current active profile
+		// Edit current active profile using wizard
 		active, err := profile.GetActive()
 		if err != nil || active == nil || !active.Exists || active.IsOrphan {
 			return a, a.showToast("No active profile to edit", toastError, 3*time.Second)
 		}
-		a.editProfileName = active.ProfileName
-		a.editor = views.NewEditor(active.ProfileName)
-		a.editor.SetSize(a.width, a.height-3)
-		return a.navigateTo(stateEditor)
+		p, err := profile.Load(active.ProfileName)
+		if err != nil {
+			return a, a.showToast("Failed to load profile: "+err.Error(), toastError, 3*time.Second)
+		}
+		a.wizard = views.NewWizardForEdit(p)
+		a.wizard.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateWizard)
 
 	case views.NavToDiffMsg:
 		a.diff = views.NewDiff()
@@ -243,10 +246,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(cmds...)
 
 	case views.EditProfileMsg:
-		a.editProfileName = msg.Name
-		a.editor = views.NewEditor(msg.Name)
-		a.editor.SetSize(a.width, a.height-3)
-		return a.navigateTo(stateEditor)
+		p, err := profile.Load(msg.Name)
+		if err != nil {
+			return a, a.showToast("Failed to load profile: "+err.Error(), toastError, 3*time.Second)
+		}
+		a.wizard = views.NewWizardForEdit(p)
+		a.wizard.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateWizard)
 
 	case views.DeleteProfileMsg:
 		a.loading = true
