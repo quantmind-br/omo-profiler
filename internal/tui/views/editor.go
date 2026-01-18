@@ -543,7 +543,7 @@ func (e Editor) saveProfile() tea.Msg {
 	}
 
 	// Validate against schema
-	validator, err := schema.NewValidator()
+	validator, err := schema.GetValidator()
 	if err != nil {
 		return EditorSaveErrorMsg{Err: fmt.Errorf("validator error: %w", err)}
 	}

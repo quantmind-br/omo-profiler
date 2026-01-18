@@ -39,7 +39,7 @@ var ImportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		validator, err := schema.NewValidator()
+		validator, err := schema.GetValidator()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to create validator: %v\n", err)
 			os.Exit(1)

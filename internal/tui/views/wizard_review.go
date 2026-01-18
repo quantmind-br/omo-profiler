@@ -109,7 +109,7 @@ func (w *WizardReview) validateAndPreview() {
 	w.jsonPreview = string(jsonData)
 
 	// Validate against schema
-	validator, err := schema.NewValidator()
+	validator, err := schema.GetValidator()
 	if err != nil {
 		w.validationErrs = nil
 		w.isValid = true // Can't validate, assume valid
