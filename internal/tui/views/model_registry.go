@@ -20,6 +20,7 @@ type modelRegistryKeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
 	New      key.Binding
+	Import   key.Binding
 	Edit     key.Binding
 	Delete   key.Binding
 	Enter    key.Binding
@@ -41,6 +42,10 @@ func newModelRegistryKeyMap() modelRegistryKeyMap {
 		New: key.NewBinding(
 			key.WithKeys("n"),
 			key.WithHelp("n", "new"),
+		),
+		Import: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "import"),
 		),
 		Edit: key.NewBinding(
 			key.WithKeys("e"),
@@ -251,6 +256,11 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 		case key.Matches(msg, m.keys.New):
 			m.enterAddMode()
 
+		case key.Matches(msg, m.keys.Import):
+			return m, func() tea.Msg {
+				return NavToModelImportMsg{}
+			}
+
 		case key.Matches(msg, m.keys.Edit):
 			if len(m.flatModels) > 0 && m.cursor < len(m.flatModels) {
 				m.enterEditMode(m.flatModels[m.cursor])
@@ -410,7 +420,7 @@ func (m ModelRegistry) renderList() string {
 		content = m.renderGroupedModels()
 	}
 
-	help := grayStyle.Render("[n] new  [e] edit  [d] delete  [esc] back")
+	help := grayStyle.Render("[n] new  [i] import  [e] edit  [d] delete  [esc] back")
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",

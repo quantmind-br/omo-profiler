@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -22,6 +23,7 @@ const (
 	stateImport
 	stateExport
 	stateModels
+	stateModelImport
 )
 
 // Toast message types
@@ -78,6 +80,7 @@ type App struct {
 	wizard        views.Wizard
 	diff          views.Diff
 	modelRegistry views.ModelRegistry
+	modelImport   views.ModelImport
 }
 
 func NewApp() App {
@@ -128,7 +131,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case key.Matches(msg, Keys.Back):
 			// Don't intercept Esc if a view handles it internally
-			if a.state == stateWizard || a.state == stateDiff || a.state == stateModels {
+			if a.state == stateWizard || a.state == stateDiff || a.state == stateModels || a.state == stateModelImport {
 				// Let the view handle it
 				break
 			}
@@ -210,6 +213,30 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.ModelRegistryBackMsg:
 		return a.navigateTo(stateDashboard)
+
+	case views.NavToModelImportMsg:
+		a.modelImport = views.NewModelImport()
+		a.modelImport.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateModelImport)
+
+	case views.ModelImportBackMsg:
+		a.modelRegistry = views.NewModelRegistry()
+		a.modelRegistry.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateModels)
+
+	case views.ModelImportDoneMsg:
+		var toastText string
+		if msg.Skipped > 0 {
+			toastText = fmt.Sprintf("Imported %d models. %d already existed.", msg.Imported, msg.Skipped)
+		} else {
+			toastText = fmt.Sprintf("Imported %d models.", msg.Imported)
+		}
+		cmds := []tea.Cmd{a.showToast(toastText, toastSuccess, 3*time.Second)}
+		a.modelRegistry = views.NewModelRegistry()
+		a.modelRegistry.SetSize(a.width, a.height-3)
+		a.state = stateModels
+		cmds = append(cmds, a.modelRegistry.Init())
+		return a, tea.Batch(cmds...)
 
 	// Navigation from List
 	case views.NavigateToDashboardMsg:
@@ -301,6 +328,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateModels:
 		a.modelRegistry, cmd = a.modelRegistry.Update(msg)
 		cmds = append(cmds, cmd)
+
+	case stateModelImport:
+		a.modelImport, cmd = a.modelImport.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -324,6 +355,8 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 		cmd = a.diff.Init()
 	case stateModels:
 		cmd = a.modelRegistry.Init()
+	case stateModelImport:
+		cmd = a.modelImport.Init()
 	}
 
 	return a, cmd
@@ -381,6 +414,8 @@ func (a App) View() string {
 			content = a.placeholderView("Export Profile")
 		case stateModels:
 			content = a.modelRegistry.View()
+		case stateModelImport:
+			content = a.modelImport.View()
 		default:
 			content = "Unknown state"
 		}
@@ -435,7 +470,9 @@ func (a App) renderShortHelp() string {
 	case stateDiff:
 		hints = []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}
 	case stateModels:
-		hints = []string{"n new", "e edit", "d delete", "↑↓ navigate", "esc back"}
+		hints = []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}
+	case stateModelImport:
+		hints = []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}
 	default:
 		hints = []string{"? help", "q quit"}
 	}
@@ -494,10 +531,20 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
 		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
 		lines = append(lines, HelpStyle.Render("  n          New model"))
+		lines = append(lines, HelpStyle.Render("  i          Import from models.dev"))
 		lines = append(lines, HelpStyle.Render("  e          Edit model"))
 		lines = append(lines, HelpStyle.Render("  d          Delete model"))
 		lines = append(lines, HelpStyle.Render("  enter      Confirm"))
 		lines = append(lines, HelpStyle.Render("  esc        Back/Cancel"))
+
+	case stateModelImport:
+		lines = append(lines, AccentStyle.Render("Model Import:"))
+		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
+		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
+		lines = append(lines, HelpStyle.Render("  space      Toggle selection"))
+		lines = append(lines, HelpStyle.Render("  enter      Import selected / Select provider"))
+		lines = append(lines, HelpStyle.Render("  /          Search models"))
+		lines = append(lines, HelpStyle.Render("  esc        Back"))
 	}
 
 	lines = append(lines, "")
