@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/sahilm/fuzzy"
 )
 
 // Navigation messages
@@ -76,35 +77,38 @@ func newModelRegistryKeyMap() modelRegistryKeyMap {
 
 type ModelRegistry struct {
 	registry   *models.ModelsRegistry
-	groups     []models.ProviderGroup   // cached from ListByProvider()
-	flatModels []models.RegisteredModel // flattened for cursor navigation
+	groups     []models.ProviderGroup
+	flatModels []models.RegisteredModel
 	cursor     int
+	offset     int
 	width      int
 	height     int
 	keys       modelRegistryKeyMap
 
-	// Form state
-	formMode  bool   // true when adding/editing
-	editMode  bool   // true when editing existing (vs adding new)
-	editingId string // the modelId being edited (for Update)
+	searchInput textinput.Model
 
-	// Form inputs
+	formMode  bool
+	editMode  bool
+	editingId string
+
 	displayNameInput textinput.Model
 	modelIdInput     textinput.Model
 	providerInput    textinput.Model
-	focusedField     int // 0=displayName, 1=modelId, 2=provider
+	focusedField     int
 
-	// Delete confirmation
 	confirmDelete bool
-	deleteTarget  string // modelId to delete
+	deleteTarget  string
 
-	// Error/loading state
 	errorMsg  string
-	loadError error // non-nil if Load() failed
+	loadError error
 }
 
 func NewModelRegistry() ModelRegistry {
 	keys := newModelRegistryKeyMap()
+
+	searchInput := textinput.New()
+	searchInput.Placeholder = "type to filter..."
+	searchInput.Width = 30
 
 	displayNameInput := textinput.New()
 	displayNameInput.Placeholder = "e.g., Claude Sonnet 4"
@@ -120,6 +124,7 @@ func NewModelRegistry() ModelRegistry {
 
 	m := ModelRegistry{
 		keys:             keys,
+		searchInput:      searchInput,
 		displayNameInput: displayNameInput,
 		modelIdInput:     modelIdInput,
 		providerInput:    providerInput,
@@ -145,6 +150,33 @@ func (m *ModelRegistry) rebuildFlatModels() {
 			m.flatModels = append(m.flatModels, model)
 		}
 	}
+}
+
+func (m ModelRegistry) getFilteredModels() []models.RegisteredModel {
+	searchTerm := strings.TrimSpace(m.searchInput.Value())
+	if searchTerm == "" {
+		return m.flatModels
+	}
+
+	searchStrings := make([]string, len(m.flatModels))
+	for i, model := range m.flatModels {
+		provider := model.Provider
+		if provider == "" {
+			provider = "Other"
+		}
+		searchStrings[i] = fmt.Sprintf("%s/%s %s", provider, model.ModelID, model.DisplayName)
+	}
+
+	matches := fuzzy.Find(searchTerm, searchStrings)
+	if len(matches) == 0 {
+		return []models.RegisteredModel{}
+	}
+
+	filtered := make([]models.RegisteredModel, len(matches))
+	for i, match := range matches {
+		filtered[i] = m.flatModels[match.Index]
+	}
+	return filtered
 }
 
 func (m ModelRegistry) Init() tea.Cmd {
@@ -242,15 +274,51 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.searchInput.Focused() {
+			switch msg.String() {
+			case "esc":
+				m.searchInput.Blur()
+				m.searchInput.SetValue("")
+				m.cursor = 0
+				m.offset = 0
+				return m, nil
+			case "enter", "down":
+				m.searchInput.Blur()
+				return m, nil
+			}
+			oldValue := m.searchInput.Value()
+			m.searchInput, _ = m.searchInput.Update(msg)
+			if oldValue != m.searchInput.Value() {
+				m.cursor = 0
+				m.offset = 0
+			}
+			return m, nil
+		}
+
+		filteredModels := m.getFilteredModels()
+		visibleHeight := m.height - 10
+		if visibleHeight < 5 {
+			visibleHeight = 5
+		}
+
 		switch {
+		case msg.String() == "/":
+			m.searchInput.Focus()
+			return m, nil
 		case key.Matches(msg, m.keys.Up):
 			if m.cursor > 0 {
 				m.cursor--
+				if m.cursor < m.offset {
+					m.offset = m.cursor
+				}
 			}
 
 		case key.Matches(msg, m.keys.Down):
-			if m.cursor < len(m.flatModels)-1 {
+			if m.cursor < len(filteredModels)-1 {
 				m.cursor++
+				if m.cursor >= m.offset+visibleHeight {
+					m.offset = m.cursor - visibleHeight + 1
+				}
 			}
 
 		case key.Matches(msg, m.keys.New):
@@ -262,14 +330,14 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keys.Edit):
-			if len(m.flatModels) > 0 && m.cursor < len(m.flatModels) {
-				m.enterEditMode(m.flatModels[m.cursor])
+			if len(filteredModels) > 0 && m.cursor < len(filteredModels) {
+				m.enterEditMode(filteredModels[m.cursor])
 			}
 
 		case key.Matches(msg, m.keys.Delete):
-			if len(m.flatModels) > 0 && m.cursor < len(m.flatModels) {
+			if len(filteredModels) > 0 && m.cursor < len(filteredModels) {
 				m.confirmDelete = true
-				m.deleteTarget = m.flatModels[m.cursor].ModelID
+				m.deleteTarget = filteredModels[m.cursor].ModelID
 			}
 
 		case key.Matches(msg, m.keys.Esc):
@@ -413,18 +481,26 @@ func (m ModelRegistry) View() string {
 func (m ModelRegistry) renderList() string {
 	title := titleStyle.Render("Manage Models")
 
+	searchLine := "Search: " + m.searchInput.View()
+
+	filteredModels := m.getFilteredModels()
+
 	var content string
 	if len(m.flatModels) == 0 {
 		content = grayStyle.Render("No models registered yet. Press 'n' to add one.")
+	} else if len(filteredModels) == 0 {
+		content = grayStyle.Render("No models match the search.")
 	} else {
-		content = m.renderGroupedModels()
+		content = m.renderModelsList(filteredModels)
 	}
 
-	help := grayStyle.Render("[n] new  [i] import  [e] edit  [d] delete  [esc] back")
+	help := grayStyle.Render("[/] search  [n] new  [i] import  [e] edit  [d] delete  [esc] back")
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
+		"",
+		searchLine,
 		"",
 		content,
 		"",
@@ -432,36 +508,54 @@ func (m ModelRegistry) renderList() string {
 	)
 }
 
-func (m ModelRegistry) renderGroupedModels() string {
+func (m ModelRegistry) renderModelsList(filteredModels []models.RegisteredModel) string {
 	var lines []string
-	flatIndex := 0
 
-	for _, group := range m.groups {
-		providerName := group.Provider
-		if providerName == "" {
-			providerName = "Other"
+	visibleHeight := m.height - 10
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
+	scrollIndicatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+
+	hasMoreAbove := m.offset > 0
+	hasMoreBelow := m.offset+visibleHeight < len(filteredModels)
+
+	if hasMoreAbove {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↑ more above"))
+	}
+
+	endIdx := m.offset + visibleHeight
+	if endIdx > len(filteredModels) {
+		endIdx = len(filteredModels)
+	}
+
+	for i := m.offset; i < endIdx; i++ {
+		model := filteredModels[i]
+		cursor := "  "
+		itemStyle := normalStyle
+
+		if i == m.cursor {
+			cursor = accentStyle.Render("> ")
+			itemStyle = selectedStyle
 		}
-		lines = append(lines, subtitleStyle.Render(providerName))
 
-		for _, model := range group.Models {
-			cursor := "  "
-			itemStyle := normalStyle
-
-			if flatIndex == m.cursor {
-				cursor = accentStyle.Render("> ")
-				itemStyle = selectedStyle
-			}
-
-			line := fmt.Sprintf("%s%s (%s)",
-				cursor,
-				itemStyle.Render(model.DisplayName),
-				grayStyle.Render(model.ModelID),
-			)
-			lines = append(lines, line)
-			flatIndex++
+		provider := model.Provider
+		if provider == "" {
+			provider = "Other"
 		}
 
-		lines = append(lines, "")
+		displayName := fmt.Sprintf("%s/%s", provider, model.ModelID)
+		line := fmt.Sprintf("%s%s %s",
+			cursor,
+			itemStyle.Render(displayName),
+			grayStyle.Render("("+model.DisplayName+")"),
+		)
+		lines = append(lines, line)
+	}
+
+	if hasMoreBelow {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↓ more below"))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
