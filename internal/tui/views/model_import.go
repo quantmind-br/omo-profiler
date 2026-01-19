@@ -76,6 +76,7 @@ type ModelImport struct {
 	selectedModels   map[string]bool
 	cursor           int
 	offset           int
+	providerOffset   int
 	width            int
 	height           int
 	spinner          spinner.Model
@@ -161,14 +162,25 @@ func (m ModelImport) Update(msg tea.Msg) (ModelImport, tea.Cmd) {
 }
 
 func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cmd) {
+	visibleHeight := m.height - 8
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Up):
 		if m.cursor > 0 {
 			m.cursor--
+			if m.cursor < m.providerOffset {
+				m.providerOffset = m.cursor
+			}
 		}
 	case key.Matches(msg, m.keys.Down):
 		if m.cursor < len(m.providers)-1 {
 			m.cursor++
+			if m.cursor >= m.providerOffset+visibleHeight {
+				m.providerOffset = m.cursor - visibleHeight + 1
+			}
 		}
 	case key.Matches(msg, m.keys.Enter):
 		if len(m.providers) > 0 && m.cursor < len(m.providers) {
@@ -178,6 +190,7 @@ func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cm
 			m.cursor = 0
 			m.offset = 0
 			m.searchInput.SetValue("")
+			m.searchInput.Focus()
 			m.state = stateImportModelList
 		}
 	case key.Matches(msg, m.keys.Esc):
@@ -194,27 +207,45 @@ func (m ModelImport) handleModelListKeys(msg tea.KeyMsg) (ModelImport, tea.Cmd) 
 		case "esc":
 			m.searchInput.Blur()
 			m.searchInput.SetValue("")
+			m.cursor = 0
+			m.offset = 0
 			return m, nil
 		case "enter":
 			m.searchInput.Blur()
 			return m, nil
 		default:
+			oldValue := m.searchInput.Value()
 			var cmd tea.Cmd
 			m.searchInput, cmd = m.searchInput.Update(msg)
+			if m.searchInput.Value() != oldValue {
+				m.cursor = 0
+				m.offset = 0
+			}
 			return m, cmd
 		}
 	}
 
 	filteredModels := m.getFilteredModels()
 
+	visibleHeight := m.height - 10
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Up):
 		if m.cursor > 0 {
 			m.cursor--
+			if m.cursor < m.offset {
+				m.offset = m.cursor
+			}
 		}
 	case key.Matches(msg, m.keys.Down):
 		if m.cursor < len(filteredModels)-1 {
 			m.cursor++
+			if m.cursor >= m.offset+visibleHeight {
+				m.offset = m.cursor - visibleHeight + 1
+			}
 		}
 	case key.Matches(msg, m.keys.Space):
 		if len(filteredModels) > 0 && m.cursor < len(filteredModels) {
@@ -259,7 +290,7 @@ func (m ModelImport) getFilteredModels() []models.ModelsDevModel {
 
 	searchStrings := make([]string, len(m.providerModels))
 	for i, model := range m.providerModels {
-		searchStrings[i] = model.Name + " " + model.ID
+		searchStrings[i] = fmt.Sprintf("%s/%s %s", m.selectedProvider, model.ID, model.Name)
 	}
 
 	matches := fuzzy.Find(searchTerm, searchStrings)
@@ -340,8 +371,28 @@ func (m ModelImport) renderLoading() string {
 func (m ModelImport) renderProviderList() string {
 	title := titleStyle.Render("Import from models.dev")
 
+	visibleHeight := m.height - 8
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
+	scrollIndicatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 	var lines []string
-	for i, provider := range m.providers {
+
+	hasMoreAbove := m.providerOffset > 0
+	hasMoreBelow := m.providerOffset+visibleHeight < len(m.providers)
+
+	if hasMoreAbove {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↑ more above"))
+	}
+
+	endIdx := m.providerOffset + visibleHeight
+	if endIdx > len(m.providers) {
+		endIdx = len(m.providers)
+	}
+
+	for i := m.providerOffset; i < endIdx; i++ {
+		provider := m.providers[i]
 		cursor := "  "
 		itemStyle := normalStyle
 
@@ -356,6 +407,10 @@ func (m ModelImport) renderProviderList() string {
 			provider.ModelCount,
 		)
 		lines = append(lines, line)
+	}
+
+	if hasMoreBelow {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↓ more below"))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
@@ -388,15 +443,25 @@ func (m ModelImport) renderModelList() string {
 
 	var lines []string
 	visibleHeight := m.height - 10
-
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+visibleHeight {
-		m.offset = m.cursor - visibleHeight + 1
+	if visibleHeight < 5 {
+		visibleHeight = 5
 	}
 
-	for i := m.offset; i < len(filteredModels) && i < m.offset+visibleHeight; i++ {
+	scrollIndicatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+
+	hasMoreAbove := m.offset > 0
+	hasMoreBelow := m.offset+visibleHeight < len(filteredModels)
+
+	if hasMoreAbove {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↑ more above"))
+	}
+
+	endIdx := m.offset + visibleHeight
+	if endIdx > len(filteredModels) {
+		endIdx = len(filteredModels)
+	}
+
+	for i := m.offset; i < endIdx; i++ {
 		model := filteredModels[i]
 		cursor := "  "
 		checkbox := "[ ]"
@@ -412,13 +477,22 @@ func (m ModelImport) renderModelList() string {
 		}
 
 		capabilities := model.FormatCapabilities()
+		displayName := fmt.Sprintf("%s/%s", m.selectedProvider, model.ID)
 		line := fmt.Sprintf("%s%s %s %s",
 			cursor,
 			checkbox,
-			itemStyle.Render(model.Name),
+			itemStyle.Render(displayName),
 			grayStyle.Render(capabilities),
 		)
 		lines = append(lines, line)
+	}
+
+	if hasMoreBelow {
+		lines = append(lines, scrollIndicatorStyle.Render("  ↓ more below"))
+	}
+
+	if len(filteredModels) == 0 {
+		lines = append(lines, grayStyle.Render("  No models match the search."))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
@@ -430,7 +504,7 @@ func (m ModelImport) renderModelList() string {
 		}
 	}
 
-	help := grayStyle.Render(fmt.Sprintf("%d selected  [space] toggle  [enter] import  [/] search  [esc] back", selectedCount))
+	help := grayStyle.Render(fmt.Sprintf("%d selected  [space] toggle  [enter] import  [esc] back", selectedCount))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
