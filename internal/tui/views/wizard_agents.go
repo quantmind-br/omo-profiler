@@ -570,6 +570,13 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		w.SetSize(msg.Width, msg.Height)
+
+		currentAgent := allAgents[w.cursor]
+		if ac, ok := w.agents[currentAgent]; ok {
+			if ac.selectingModel {
+				ac.modelSelector.SetSize(msg.Width, msg.Height)
+			}
+		}
 		return w, nil
 
 	case ModelSelectedMsg:
@@ -652,6 +659,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				case fieldModel:
 					ac.selectingModel = true
 					ac.modelSelector = NewModelSelector()
+					ac.modelSelector.SetSize(w.width, w.height)
 					return w, nil
 				case fieldDisable:
 					ac.disable = !ac.disable

@@ -60,14 +60,15 @@ func newModelSelectorKeyMap() modelSelectorKeyMap {
 }
 
 type ModelSelector struct {
-	items       []selectorItem
-	cursor      int
-	customMode  bool
-	customInput textinput.Model
-	width       int
-	height      int
-	keys        modelSelectorKeyMap
-	loadError   error
+	items        []selectorItem
+	cursor       int
+	scrollOffset int
+	customMode   bool
+	customInput  textinput.Model
+	width        int
+	height       int
+	keys         modelSelectorKeyMap
+	loadError    error
 }
 
 func NewModelSelector() ModelSelector {
@@ -124,6 +125,7 @@ func (m *ModelSelector) buildItems(registry *models.ModelsRegistry) {
 
 	// Set initial cursor to first selectable item
 	m.cursor = m.findNextSelectable(0, 1)
+	m.scrollOffset = 0
 }
 
 func (m ModelSelector) Init() tea.Cmd {
@@ -133,6 +135,7 @@ func (m ModelSelector) Init() tea.Cmd {
 func (m *ModelSelector) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.ensureCursorVisible()
 }
 
 func (m ModelSelector) isSelectable(idx int) bool {
@@ -156,13 +159,60 @@ func (m ModelSelector) findNextSelectable(start, direction int) int {
 	}
 }
 
+func (m ModelSelector) listHeight() int {
+	if len(m.items) == 0 {
+		return 0
+	}
+
+	headerHeight := 2
+	if m.loadError != nil {
+		headerHeight += 2
+	}
+
+	footerHeight := 2
+	available := m.height - headerHeight - footerHeight
+	if available < 1 {
+		available = 1
+	}
+	if available > len(m.items) {
+		available = len(m.items)
+	}
+
+	return available
+}
+
+func (m *ModelSelector) ensureCursorVisible() {
+	if m.cursor < 0 || m.cursor >= len(m.items) {
+		return
+	}
+
+	visible := m.listHeight()
+	if visible == 0 {
+		m.scrollOffset = 0
+		return
+	}
+
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	} else if m.cursor >= m.scrollOffset+visible {
+		m.scrollOffset = m.cursor - visible + 1
+	}
+
+	maxOffset := len(m.items) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+}
+
 func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.SetSize(msg.Width, msg.Height)
 
 	case tea.KeyMsg:
 		if m.customMode {
@@ -205,6 +255,7 @@ func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 			}
 			if newCursor >= 0 {
 				m.cursor = newCursor
+				m.ensureCursorVisible()
 			}
 
 		case key.Matches(msg, m.keys.Down):
@@ -214,6 +265,7 @@ func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 			}
 			if newCursor < len(m.items) {
 				m.cursor = newCursor
+				m.ensureCursorVisible()
 			}
 
 		case key.Matches(msg, m.keys.Enter):
@@ -262,24 +314,40 @@ func (m ModelSelector) renderList() string {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#45475A"))
 	customStyle := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#89B4FA"))
 
-	var lines []string
-	lines = append(lines, titleStyle.Render("Select Model"))
-	lines = append(lines, "")
+	var headerLines []string
+	headerLines = append(headerLines, titleStyle.Render("Select Model"))
+	headerLines = append(headerLines, "")
 
 	if m.loadError != nil {
 		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-		lines = append(lines, errStyle.Render("Could not load models registry"))
-		lines = append(lines, "")
+		headerLines = append(headerLines, errStyle.Render("Could not load models registry"))
+		headerLines = append(headerLines, "")
 	}
 
-	for i, item := range m.items {
+	visible := m.listHeight()
+	start := 0
+	end := 0
+	if visible > 0 {
+		start = m.scrollOffset
+		if start < 0 {
+			start = 0
+		}
+		end = start + visible
+		if end > len(m.items) {
+			end = len(m.items)
+		}
+	}
+
+	var listLines []string
+	for i := start; i < end; i++ {
+		item := m.items[i]
 		if item.isHeader {
-			lines = append(lines, headerStyle.Render(item.provider))
+			listLines = append(listLines, headerStyle.Render(item.provider))
 			continue
 		}
 
 		if item.isSeparator {
-			lines = append(lines, dimStyle.Render("───────────────────────"))
+			listLines = append(listLines, dimStyle.Render("───────────────────────"))
 			continue
 		}
 
@@ -297,7 +365,7 @@ func (m ModelSelector) renderList() string {
 			} else {
 				text = customStyle.Render(text)
 			}
-			lines = append(lines, cursor+text)
+			listLines = append(listLines, cursor+text)
 			continue
 		}
 
@@ -306,15 +374,20 @@ func (m ModelSelector) renderList() string {
 			if i == m.cursor {
 				displayText = style.Render(" " + item.model.DisplayName + " ")
 			}
-			lines = append(lines, cursor+displayText)
+			listLines = append(listLines, cursor+displayText)
 		}
 	}
 
-	lines = append(lines, "")
+	var footerLines []string
+	footerLines = append(footerLines, "")
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	lines = append(lines, helpStyle.Render("[↑↓] navigate  [Enter] select  [Esc] cancel"))
+	footerLines = append(footerLines, helpStyle.Render("[↑↓] navigate  [Enter] select  [Esc] cancel"))
 
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinVertical(lipgloss.Left, headerLines...),
+		lipgloss.JoinVertical(lipgloss.Left, listLines...),
+		lipgloss.JoinVertical(lipgloss.Left, footerLines...),
+	)
 }
 
 func (m ModelSelector) renderCustomMode() string {
