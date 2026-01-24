@@ -50,23 +50,20 @@ func serializeMapStringBool(m map[string]bool) string {
 	return strings.Join(pairs, ", ")
 }
 
-// All 15 agents
 var allAgents = []string{
 	"build",
 	"plan",
-	"Sisyphus",
-	"Sisyphus-Junior",
+	"sisyphus",
+	"sisyphus-junior",
 	"OpenCode-Builder",
-	"Prometheus (Planner)",
-	"Metis (Plan Consultant)",
-	"Momus (Plan Reviewer)",
+	"prometheus",
+	"metis",
+	"momus",
+	"atlas",
 	"oracle",
 	"librarian",
 	"explore",
-	"frontend-ui-ux-engineer",
-	"document-writer",
 	"multimodal-looker",
-	"orchestrator-sisyphus",
 }
 
 // Mode options for agents

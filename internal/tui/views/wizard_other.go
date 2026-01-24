@@ -56,18 +56,16 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (10)
+// Disableable agents (8)
 var disableableAgents = []string{
-	"Sisyphus",
+	"sisyphus",
 	"oracle",
 	"librarian",
 	"explore",
-	"frontend-ui-ux-engineer",
-	"document-writer",
 	"multimodal-looker",
-	"Metis (Plan Consultant)",
-	"Momus (Plan Reviewer)",
-	"orchestrator-sisyphus",
+	"metis",
+	"momus",
+	"atlas",
 }
 
 // Disableable skills (3)
@@ -184,10 +182,7 @@ type WizardOther struct {
 	// Experimental flags
 	expAggressiveTrunc    bool
 	expAutoResume         bool
-	expPreemptiveCompact  bool
 	expTruncateAllOutputs bool
-	expDcpForCompaction   bool
-	expThreshold          textinput.Model
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -279,10 +274,6 @@ func NewWizardOther() WizardOther {
 	ccPrompt.Placeholder = "custom prompt..."
 	ccPrompt.Width = 50
 
-	expThreshold := textinput.New()
-	expThreshold.Placeholder = "0.8"
-	expThreshold.Width = 10
-
 	dcpTurnProtTurns := textinput.New()
 	dcpTurnProtTurns.Placeholder = "3"
 	dcpTurnProtTurns.Width = 10
@@ -333,7 +324,6 @@ func NewWizardOther() WizardOther {
 		btProviderConcurrency:  btProviderConcurrency,
 		btModelConcurrency:     btModelConcurrency,
 		ccCustomPrompt:         ccPrompt,
-		expThreshold:           expThreshold,
 		dcpTurnProtTurns:       dcpTurnProtTurns,
 		dcpProtectedTools:      dcpProtectedTools,
 		dcpPurgeErrorsTurns:    dcpPurgeErrorsTurns,
@@ -400,17 +390,8 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.Experimental.AutoResume != nil {
 			w.expAutoResume = *cfg.Experimental.AutoResume
 		}
-		if cfg.Experimental.PreemptiveCompaction != nil {
-			w.expPreemptiveCompact = *cfg.Experimental.PreemptiveCompaction
-		}
 		if cfg.Experimental.TruncateAllToolOutputs != nil {
 			w.expTruncateAllOutputs = *cfg.Experimental.TruncateAllToolOutputs
-		}
-		if cfg.Experimental.DcpForCompaction != nil {
-			w.expDcpForCompaction = *cfg.Experimental.DcpForCompaction
-		}
-		if cfg.Experimental.PreemptiveCompactionThreshold != nil {
-			w.expThreshold.SetValue(fmt.Sprintf("%v", *cfg.Experimental.PreemptiveCompactionThreshold))
 		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
@@ -619,10 +600,9 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.AutoUpdate = &w.autoUpdate
 	}
 
-	// Experimental - only set if any flag is true or threshold has value
-	expHasData := w.expAggressiveTrunc || w.expAutoResume || w.expPreemptiveCompact ||
-		w.expTruncateAllOutputs || w.expDcpForCompaction ||
-		w.expThreshold.Value() != "" ||
+	// Experimental - only set if any flag is true or DCP has value
+	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
+		w.expTruncateAllOutputs ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -636,20 +616,8 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		if w.expAutoResume {
 			cfg.Experimental.AutoResume = &w.expAutoResume
 		}
-		if w.expPreemptiveCompact {
-			cfg.Experimental.PreemptiveCompaction = &w.expPreemptiveCompact
-		}
 		if w.expTruncateAllOutputs {
 			cfg.Experimental.TruncateAllToolOutputs = &w.expTruncateAllOutputs
-		}
-		if w.expDcpForCompaction {
-			cfg.Experimental.DcpForCompaction = &w.expDcpForCompaction
-		}
-		if v := w.expThreshold.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				cfg.Experimental.PreemptiveCompactionThreshold = &f
-			}
-			// If parse fails, field is not set (skip, don't error)
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -847,42 +815,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if w.inSubSection {
-			if w.currentSection == sectionExperimental && w.subCursor == 5 {
-				switch msg.String() {
-				case "esc":
-					w.expThreshold.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.expThreshold.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.expThreshold.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.expThreshold.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.expThreshold.Focus()
-					w.expThreshold, cmd = w.expThreshold.Update(msg)
-					return w, cmd
-				default:
-					w.expThreshold.Focus()
-					w.expThreshold, cmd = w.expThreshold.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionExperimental && w.subCursor == 9 {
+			if w.currentSection == sectionExperimental && w.subCursor == 6 {
 				switch msg.String() {
 				case "esc":
 					w.dcpTurnProtTurns.Blur()
@@ -1357,29 +1290,23 @@ func (w *WizardOther) toggleSubItem() {
 		case 1:
 			w.expAutoResume = !w.expAutoResume
 		case 2:
-			w.expPreemptiveCompact = !w.expPreemptiveCompact
-		case 3:
 			w.expTruncateAllOutputs = !w.expTruncateAllOutputs
-		case 4:
-			w.expDcpForCompaction = !w.expDcpForCompaction
-		case 5:
-			// threshold textinput - handled in Update() via focus, not toggle
-		case 6:
+		case 3:
 			w.dcpEnabled = !w.dcpEnabled
+		case 4:
+		case 5:
+			w.dcpTurnProtEnabled = !w.dcpTurnProtEnabled
+		case 6:
 		case 7:
 		case 8:
-			w.dcpTurnProtEnabled = !w.dcpTurnProtEnabled
-		case 9:
-		case 10:
-		case 11:
 			w.dcpDeduplicationEnabled = !w.dcpDeduplicationEnabled
-		case 12:
+		case 9:
 			w.dcpSupersedeWritesEnabled = !w.dcpSupersedeWritesEnabled
-		case 13:
+		case 10:
 			w.dcpSupersedeWritesAggressive = !w.dcpSupersedeWritesAggressive
-		case 14:
+		case 11:
 			w.dcpPurgeErrorsEnabled = !w.dcpPurgeErrorsEnabled
-		case 15:
+		case 12:
 		}
 	case sectionClaudeCode:
 		switch w.subCursor {
@@ -1527,65 +1454,53 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	case sectionExperimental:
 		lines = append(lines, renderCheckbox(0, "aggressive_truncation", w.expAggressiveTrunc))
 		lines = append(lines, renderCheckbox(1, "auto_resume", w.expAutoResume))
-		lines = append(lines, renderCheckbox(2, "preemptive_compaction", w.expPreemptiveCompact))
-		lines = append(lines, renderCheckbox(3, "truncate_all_tool_outputs", w.expTruncateAllOutputs))
-		lines = append(lines, renderCheckbox(4, "dcp_for_compaction", w.expDcpForCompaction))
+		lines = append(lines, renderCheckbox(2, "truncate_all_tool_outputs", w.expTruncateAllOutputs))
+
+		lines = append(lines, renderCheckbox(3, "dcp_enabled", w.dcpEnabled))
 
 		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-		}
-		lines = append(lines, indent+cursor+style.Render("preemptive_compaction_threshold: ")+w.expThreshold.View())
-
-		lines = append(lines, renderCheckbox(6, "dcp_enabled", w.dcpEnabled))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
 			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_notification: ")+dcpNotificationValues[w.dcpNotificationIdx])
 
-		lines = append(lines, renderCheckbox(8, "dcp_turn_protection_enabled", w.dcpTurnProtEnabled))
+		lines = append(lines, renderCheckbox(5, "dcp_turn_protection_enabled", w.dcpTurnProtEnabled))
 
 		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
 			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_turn_protection_turns: ")+w.dcpTurnProtTurns.View())
 
 		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
 			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_protected_tools: ")+w.dcpProtectedTools.View())
 
-		lines = append(lines, renderCheckbox(11, "dcp_deduplication_enabled", w.dcpDeduplicationEnabled))
-		lines = append(lines, renderCheckbox(12, "dcp_supersede_writes_enabled", w.dcpSupersedeWritesEnabled))
-		lines = append(lines, renderCheckbox(13, "dcp_supersede_writes_aggressive", w.dcpSupersedeWritesAggressive))
-		lines = append(lines, renderCheckbox(14, "dcp_purge_errors_enabled", w.dcpPurgeErrorsEnabled))
+		lines = append(lines, renderCheckbox(8, "dcp_deduplication_enabled", w.dcpDeduplicationEnabled))
+		lines = append(lines, renderCheckbox(9, "dcp_supersede_writes_enabled", w.dcpSupersedeWritesEnabled))
+		lines = append(lines, renderCheckbox(10, "dcp_supersede_writes_aggressive", w.dcpSupersedeWritesAggressive))
+		lines = append(lines, renderCheckbox(11, "dcp_purge_errors_enabled", w.dcpPurgeErrorsEnabled))
 
 		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
 			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_purge_errors_turns: ")+w.dcpPurgeErrorsTurns.View())

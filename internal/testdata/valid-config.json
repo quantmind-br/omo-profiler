@@ -92,8 +92,6 @@
   "experimental": {
     "aggressive_truncation": true,
     "auto_resume": false,
-    "preemptive_compaction": true,
-    "preemptive_compaction_threshold": 0.8,
     "truncate_all_tool_outputs": false,
     "dynamic_context_pruning": {
       "enabled": true,
@@ -116,8 +114,7 @@
           "turns": 10
         }
       }
-    },
-    "dcp_for_compaction": false
+    }
   },
   "auto_update": true,
   "skills": ["git-master", "playwright"],

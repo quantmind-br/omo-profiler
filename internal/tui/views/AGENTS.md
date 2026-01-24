@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-15 view components following Bubble Tea Model-View-Update pattern.
+16 view components following Bubble Tea Model-View-Update pattern.
 
 ## VIEW INVENTORY
 
@@ -17,18 +17,23 @@
 | WizardHooks | `wizard_hooks.go` | Step 4: Hook settings |
 | WizardOther | `wizard_other.go` | Step 5: Misc settings |
 | WizardReview | `wizard_review.go` | Step 6: Review and save |
-| Editor | `editor.go` | Direct JSON editing |
 | Diff | `diff.go` | Side-by-side profile comparison |
 | ModelSelector | `model_selector.go` | Model picker popup |
 | ModelRegistry | `model_registry.go` | Manage custom models |
+| ModelImport | `model_import.go` | Import models from external sources |
 
-## WIZARD FLOW
+## WIZARD ARCHITECTURE
 
 ```
 StepName → StepCategories → StepAgents → StepHooks → StepOther → StepReview
 ```
 
-Each step: `WizardNextMsg` advances, `WizardBackMsg` retreats.
+- Orchestrator: `Wizard` struct in `wizard.go`
+- Navigation: `WizardNextMsg` advances, `WizardBackMsg` retreats
+- Each step is a sub-model with its own `Update`/`View`
+- Fields: `step`, `profileName`, `config`, `editMode`, step sub-models
+
+Constructors: `NewWizard()` (create), `NewWizardForEdit()` (edit existing)
 
 ## MESSAGE PATTERNS
 
@@ -39,9 +44,17 @@ Each step: `WizardNextMsg` advances, `WizardBackMsg` retreats.
 | `DeleteProfileMsg` | List | app.go |
 | `WizardSaveMsg` | WizardReview | app.go |
 | `WizardCancelMsg` | Any wizard step | app.go |
+| `WizardNextMsg` | Step views | Wizard |
+| `WizardBackMsg` | Step views | Wizard |
 
 ## CONVENTIONS
 
 - Use `SetSize(w, h)` for responsive layout
 - Emit messages for actions, don't mutate parent state
 - Use bubbles components: `list`, `textinput`, `viewport`, `spinner`
+- Wizard steps access shared `config` via orchestrator
+
+## KNOWN ISSUES
+
+- `wizard_hooks.go`: Contains TODO placeholder "todo-continuation-enforcer"
+- `keybindings_test.go`: Enter key should NOT toggle in certain contexts

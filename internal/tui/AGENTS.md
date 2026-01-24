@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Bubble Tea application with state machine navigation. Main model in `app.go`.
+Bubble Tea application with state machine navigation. Entry: `tui.Run()` → `tea.Program`.
 
 ## STATE MACHINE
 
@@ -10,22 +10,31 @@ Bubble Tea application with state machine navigation. Main model in `app.go`.
 stateDashboard ←→ stateList ←→ stateWizard
       ↓              ↓
   stateModels    stateDiff
+      ↓
+stateModelImport
 ```
+
+States: `stateDashboard`, `stateList`, `stateWizard`, `stateDiff`, `stateImport`, `stateExport`, `stateModels`, `stateModelImport`
 
 ## KEY FILES
 
 | File | Purpose |
 |------|---------|
-| `app.go` | Main model, state transitions, message routing |
+| `app.go` | Main model (`App`), state transitions, message routing |
 | `tui.go` | `Run()` entry point, tea.Program setup |
 | `styles.go` | All lipgloss styles (Purple, Cyan, etc.) |
 | `keys.go` | Global keybindings (Quit, Help, Back) |
 
+## APP STRUCT
+
+Key fields: `state`, `prevState`, `width`, `height`, `loading`, `toast`, `toastActive`
+Sub-models: `dashboard`, `list`, `wizard`, `diff`, `modelRegistry`, `modelImport`
+
 ## PATTERNS
 
-- **Navigation**: Views emit `NavTo*Msg`, `app.go` handles state change
-- **Async ops**: Return `tea.Cmd`, handle result via typed message
-- **Toast**: `showToast(text, type, duration)` → `toastMsg` → auto-clear
+- **Navigation**: Views emit `NavTo*Msg`, `app.go` handles via `navigateTo()`
+- **Async ops**: Return `tea.Cmd`, handle result via typed message (e.g., `switchProfileDoneMsg`)
+- **Toast**: `showToast(text, type, duration)` → `toastMsg` → auto-clear via `clearToastMsg`
 - **Loading**: Set `loading=true`, show spinner, process in background
 
 ## ADDING A VIEW

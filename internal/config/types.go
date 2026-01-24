@@ -63,6 +63,7 @@ type CategoryConfig struct {
 	TextVerbosity   string          `json:"textVerbosity,omitempty"`
 	Tools           map[string]bool `json:"tools,omitempty"`
 	PromptAppend    string          `json:"prompt_append,omitempty"`
+	IsUnstableAgent *bool           `json:"is_unstable_agent,omitempty"`
 }
 
 // ThinkingConfig
@@ -92,13 +93,10 @@ type SisyphusAgentConfig struct {
 
 // ExperimentalConfig
 type ExperimentalConfig struct {
-	AggressiveTruncation          *bool                        `json:"aggressive_truncation,omitempty"`
-	AutoResume                    *bool                        `json:"auto_resume,omitempty"`
-	PreemptiveCompaction          *bool                        `json:"preemptive_compaction,omitempty"`
-	PreemptiveCompactionThreshold *float64                     `json:"preemptive_compaction_threshold,omitempty"`
-	TruncateAllToolOutputs        *bool                        `json:"truncate_all_tool_outputs,omitempty"`
-	DynamicContextPruning         *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
-	DcpForCompaction              *bool                        `json:"dcp_for_compaction,omitempty"`
+	AggressiveTruncation   *bool                        `json:"aggressive_truncation,omitempty"`
+	AutoResume             *bool                        `json:"auto_resume,omitempty"`
+	TruncateAllToolOutputs *bool                        `json:"truncate_all_tool_outputs,omitempty"`
+	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
 }
 
 // DynamicContextPruningConfig
@@ -152,6 +150,7 @@ type BackgroundTaskConfig struct {
 	DefaultConcurrency  *int           `json:"defaultConcurrency,omitempty"`
 	ProviderConcurrency map[string]int `json:"providerConcurrency,omitempty"`
 	ModelConcurrency    map[string]int `json:"modelConcurrency,omitempty"`
+	StaleTimeoutMs      *int           `json:"staleTimeoutMs,omitempty"`
 }
 
 // NotificationConfig
