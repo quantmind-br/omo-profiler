@@ -1,60 +1,34 @@
-# TUI Views
+# Views Knowledge Base
 
 ## OVERVIEW
-
-16 view components following Bubble Tea Model-View-Update pattern.
-
-## VIEW INVENTORY
-
-| View | File | Purpose |
-|------|------|---------|
-| Dashboard | `dashboard.go` | Main menu, active profile display |
-| List | `list.go` | Profile list with search, CRUD actions |
-| Wizard | `wizard.go` | Multi-step profile creation/edit orchestrator |
-| WizardName | `wizard_name.go` | Step 1: Profile name input |
-| WizardCategories | `wizard_categories.go` | Step 2: Category model selection |
-| WizardAgents | `wizard_agents.go` | Step 3: Agent configuration |
-| WizardHooks | `wizard_hooks.go` | Step 4: Hook settings |
-| WizardOther | `wizard_other.go` | Step 5: Misc settings |
-| WizardReview | `wizard_review.go` | Step 6: Review and save |
-| Diff | `diff.go` | Side-by-side profile comparison |
-| ModelSelector | `model_selector.go` | Model picker popup |
-| ModelRegistry | `model_registry.go` | Manage custom models |
-| ModelImport | `model_import.go` | Import models from external sources |
+Collection of Bubble Tea view components, primarily centered around a 6-step configuration wizard.
 
 ## WIZARD ARCHITECTURE
+The `Wizard` struct (`wizard.go`) acts as a stateful orchestrator for 6 steps:
+1. `StepName` (WizardName): Profile naming.
+2. `StepCategories` (WizardCategories): Model categorization.
+3. `StepAgents` (WizardAgents): Detailed agent configuration (longest step).
+4. `StepHooks` (WizardHooks): Event hooks setup.
+5. `StepOther` (WizardOther): Misc settings.
+6. `StepReview` (WizardReview): Final validation and save.
 
-```
-StepName → StepCategories → StepAgents → StepHooks → StepOther → StepReview
-```
-
-- Orchestrator: `Wizard` struct in `wizard.go`
-- Navigation: `WizardNextMsg` advances, `WizardBackMsg` retreats
-- Each step is a sub-model with its own `Update`/`View`
-- Fields: `step`, `profileName`, `config`, `editMode`, step sub-models
-
-Constructors: `NewWizard()` (create), `NewWizardForEdit()` (edit existing)
+Data flow: `Wizard` holds `config.Config`. Steps receive copy via `SetConfig()`, mutate internal state, and write back via `Apply()` on navigation.
 
 ## MESSAGE PATTERNS
-
-| Message | Emitted By | Handled By |
-|---------|------------|------------|
-| `SwitchProfileMsg` | List | app.go |
-| `EditProfileMsg` | List | app.go |
-| `DeleteProfileMsg` | List | app.go |
-| `WizardSaveMsg` | WizardReview | app.go |
-| `WizardCancelMsg` | Any wizard step | app.go |
-| `WizardNextMsg` | Step views | Wizard |
-| `WizardBackMsg` | Step views | Wizard |
+| Message | Source | Purpose |
+|---------|--------|---------|
+| `WizardNextMsg` | Step View | Advance to next step (triggers `Apply`) |
+| `WizardBackMsg` | Step View | Return to previous step |
+| `WizardSaveMsg` | Review View | Finalize creation/edit (payload: `*profile.Profile`) |
+| `WizardCancelMsg` | Any View | Abort wizard and return to dashboard |
+| `NavTo*Msg` | Dashboard | Global navigation request |
 
 ## CONVENTIONS
-
-- Use `SetSize(w, h)` for responsive layout
-- Emit messages for actions, don't mutate parent state
-- Use bubbles components: `list`, `textinput`, `viewport`, `spinner`
-- Wizard steps access shared `config` via orchestrator
+- **Responsive Layout**: All views implement `SetSize(w, h)` to adjust viewports/lists.
+- **Config Mutation**: Steps never mutate shared config directly; only on `Apply()`.
+- **Keybindings**: Consistent usage of `WizardKeyMap` (Tab/Enter=Next, Shift+Tab/Esc=Back).
+- **Edit Mode**: `NewWizardForEdit` pre-fills all steps; name changes trigger rename logic.
 
 ## KNOWN ISSUES
-
-- `wizard_hooks.go`: Contains TODO placeholder "todo-continuation-enforcer"
-- `keybindings_test.go`: Enter key should NOT toggle in certain contexts
+- `wizard_hooks.go`: incomplete implementation (search "todo-continuation-enforcer").
+- `keybindings_test.go`: context-dependent Enter key behavior requires careful testing.

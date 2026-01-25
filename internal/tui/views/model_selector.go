@@ -278,9 +278,13 @@ func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 					return m, textinput.Blink
 				}
 				if item.model != nil {
+					modelValue := item.model.ModelID
+					if item.model.Provider != "" {
+						modelValue = item.model.Provider + "/" + item.model.ModelID
+					}
 					return m, func() tea.Msg {
 						return ModelSelectedMsg{
-							ModelID:     item.model.ModelID,
+							ModelID:     modelValue,
 							DisplayName: item.model.DisplayName,
 							IsCustom:    false,
 						}
