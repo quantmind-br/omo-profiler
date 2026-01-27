@@ -4,24 +4,26 @@ import "encoding/json"
 
 // Config is the root configuration struct
 type Config struct {
-	Schema           string                     `json:"$schema,omitempty"`
-	DisabledMCPs     []string                   `json:"disabled_mcps,omitempty"`
-	DisabledAgents   []string                   `json:"disabled_agents,omitempty"`
-	DisabledSkills   []string                   `json:"disabled_skills,omitempty"`
-	DisabledHooks    []string                   `json:"disabled_hooks,omitempty"`
-	DisabledCommands []string                   `json:"disabled_commands,omitempty"`
-	Agents           map[string]*AgentConfig    `json:"agents,omitempty"`
-	Categories       map[string]*CategoryConfig `json:"categories,omitempty"`
-	ClaudeCode       *ClaudeCodeConfig          `json:"claude_code,omitempty"`
-	SisyphusAgent    *SisyphusAgentConfig       `json:"sisyphus_agent,omitempty"`
-	CommentChecker   *CommentCheckerConfig      `json:"comment_checker,omitempty"`
-	Experimental     *ExperimentalConfig        `json:"experimental,omitempty"`
-	AutoUpdate       *bool                      `json:"auto_update,omitempty"`
-	Skills           json.RawMessage            `json:"skills,omitempty"`
-	RalphLoop        *RalphLoopConfig           `json:"ralph_loop,omitempty"`
-	BackgroundTask   *BackgroundTaskConfig      `json:"background_task,omitempty"`
-	Notification     *NotificationConfig        `json:"notification,omitempty"`
-	GitMaster        *GitMasterConfig           `json:"git_master,omitempty"`
+	Schema                  string                         `json:"$schema,omitempty"`
+	DisabledMCPs            []string                       `json:"disabled_mcps,omitempty"`
+	DisabledAgents          []string                       `json:"disabled_agents,omitempty"`
+	DisabledSkills          []string                       `json:"disabled_skills,omitempty"`
+	DisabledHooks           []string                       `json:"disabled_hooks,omitempty"`
+	DisabledCommands        []string                       `json:"disabled_commands,omitempty"`
+	Agents                  map[string]*AgentConfig        `json:"agents,omitempty"`
+	Categories              map[string]*CategoryConfig     `json:"categories,omitempty"`
+	ClaudeCode              *ClaudeCodeConfig              `json:"claude_code,omitempty"`
+	SisyphusAgent           *SisyphusAgentConfig           `json:"sisyphus_agent,omitempty"`
+	CommentChecker          *CommentCheckerConfig          `json:"comment_checker,omitempty"`
+	Experimental            *ExperimentalConfig            `json:"experimental,omitempty"`
+	AutoUpdate              *bool                          `json:"auto_update,omitempty"`
+	Skills                  json.RawMessage                `json:"skills,omitempty"`
+	RalphLoop               *RalphLoopConfig               `json:"ralph_loop,omitempty"`
+	BackgroundTask          *BackgroundTaskConfig          `json:"background_task,omitempty"`
+	Notification            *NotificationConfig            `json:"notification,omitempty"`
+	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
+	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
+	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
 }
 
 // AgentConfig has 14 optional fields
@@ -167,4 +169,16 @@ type GitMasterConfig struct {
 // CommentCheckerConfig
 type CommentCheckerConfig struct {
 	CustomPrompt string `json:"custom_prompt,omitempty"`
+}
+
+type BrowserAutomationEngineConfig struct {
+	Provider string `json:"provider,omitempty"`
+}
+
+type TmuxConfig struct {
+	Enabled           *bool    `json:"enabled,omitempty"`
+	Layout            string   `json:"layout,omitempty"`
+	MainPaneSize      *float64 `json:"main_pane_size,omitempty"`
+	MainPaneMinWidth  *float64 `json:"main_pane_min_width,omitempty"`
+	AgentPaneMinWidth *float64 `json:"agent_pane_min_width,omitempty"`
 }

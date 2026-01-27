@@ -247,3 +247,76 @@ func TestAgentSkillsRoundTrip(t *testing.T) {
 		t.Errorf("expected [playwright git-master], got %v", skills)
 	}
 }
+
+func TestTmuxConfigRoundTrip(t *testing.T) {
+	jsonData := `{
+		"tmux": {
+			"enabled": true,
+			"layout": "main-horizontal",
+			"main_pane_size": 60.0,
+			"main_pane_min_width": 120.0,
+			"agent_pane_min_width": 40.0
+		}
+	}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Tmux == nil {
+		t.Fatal("tmux is nil")
+	}
+	if cfg.Tmux.Enabled == nil || *cfg.Tmux.Enabled != true {
+		t.Errorf("expected enabled=true, got %v", cfg.Tmux.Enabled)
+	}
+	if cfg.Tmux.Layout != "main-horizontal" {
+		t.Errorf("expected layout=main-horizontal, got %s", cfg.Tmux.Layout)
+	}
+	if cfg.Tmux.MainPaneSize == nil || *cfg.Tmux.MainPaneSize != 60.0 {
+		t.Errorf("expected main_pane_size=60.0, got %v", cfg.Tmux.MainPaneSize)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+
+	if !reflect.DeepEqual(cfg.Tmux, roundtrip.Tmux) {
+		t.Errorf("round-trip mismatch: original=%+v, roundtrip=%+v", cfg.Tmux, roundtrip.Tmux)
+	}
+}
+
+func TestBrowserAutomationEngineRoundTrip(t *testing.T) {
+	jsonData := `{"browser_automation_engine": {"provider": "playwright"}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.BrowserAutomationEngine == nil {
+		t.Fatal("browser_automation_engine is nil")
+	}
+	if cfg.BrowserAutomationEngine.Provider != "playwright" {
+		t.Errorf("expected provider=playwright, got %s", cfg.BrowserAutomationEngine.Provider)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"browser_automation_engine"`) {
+		t.Errorf("browser_automation_engine not in output: %s", marshaled)
+	}
+	if !strings.Contains(string(marshaled), `"provider":"playwright"`) {
+		t.Errorf("provider not preserved: %s", marshaled)
+	}
+}
