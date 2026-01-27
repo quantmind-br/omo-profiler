@@ -29,7 +29,14 @@
         "webfetch": "ask",
         "doom_loop": "deny",
         "external_directory": "ask"
-      }
+      },
+      "maxTokens": 8192,
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 4096
+      },
+      "reasoningEffort": "medium",
+      "textVerbosity": "low"
     },
     "plan": {
       "model": "o3",
@@ -60,7 +67,8 @@
         "edit": true,
         "bash": true
       },
-      "prompt_append": "Be concise."
+      "prompt_append": "Be concise.",
+      "description": "General purpose category for most tasks"
     },
     "planning": {
       "model": "o3",
@@ -139,5 +147,15 @@
   "git_master": {
     "commit_footer": true,
     "include_co_authored_by": false
+  },
+  "tmux": {
+    "enabled": true,
+    "layout": "main-vertical",
+    "main_pane_size": 60,
+    "main_pane_min_width": 120,
+    "agent_pane_min_width": 40
+  },
+  "browser_automation_engine": {
+    "provider": "playwright"
   }
 }
