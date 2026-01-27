@@ -320,3 +320,126 @@ func TestBrowserAutomationEngineRoundTrip(t *testing.T) {
 		t.Errorf("provider not preserved: %s", marshaled)
 	}
 }
+
+func TestCategoryConfigDescriptionRoundTrip(t *testing.T) {
+	jsonData := `{"categories": {"quick": {"model": "claude-haiku", "description": "Fast tasks"}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Categories == nil {
+		t.Fatal("categories is nil")
+	}
+	quick, ok := cfg.Categories["quick"]
+	if !ok {
+		t.Fatal("quick category not found")
+	}
+	if quick.Description != "Fast tasks" {
+		t.Errorf("expected description='Fast tasks', got %s", quick.Description)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"description":"Fast tasks"`) {
+		t.Errorf("description not preserved: %s", marshaled)
+	}
+}
+
+func TestAgentConfigExtendedFields(t *testing.T) {
+	jsonData := `{
+		"agents": {
+			"build": {
+				"model": "claude-sonnet-4",
+				"maxTokens": 8192,
+				"thinking": {"type": "enabled", "budgetTokens": 4096},
+				"reasoningEffort": "high",
+				"textVerbosity": "medium",
+				"providerOptions": {"stream": true, "cache": false}
+			}
+		}
+	}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	agent := cfg.Agents["build"]
+	if agent == nil {
+		t.Fatal("build agent is nil")
+	}
+
+	// Verify MaxTokens
+	if agent.MaxTokens == nil || *agent.MaxTokens != 8192 {
+		t.Errorf("expected maxTokens=8192, got %v", agent.MaxTokens)
+	}
+
+	// Verify Thinking
+	if agent.Thinking == nil {
+		t.Fatal("thinking is nil")
+	}
+	if agent.Thinking.Type != "enabled" {
+		t.Errorf("expected thinking.type=enabled, got %s", agent.Thinking.Type)
+	}
+	if agent.Thinking.BudgetTokens == nil || *agent.Thinking.BudgetTokens != 4096 {
+		t.Errorf("expected thinking.budgetTokens=4096, got %v", agent.Thinking.BudgetTokens)
+	}
+
+	// Verify ReasoningEffort
+	if agent.ReasoningEffort != "high" {
+		t.Errorf("expected reasoningEffort=high, got %s", agent.ReasoningEffort)
+	}
+
+	// Verify TextVerbosity
+	if agent.TextVerbosity != "medium" {
+		t.Errorf("expected textVerbosity=medium, got %s", agent.TextVerbosity)
+	}
+
+	// Verify ProviderOptions
+	if agent.ProviderOptions == nil {
+		t.Fatal("providerOptions is nil")
+	}
+	if agent.ProviderOptions["stream"] != true {
+		t.Errorf("expected providerOptions.stream=true, got %v", agent.ProviderOptions["stream"])
+	}
+	if agent.ProviderOptions["cache"] != false {
+		t.Errorf("expected providerOptions.cache=false, got %v", agent.ProviderOptions["cache"])
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+
+	rtAgent := roundtrip.Agents["build"]
+	if rtAgent == nil {
+		t.Fatal("build agent not found after round-trip")
+	}
+
+	if !reflect.DeepEqual(agent.MaxTokens, rtAgent.MaxTokens) {
+		t.Errorf("maxTokens mismatch after round-trip")
+	}
+	if !reflect.DeepEqual(agent.Thinking, rtAgent.Thinking) {
+		t.Errorf("thinking mismatch after round-trip")
+	}
+	if agent.ReasoningEffort != rtAgent.ReasoningEffort {
+		t.Errorf("reasoningEffort mismatch after round-trip")
+	}
+	if agent.TextVerbosity != rtAgent.TextVerbosity {
+		t.Errorf("textVerbosity mismatch after round-trip")
+	}
+	if !reflect.DeepEqual(agent.ProviderOptions, rtAgent.ProviderOptions) {
+		t.Errorf("providerOptions mismatch after round-trip")
+	}
+}

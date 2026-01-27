@@ -26,22 +26,26 @@ type Config struct {
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
 }
 
-// AgentConfig has 14 optional fields
 type AgentConfig struct {
-	Model        string            `json:"model,omitempty"`
-	Variant      string            `json:"variant,omitempty"`
-	Category     string            `json:"category,omitempty"`
-	Skills       []string          `json:"skills,omitempty"`
-	Temperature  *float64          `json:"temperature,omitempty"`
-	TopP         *float64          `json:"top_p,omitempty"`
-	Prompt       string            `json:"prompt,omitempty"`
-	PromptAppend string            `json:"prompt_append,omitempty"`
-	Tools        map[string]bool   `json:"tools,omitempty"`
-	Disable      *bool             `json:"disable,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Mode         string            `json:"mode,omitempty"`
-	Color        string            `json:"color,omitempty"`
-	Permission   *PermissionConfig `json:"permission,omitempty"`
+	Model           string                 `json:"model,omitempty"`
+	Variant         string                 `json:"variant,omitempty"`
+	Category        string                 `json:"category,omitempty"`
+	Skills          []string               `json:"skills,omitempty"`
+	Temperature     *float64               `json:"temperature,omitempty"`
+	TopP            *float64               `json:"top_p,omitempty"`
+	MaxTokens       *float64               `json:"maxTokens,omitempty"`
+	Thinking        *ThinkingConfig        `json:"thinking,omitempty"`
+	ReasoningEffort string                 `json:"reasoningEffort,omitempty"`
+	TextVerbosity   string                 `json:"textVerbosity,omitempty"`
+	ProviderOptions map[string]interface{} `json:"providerOptions,omitempty"`
+	Prompt          string                 `json:"prompt,omitempty"`
+	PromptAppend    string                 `json:"prompt_append,omitempty"`
+	Tools           map[string]bool        `json:"tools,omitempty"`
+	Disable         *bool                  `json:"disable,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Mode            string                 `json:"mode,omitempty"`
+	Color           string                 `json:"color,omitempty"`
+	Permission      *PermissionConfig      `json:"permission,omitempty"`
 }
 
 // PermissionConfig - bash is interface{} to preserve string OR object
@@ -57,6 +61,7 @@ type PermissionConfig struct {
 type CategoryConfig struct {
 	Model           string          `json:"model"`
 	Variant         string          `json:"variant,omitempty"`
+	Description     string          `json:"description,omitempty"`
 	Temperature     *float64        `json:"temperature,omitempty"`
 	TopP            *float64        `json:"top_p,omitempty"`
 	MaxTokens       *float64        `json:"maxTokens,omitempty"`
