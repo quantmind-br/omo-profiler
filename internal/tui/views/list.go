@@ -163,7 +163,7 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case listProfilesLoadedMsg:
-		l.LoadProfiles()
+		_ = l.LoadProfiles()
 		return l, nil
 
 	case tea.WindowSizeMsg:

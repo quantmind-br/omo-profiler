@@ -146,9 +146,7 @@ func NewModelRegistry() ModelRegistry {
 func (m *ModelRegistry) rebuildFlatModels() {
 	m.flatModels = nil
 	for _, group := range m.groups {
-		for _, model := range group.Models {
-			m.flatModels = append(m.flatModels, model)
-		}
+		m.flatModels = append(m.flatModels, group.Models...)
 	}
 }
 

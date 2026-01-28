@@ -366,37 +366,6 @@ func (w Wizard) renderHeader() string {
 	return lipgloss.JoinVertical(lipgloss.Left, title, progress)
 }
 
-func (w Wizard) renderFooter() string {
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-
-	var helpParts []string
-
-	if w.step == StepName {
-		helpParts = append(helpParts, "esc cancel")
-	} else {
-		helpParts = append(helpParts, "shift+tab back")
-	}
-
-	if w.step == StepReview {
-		helpParts = append(helpParts, "enter save")
-	} else {
-		helpParts = append(helpParts, "tab/enter next")
-	}
-
-	helpParts = append(helpParts, "ctrl+c cancel")
-
-	if w.err != nil {
-		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-		return lipgloss.JoinVertical(lipgloss.Left,
-			errorStyle.Render("Error: "+w.err.Error()),
-			helpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, helpParts...)),
-		)
-	}
-
-	return helpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top,
-		helpParts[0], " • ", helpParts[1], " • ", helpParts[2]))
-}
-
 // GetProfile returns the built profile
 func (w Wizard) GetProfile() *profile.Profile {
 	return &profile.Profile{

@@ -86,7 +86,7 @@ func TestSave(t *testing.T) {
 	// Verify content
 	data, _ := os.ReadFile(expectedPath)
 	var loaded config.Config
-	json.Unmarshal(data, &loaded)
+	_ = json.Unmarshal(data, &loaded)
 
 	if len(loaded.DisabledAgents) != 1 || loaded.DisabledAgents[0] != "agent1" {
 		t.Error("Saved config doesn't match original")
@@ -103,7 +103,7 @@ func TestDelete(t *testing.T) {
 
 	// Create a profile to delete
 	profilePath := filepath.Join(config.ProfilesDir(), "to-delete.json")
-	os.WriteFile(profilePath, []byte("{}"), 0644)
+	_ = os.WriteFile(profilePath, []byte("{}"), 0644)
 
 	if err := Delete("to-delete"); err != nil {
 		t.Fatalf("Delete failed: %v", err)
@@ -134,9 +134,9 @@ func TestList(t *testing.T) {
 
 	// Create test profiles
 	profilesDir := config.ProfilesDir()
-	os.WriteFile(filepath.Join(profilesDir, "profile1.json"), []byte("{}"), 0644)
-	os.WriteFile(filepath.Join(profilesDir, "profile2.json"), []byte("{}"), 0644)
-	os.WriteFile(filepath.Join(profilesDir, "not-json.txt"), []byte("{}"), 0644)
+	_ = os.WriteFile(filepath.Join(profilesDir, "profile1.json"), []byte("{}"), 0644)
+	_ = os.WriteFile(filepath.Join(profilesDir, "profile2.json"), []byte("{}"), 0644)
+	_ = os.WriteFile(filepath.Join(profilesDir, "not-json.txt"), []byte("{}"), 0644)
 
 	profiles, err := List()
 	if err != nil {
@@ -187,7 +187,7 @@ func TestExists(t *testing.T) {
 
 	// Create a profile
 	profilePath := filepath.Join(config.ProfilesDir(), "exists-test.json")
-	os.WriteFile(profilePath, []byte("{}"), 0644)
+	_ = os.WriteFile(profilePath, []byte("{}"), 0644)
 
 	if !Exists("exists-test") {
 		t.Error("Expected profile to exist")

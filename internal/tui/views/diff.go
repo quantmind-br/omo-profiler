@@ -25,7 +25,6 @@ var (
 	diffTitleStyle    = lipgloss.NewStyle().Bold(true).Foreground(diffPurple)
 	diffSubtitleStyle = lipgloss.NewStyle().Foreground(diffGray)
 	diffErrorStyle    = lipgloss.NewStyle().Foreground(diffRed)
-	diffHelpStyle     = lipgloss.NewStyle().Foreground(diffGray)
 	diffActiveStyle   = lipgloss.NewStyle().Bold(true).Foreground(diffWhite).Background(diffPurple)
 	diffInactiveStyle = lipgloss.NewStyle().Foreground(diffWhite)
 	diffAccentStyle   = lipgloss.NewStyle().Foreground(diffMagenta)

@@ -73,6 +73,7 @@ var disableableSkills = []string{
 	"playwright",
 	"frontend-ui-ux",
 	"git-master",
+	"agent-browser",
 }
 
 // Disableable commands (2)
@@ -82,6 +83,8 @@ var disableableCommands = []string{
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
+var baeProviderValues = []string{"", "playwright", "agent-browser", "dev-browser"}
+var sisSwarmUIModeValues = []string{"", "toast", "tmux", "both"}
 
 // Sections in the other settings
 type otherSection int
@@ -101,6 +104,8 @@ const (
 	sectionGitMaster
 	sectionCommentChecker
 	sectionSkillsJson
+	sectionBrowserAutomationEngine
+	sectionSisyphus
 )
 
 var otherSectionNames = []string{
@@ -118,6 +123,8 @@ var otherSectionNames = []string{
 	"Git Master",
 	"Comment Checker",
 	"Skills (JSON)",
+	"Browser Automation Engine",
+	"Sisyphus",
 }
 
 type wizardOtherKeyMap struct {
@@ -233,6 +240,19 @@ type WizardOther struct {
 	// Skills JSON
 	skillsEditor textarea.Model
 
+	// Browser Automation Engine
+	baeProviderIdx int
+
+	// Sisyphus Tasks
+	sisTasksEnabled          bool
+	sisTasksStoragePath      textinput.Model
+	sisTasksClaudeCodeCompat bool
+
+	// Sisyphus Swarm
+	sisSwarmEnabled     bool
+	sisSwarmStoragePath textinput.Model
+	sisSwarmUIModeIdx   int
+
 	// UI State
 	currentSection  otherSection
 	sectionExpanded map[otherSection]bool
@@ -313,6 +333,14 @@ func NewWizardOther() WizardOther {
 	skillsEditor.SetWidth(60)
 	skillsEditor.SetHeight(8)
 
+	sisTasksStoragePath := textinput.New()
+	sisTasksStoragePath.Placeholder = ".sisyphus/tasks"
+	sisTasksStoragePath.Width = 40
+
+	sisSwarmStoragePath := textinput.New()
+	sisSwarmStoragePath.Placeholder = ".sisyphus/teams"
+	sisSwarmStoragePath.Width = 40
+
 	return WizardOther{
 		disabledMcps:           disabledMcps,
 		disabledAgents:         disabledAgents,
@@ -329,6 +357,8 @@ func NewWizardOther() WizardOther {
 		dcpPurgeErrorsTurns:    dcpPurgeErrorsTurns,
 		ccPluginsOverride:      ccPluginsOverride,
 		skillsEditor:           skillsEditor,
+		sisTasksStoragePath:    sisTasksStoragePath,
+		sisSwarmStoragePath:    sisSwarmStoragePath,
 		sectionExpanded:        sectionExpanded,
 		keys:                   newWizardOtherKeyMap(),
 	}
@@ -542,6 +572,49 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 			w.skillsEditor.SetValue(string(cfg.Skills))
 		}
 	}
+
+	// Browser Automation Engine
+	if cfg.BrowserAutomationEngine != nil {
+		if cfg.BrowserAutomationEngine.Provider != "" {
+			for i, v := range baeProviderValues {
+				if v == cfg.BrowserAutomationEngine.Provider {
+					w.baeProviderIdx = i
+					break
+				}
+			}
+		}
+	}
+
+	// Sisyphus
+	if cfg.Sisyphus != nil {
+		if cfg.Sisyphus.Tasks != nil {
+			if cfg.Sisyphus.Tasks.Enabled != nil {
+				w.sisTasksEnabled = *cfg.Sisyphus.Tasks.Enabled
+			}
+			if cfg.Sisyphus.Tasks.StoragePath != "" {
+				w.sisTasksStoragePath.SetValue(cfg.Sisyphus.Tasks.StoragePath)
+			}
+			if cfg.Sisyphus.Tasks.ClaudeCodeCompat != nil {
+				w.sisTasksClaudeCodeCompat = *cfg.Sisyphus.Tasks.ClaudeCodeCompat
+			}
+		}
+		if cfg.Sisyphus.Swarm != nil {
+			if cfg.Sisyphus.Swarm.Enabled != nil {
+				w.sisSwarmEnabled = *cfg.Sisyphus.Swarm.Enabled
+			}
+			if cfg.Sisyphus.Swarm.StoragePath != "" {
+				w.sisSwarmStoragePath.SetValue(cfg.Sisyphus.Swarm.StoragePath)
+			}
+			if cfg.Sisyphus.Swarm.UIMode != "" {
+				for i, v := range sisSwarmUIModeValues {
+					if v == cfg.Sisyphus.Swarm.UIMode {
+						w.sisSwarmUIModeIdx = i
+						break
+					}
+				}
+			}
+		}
+	}
 }
 
 func (w *WizardOther) Apply(cfg *config.Config) {
@@ -741,7 +814,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if v := w.rlDefaultMaxIterations.Value(); v != "" {
 			var i int
-			fmt.Sscanf(v, "%d", &i)
+			_, _ = fmt.Sscanf(v, "%d", &i)
 			if i > 0 {
 				cfg.RalphLoop.DefaultMaxIterations = &i
 			}
@@ -759,7 +832,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
 		if v := w.btDefaultConcurrency.Value(); v != "" {
 			var i int
-			fmt.Sscanf(v, "%d", &i)
+			_, _ = fmt.Sscanf(v, "%d", &i)
 			if i > 0 {
 				cfg.BackgroundTask.DefaultConcurrency = &i
 			}
@@ -802,6 +875,49 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.Skills = json.RawMessage(v)
 	} else {
 		cfg.Skills = nil
+	}
+
+	// Browser Automation Engine
+	if w.baeProviderIdx > 0 {
+		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
+			Provider: baeProviderValues[w.baeProviderIdx],
+		}
+	}
+
+	// Sisyphus
+	sisHasData := w.sisTasksEnabled || w.sisTasksStoragePath.Value() != "" ||
+		w.sisTasksClaudeCodeCompat || w.sisSwarmEnabled ||
+		w.sisSwarmStoragePath.Value() != "" || w.sisSwarmUIModeIdx > 0
+	if sisHasData {
+		cfg.Sisyphus = &config.SisyphusConfig{}
+
+		tasksHasData := w.sisTasksEnabled || w.sisTasksStoragePath.Value() != "" || w.sisTasksClaudeCodeCompat
+		if tasksHasData {
+			cfg.Sisyphus.Tasks = &config.SisyphusTasksConfig{}
+			if w.sisTasksEnabled {
+				cfg.Sisyphus.Tasks.Enabled = &w.sisTasksEnabled
+			}
+			if v := w.sisTasksStoragePath.Value(); v != "" {
+				cfg.Sisyphus.Tasks.StoragePath = v
+			}
+			if w.sisTasksClaudeCodeCompat {
+				cfg.Sisyphus.Tasks.ClaudeCodeCompat = &w.sisTasksClaudeCodeCompat
+			}
+		}
+
+		swarmHasData := w.sisSwarmEnabled || w.sisSwarmStoragePath.Value() != "" || w.sisSwarmUIModeIdx > 0
+		if swarmHasData {
+			cfg.Sisyphus.Swarm = &config.SisyphusSwarmConfig{}
+			if w.sisSwarmEnabled {
+				cfg.Sisyphus.Swarm.Enabled = &w.sisSwarmEnabled
+			}
+			if v := w.sisSwarmStoragePath.Value(); v != "" {
+				cfg.Sisyphus.Swarm.StoragePath = v
+			}
+			if w.sisSwarmUIModeIdx > 0 {
+				cfg.Sisyphus.Swarm.UIMode = sisSwarmUIModeValues[w.sisSwarmUIModeIdx]
+			}
+		}
 	}
 }
 
@@ -1351,6 +1467,25 @@ func (w *WizardOther) toggleSubItem() {
 		case 1:
 			w.gmIncludeCoAuthoredBy = !w.gmIncludeCoAuthoredBy
 		}
+	case sectionBrowserAutomationEngine:
+		if w.subCursor == 0 {
+			w.baeProviderIdx = (w.baeProviderIdx + 1) % len(baeProviderValues)
+		}
+	case sectionSisyphus:
+		switch w.subCursor {
+		case 0:
+			w.sisTasksEnabled = !w.sisTasksEnabled
+		case 1:
+			// storage_path - handled in Update
+		case 2:
+			w.sisTasksClaudeCodeCompat = !w.sisTasksClaudeCodeCompat
+		case 3:
+			w.sisSwarmEnabled = !w.sisSwarmEnabled
+		case 4:
+			// storage_path - handled in Update
+		case 5:
+			w.sisSwarmUIModeIdx = (w.sisSwarmUIModeIdx + 1) % len(sisSwarmUIModeValues)
+		}
 	}
 }
 
@@ -1595,6 +1730,64 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionSkillsJson:
 		lines = append(lines, indent+w.skillsEditor.View())
+
+	case sectionBrowserAutomationEngine:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		providerVal := ""
+		if w.baeProviderIdx > 0 {
+			providerVal = baeProviderValues[w.baeProviderIdx]
+		}
+		lines = append(lines, indent+cursor+style.Render("provider: ")+providerVal)
+
+	case sectionSisyphus:
+		lines = append(lines, indent+"  "+dimStyle.Render("─── Tasks ───"))
+		lines = append(lines, renderCheckbox(0, "enabled", w.sisTasksEnabled))
+
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisTasksStoragePath.View())
+
+		lines = append(lines, renderCheckbox(2, "claude_code_compat", w.sisTasksClaudeCodeCompat))
+
+		lines = append(lines, indent+"  "+dimStyle.Render("─── Swarm ───"))
+		lines = append(lines, renderCheckbox(3, "enabled", w.sisSwarmEnabled))
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisSwarmStoragePath.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		uiModeVal := ""
+		if w.sisSwarmUIModeIdx > 0 {
+			uiModeVal = sisSwarmUIModeValues[w.sisSwarmUIModeIdx]
+		}
+		lines = append(lines, indent+cursor+style.Render("ui_mode: ")+uiModeVal)
 	}
 
 	lines = append(lines, "")

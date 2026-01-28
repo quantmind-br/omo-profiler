@@ -129,7 +129,7 @@ func TestUpdate(t *testing.T) {
 
 	reg, _ := Load()
 	m1 := RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"}
-	reg.Add(m1)
+	_ = reg.Add(m1)
 
 	// Success update
 	updated := m1
@@ -160,7 +160,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Conflict
-	reg.Add(RegisteredModel{ModelID: "m2"})
+	_ = reg.Add(RegisteredModel{ModelID: "m2"})
 	conflict := RegisteredModel{ModelID: "m2"}
 	if err := reg.Update("m1-renamed", conflict); err == nil {
 		t.Error("Expected error for conflict update")
@@ -172,7 +172,7 @@ func TestDelete(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1"})
 
 	// Success
 	if err := reg.Delete("m1"); err != nil {
@@ -193,7 +193,7 @@ func TestGet(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1"})
 
 	if reg.Get("m1") == nil {
 		t.Error("Get should return model")
@@ -208,10 +208,10 @@ func TestListByProvider(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	reg.Add(RegisteredModel{DisplayName: "B", ModelID: "1", Provider: "openai"})
-	reg.Add(RegisteredModel{DisplayName: "A", ModelID: "2", Provider: "openai"})
-	reg.Add(RegisteredModel{DisplayName: "C", ModelID: "3", Provider: "anthropic"})
-	reg.Add(RegisteredModel{DisplayName: "D", ModelID: "4", Provider: ""}) // Empty provider
+	_ = reg.Add(RegisteredModel{DisplayName: "B", ModelID: "1", Provider: "openai"})
+	_ = reg.Add(RegisteredModel{DisplayName: "A", ModelID: "2", Provider: "openai"})
+	_ = reg.Add(RegisteredModel{DisplayName: "C", ModelID: "3", Provider: "anthropic"})
+	_ = reg.Add(RegisteredModel{DisplayName: "D", ModelID: "4", Provider: ""}) // Empty provider
 
 	groups := reg.ListByProvider()
 
@@ -242,7 +242,7 @@ func TestExists(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1"})
 
 	if !Exists("m1") {
 		t.Error("Exists returned false for existing model")

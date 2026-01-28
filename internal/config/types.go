@@ -24,6 +24,7 @@ type Config struct {
 	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
 	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
+	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 }
 
 type AgentConfig struct {
@@ -186,4 +187,24 @@ type TmuxConfig struct {
 	MainPaneSize      *float64 `json:"main_pane_size,omitempty"`
 	MainPaneMinWidth  *float64 `json:"main_pane_min_width,omitempty"`
 	AgentPaneMinWidth *float64 `json:"agent_pane_min_width,omitempty"`
+}
+
+// SisyphusConfig
+type SisyphusConfig struct {
+	Tasks *SisyphusTasksConfig `json:"tasks,omitempty"`
+	Swarm *SisyphusSwarmConfig `json:"swarm,omitempty"`
+}
+
+// SisyphusTasksConfig
+type SisyphusTasksConfig struct {
+	Enabled          *bool  `json:"enabled,omitempty"`
+	StoragePath      string `json:"storage_path,omitempty"`
+	ClaudeCodeCompat *bool  `json:"claude_code_compat,omitempty"`
+}
+
+// SisyphusSwarmConfig
+type SisyphusSwarmConfig struct {
+	Enabled     *bool  `json:"enabled,omitempty"`
+	StoragePath string `json:"storage_path,omitempty"`
+	UIMode      string `json:"ui_mode,omitempty"`
 }
