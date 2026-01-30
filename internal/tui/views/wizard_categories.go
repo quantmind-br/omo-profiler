@@ -12,10 +12,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/models"
 )
 
 var thinkingTypes = []string{"", "enabled", "disabled"}
-var effortLevels = []string{"", "low", "medium", "high"}
+var effortLevels = []string{"", "low", "medium", "high", "xhigh"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
 type categoryFormField int
@@ -24,6 +25,8 @@ const (
 	catFieldName categoryFormField = iota
 	catFieldModel
 	catFieldVariant
+	catFieldDescription
+	catFieldIsUnstable
 	catFieldTemperature
 	catFieldTopP
 	catFieldMaxTokens
@@ -38,7 +41,10 @@ const (
 type categoryConfig struct {
 	name               string
 	nameInput          textinput.Model
-	model              textinput.Model
+	modelValue         string
+	modelDisplay       string
+	description        textinput.Model
+	isUnstable         bool
 	variant            textinput.Model
 	temperature        textinput.Model
 	topP               textinput.Model
@@ -50,6 +56,16 @@ type categoryConfig struct {
 	tools              textinput.Model
 	promptAppend       textarea.Model
 	expanded           bool
+	// Model selector state
+	selectingModel       bool
+	modelSelector        ModelSelector
+	savingCustomModel    bool
+	customModelToSave    string
+	savePromptAnswer     string
+	saveDisplayNameInput textinput.Model
+	saveProviderInput    textinput.Model
+	saveFocusedField     int
+	saveError            string
 }
 
 func newCategoryConfig() categoryConfig {
@@ -57,9 +73,9 @@ func newCategoryConfig() categoryConfig {
 	nameInput.Placeholder = "category-name"
 	nameInput.Width = 30
 
-	model := textinput.New()
-	model.Placeholder = "model name"
-	model.Width = 30
+	description := textinput.New()
+	description.Placeholder = "description"
+	description.Width = 40
 
 	variant := textinput.New()
 	variant.Placeholder = "variant"
@@ -90,16 +106,26 @@ func newCategoryConfig() categoryConfig {
 	promptAppend.SetWidth(50)
 	promptAppend.SetHeight(3)
 
+	saveDisplayNameInput := textinput.New()
+	saveDisplayNameInput.Placeholder = "Display name"
+	saveDisplayNameInput.Width = 30
+
+	saveProviderInput := textinput.New()
+	saveProviderInput.Placeholder = "Provider (optional)"
+	saveProviderInput.Width = 30
+
 	return categoryConfig{
-		nameInput:      nameInput,
-		model:          model,
-		variant:        variant,
-		temperature:    temperature,
-		topP:           topP,
-		maxTokens:      maxTokens,
-		thinkingBudget: thinkingBudget,
-		tools:          tools,
-		promptAppend:   promptAppend,
+		nameInput:            nameInput,
+		description:          description,
+		variant:              variant,
+		temperature:          temperature,
+		topP:                 topP,
+		maxTokens:            maxTokens,
+		thinkingBudget:       thinkingBudget,
+		tools:                tools,
+		promptAppend:         promptAppend,
+		saveDisplayNameInput: saveDisplayNameInput,
+		saveProviderInput:    saveProviderInput,
 	}
 }
 
@@ -215,7 +241,14 @@ func (w *WizardCategories) SetConfig(cfg *config.Config) {
 		cc.nameInput.SetValue(name)
 
 		if catCfg.Model != "" {
-			cc.model.SetValue(catCfg.Model)
+			cc.modelValue = catCfg.Model
+			cc.modelDisplay = catCfg.Model
+		}
+		if catCfg.Description != "" {
+			cc.description.SetValue(catCfg.Description)
+		}
+		if catCfg.IsUnstableAgent != nil {
+			cc.isUnstable = *catCfg.IsUnstableAgent
 		}
 		if catCfg.Variant != "" {
 			cc.variant.SetValue(catCfg.Variant)
@@ -282,8 +315,14 @@ func (w *WizardCategories) Apply(cfg *config.Config) {
 
 		catCfg := &config.CategoryConfig{}
 
-		if v := cc.model.Value(); v != "" {
-			catCfg.Model = v
+		if cc.modelValue != "" {
+			catCfg.Model = cc.modelValue
+		}
+		if v := cc.description.Value(); v != "" {
+			catCfg.Description = v
+		}
+		if cc.isUnstable {
+			catCfg.IsUnstableAgent = &cc.isUnstable
 		}
 		if v := cc.variant.Value(); v != "" {
 			catCfg.Variant = v
@@ -338,7 +377,7 @@ func (w *WizardCategories) Apply(cfg *config.Config) {
 
 func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	cc.nameInput.Blur()
-	cc.model.Blur()
+	cc.description.Blur()
 	cc.variant.Blur()
 	cc.temperature.Blur()
 	cc.topP.Blur()
@@ -351,7 +390,8 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	case catFieldName:
 		cc.nameInput.Focus()
 	case catFieldModel:
-		cc.model.Focus()
+	case catFieldDescription:
+		cc.description.Focus()
 	case catFieldVariant:
 		cc.variant.Focus()
 	case catFieldTemperature:
@@ -375,7 +415,7 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 	for i := 0; i < w.cursor; i++ {
 		baseLine++ // category header
 		if w.categories[i].expanded {
-			baseLine += 18 // expanded form ~18 lines
+			baseLine += 20 // expanded form ~20 lines
 		}
 	}
 	baseLine++ // current category header
@@ -385,15 +425,17 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 		catFieldName:            0,
 		catFieldModel:           1,
 		catFieldVariant:         2,
-		catFieldTemperature:     3,
-		catFieldTopP:            4,
-		catFieldMaxTokens:       5,
-		catFieldThinkingType:    7, // after empty line
-		catFieldThinkingBudget:  8,
-		catFieldReasoningEffort: 10,
-		catFieldTextVerbosity:   11,
-		catFieldTools:           13,
-		catFieldPromptAppend:    14,
+		catFieldDescription:     3,
+		catFieldIsUnstable:      4,
+		catFieldTemperature:     5,
+		catFieldTopP:            6,
+		catFieldMaxTokens:       7,
+		catFieldThinkingType:    10, // after empty line + thinking label
+		catFieldThinkingBudget:  11,
+		catFieldReasoningEffort: 13,
+		catFieldTextVerbosity:   14,
+		catFieldTools:           16,
+		catFieldPromptAppend:    17,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -416,12 +458,54 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
+	var currentCategory *categoryConfig
+	if len(w.categories) > 0 && w.cursor < len(w.categories) {
+		currentCategory = w.categories[w.cursor]
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		w.SetSize(msg.Width, msg.Height)
+		if currentCategory != nil && currentCategory.selectingModel {
+			currentCategory.modelSelector.SetSize(msg.Width, msg.Height)
+		}
+		return w, nil
+
+	case ModelSelectedMsg:
+		if currentCategory != nil {
+			currentCategory.modelValue = msg.ModelID
+			currentCategory.modelDisplay = msg.DisplayName
+			currentCategory.selectingModel = false
+		}
+		return w, nil
+
+	case ModelSelectorCancelMsg:
+		if currentCategory != nil {
+			currentCategory.selectingModel = false
+		}
+		return w, nil
+
+	case PromptSaveCustomMsg:
+		if currentCategory != nil {
+			currentCategory.savingCustomModel = true
+			currentCategory.customModelToSave = msg.ModelID
+			currentCategory.savePromptAnswer = ""
+			currentCategory.saveDisplayNameInput.SetValue("")
+			currentCategory.saveProviderInput.SetValue("")
+			currentCategory.saveError = ""
+		}
 		return w, nil
 
 	case tea.KeyMsg:
+		if currentCategory != nil && currentCategory.selectingModel {
+			currentCategory.modelSelector, cmd = currentCategory.modelSelector.Update(msg)
+			return w, cmd
+		}
+
+		if currentCategory != nil && currentCategory.savingCustomModel {
+			return w.handleSaveCustomModel(currentCategory, msg)
+		}
+
 		if w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
 			cc := w.categories[w.cursor]
 			if cc.expanded {
@@ -469,6 +553,16 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					w.ensureFieldVisible()
 					return w, nil
 				case "enter":
+					if w.focusedField == catFieldModel {
+						cc.selectingModel = true
+						cc.modelSelector = NewModelSelector()
+						cc.modelSelector.SetSize(w.width, w.height)
+						return w, nil
+					}
+					if w.focusedField == catFieldIsUnstable {
+						cc.isUnstable = !cc.isUnstable
+						return w, nil
+					}
 					// Cycle through options for dropdown fields
 					switch w.focusedField {
 					case catFieldThinkingType:
@@ -486,9 +580,9 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					cc.nameInput.Focus()
 					cc.nameInput, cmd = cc.nameInput.Update(msg)
 					cmds = append(cmds, cmd)
-				case catFieldModel:
-					cc.model.Focus()
-					cc.model, cmd = cc.model.Update(msg)
+				case catFieldDescription:
+					cc.description.Focus()
+					cc.description, cmd = cc.description.Update(msg)
 					cmds = append(cmds, cmd)
 				case catFieldVariant:
 					cc.variant.Focus()
@@ -673,10 +767,28 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + val + " [Enter]"
 	}
 
+	renderBool := func(label string, field categoryFormField, val bool) string {
+		style := fieldStyle
+		if w.inForm && w.focusedField == field {
+			style = focusStyle
+		}
+		checkbox := "[ ]"
+		if val {
+			checkbox = "[✓]"
+		}
+		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + checkbox + " [Enter]"
+	}
+
 	lines = append(lines, "")
 	lines = append(lines, renderField("name", catFieldName, cc.nameInput.View()))
-	lines = append(lines, renderField("model", catFieldModel, cc.model.View()))
+	modelDisplayValue := cc.modelDisplay
+	if modelDisplayValue == "" {
+		modelDisplayValue = "[Select model...]"
+	}
+	lines = append(lines, renderField("model", catFieldModel, modelDisplayValue))
 	lines = append(lines, renderField("variant", catFieldVariant, cc.variant.View()))
+	lines = append(lines, renderField("description", catFieldDescription, cc.description.View()))
+	lines = append(lines, renderBool("is_unstable", catFieldIsUnstable, cc.isUnstable))
 	lines = append(lines, renderField("temperature", catFieldTemperature, cc.temperature.View()))
 	lines = append(lines, renderField("top_p", catFieldTopP, cc.topP.View()))
 	lines = append(lines, renderField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
@@ -696,6 +808,16 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 }
 
 func (w WizardCategories) View() string {
+	if len(w.categories) > 0 && w.cursor < len(w.categories) {
+		cc := w.categories[w.cursor]
+		if cc.selectingModel {
+			return cc.modelSelector.View()
+		}
+		if cc.savingCustomModel {
+			return w.renderSaveCustomPrompt(cc)
+		}
+	}
+
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
@@ -703,7 +825,7 @@ func (w WizardCategories) View() string {
 	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
+		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: select/toggle • Esc: close form")
 	}
 
 	content := w.viewport.View()
@@ -714,4 +836,126 @@ func (w WizardCategories) View() string {
 		"",
 		content,
 	)
+}
+
+func (w WizardCategories) handleSaveCustomModel(cc *categoryConfig, msg tea.KeyMsg) (WizardCategories, tea.Cmd) {
+	if cc.savePromptAnswer == "" {
+		switch msg.String() {
+		case "y", "Y":
+			cc.savePromptAnswer = "y"
+			cc.saveFocusedField = 0
+			cc.saveDisplayNameInput.Focus()
+			return w, textinput.Blink
+		case "n", "N":
+			cc.savingCustomModel = false
+			cc.savePromptAnswer = ""
+			return w, nil
+		case "esc":
+			cc.savingCustomModel = false
+			cc.savePromptAnswer = ""
+			return w, nil
+		}
+		return w, nil
+	}
+
+	switch msg.String() {
+	case "enter":
+		displayName := strings.TrimSpace(cc.saveDisplayNameInput.Value())
+		if displayName == "" {
+			cc.saveError = "Display name is required"
+			return w, nil
+		}
+
+		registry, err := models.Load()
+		if err != nil {
+			cc.saveError = err.Error()
+			return w, nil
+		}
+
+		newModel := models.RegisteredModel{
+			DisplayName: displayName,
+			ModelID:     cc.customModelToSave,
+			Provider:    strings.TrimSpace(cc.saveProviderInput.Value()),
+		}
+
+		if err := registry.Add(newModel); err != nil {
+			cc.saveError = err.Error()
+			return w, nil
+		}
+
+		cc.modelDisplay = displayName
+		cc.savingCustomModel = false
+		cc.savePromptAnswer = ""
+		cc.saveError = ""
+		return w, nil
+
+	case "esc":
+		cc.savingCustomModel = false
+		cc.savePromptAnswer = ""
+		return w, nil
+
+	case "tab":
+		cc.saveFocusedField = (cc.saveFocusedField + 1) % 2
+		if cc.saveFocusedField == 0 {
+			cc.saveDisplayNameInput.Focus()
+			cc.saveProviderInput.Blur()
+		} else {
+			cc.saveProviderInput.Focus()
+			cc.saveDisplayNameInput.Blur()
+		}
+		return w, nil
+
+	case "shift+tab":
+		cc.saveFocusedField = (cc.saveFocusedField + 1) % 2
+		if cc.saveFocusedField == 0 {
+			cc.saveDisplayNameInput.Focus()
+			cc.saveProviderInput.Blur()
+		} else {
+			cc.saveProviderInput.Focus()
+			cc.saveDisplayNameInput.Blur()
+		}
+		return w, nil
+	}
+
+	var cmd tea.Cmd
+	if cc.saveFocusedField == 0 {
+		cc.saveDisplayNameInput, cmd = cc.saveDisplayNameInput.Update(msg)
+	} else {
+		cc.saveProviderInput, cmd = cc.saveProviderInput.Update(msg)
+	}
+	cc.saveError = ""
+	return w, cmd
+}
+
+func (w WizardCategories) renderSaveCustomPrompt(cc *categoryConfig) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
+
+	var lines []string
+	lines = append(lines, titleStyle.Render("Custom Model"))
+	lines = append(lines, "")
+	lines = append(lines, labelStyle.Render(fmt.Sprintf("Model ID: %s", cc.customModelToSave)))
+	lines = append(lines, "")
+
+	if cc.savePromptAnswer == "" {
+		lines = append(lines, labelStyle.Render("Save this model for future use? (y/n)"))
+		lines = append(lines, "")
+		lines = append(lines, helpStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+	} else {
+		lines = append(lines, labelStyle.Render("Display name:"))
+		lines = append(lines, cc.saveDisplayNameInput.View())
+		lines = append(lines, "")
+		lines = append(lines, labelStyle.Render("Provider (optional):"))
+		lines = append(lines, cc.saveProviderInput.View())
+		lines = append(lines, "")
+		if cc.saveError != "" {
+			lines = append(lines, errStyle.Render("Error: "+cc.saveError))
+			lines = append(lines, "")
+		}
+		lines = append(lines, helpStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

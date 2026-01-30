@@ -56,7 +56,7 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (8)
+// Disableable agents (9)
 var disableableAgents = []string{
 	"sisyphus",
 	"oracle",
@@ -66,6 +66,7 @@ var disableableAgents = []string{
 	"metis",
 	"momus",
 	"atlas",
+	"prometheus",
 }
 
 // Disableable skills (3)
@@ -105,6 +106,7 @@ const (
 	sectionCommentChecker
 	sectionSkillsJson
 	sectionBrowserAutomationEngine
+	sectionTmux
 	sectionSisyphus
 )
 
@@ -124,6 +126,7 @@ var otherSectionNames = []string{
 	"Comment Checker",
 	"Skills (JSON)",
 	"Browser Automation Engine",
+	"Tmux",
 	"Sisyphus",
 }
 
@@ -226,6 +229,7 @@ type WizardOther struct {
 	btDefaultConcurrency  textinput.Model
 	btProviderConcurrency textinput.Model
 	btModelConcurrency    textinput.Model
+	btStaleTimeoutMs      textinput.Model
 
 	// Notification
 	notifForceEnable bool
@@ -242,6 +246,13 @@ type WizardOther struct {
 
 	// Browser Automation Engine
 	baeProviderIdx int
+
+	// Tmux
+	tmuxEnabled           bool
+	tmuxLayout            textinput.Model
+	tmuxMainPaneSize      textinput.Model
+	tmuxMainPaneMinWidth  textinput.Model
+	tmuxAgentPaneMinWidth textinput.Model
 
 	// Sisyphus Tasks
 	sisTasksEnabled          bool
@@ -290,6 +301,10 @@ func NewWizardOther() WizardOther {
 	btModelConcurrency.Placeholder = "claude-3:2, gpt-4:3"
 	btModelConcurrency.Width = 40
 
+	btStaleTimeoutMs := textinput.New()
+	btStaleTimeoutMs.Placeholder = "60000"
+	btStaleTimeoutMs.Width = 15
+
 	ccPrompt := textinput.New()
 	ccPrompt.Placeholder = "custom prompt..."
 	ccPrompt.Width = 50
@@ -333,6 +348,22 @@ func NewWizardOther() WizardOther {
 	skillsEditor.SetWidth(60)
 	skillsEditor.SetHeight(8)
 
+	tmuxLayout := textinput.New()
+	tmuxLayout.Placeholder = "even-horizontal"
+	tmuxLayout.Width = 30
+
+	tmuxSize := textinput.New()
+	tmuxSize.Placeholder = "0.75"
+	tmuxSize.Width = 10
+
+	tmuxMinWidth := textinput.New()
+	tmuxMinWidth.Placeholder = "0.5"
+	tmuxMinWidth.Width = 10
+
+	tmuxAgentWidth := textinput.New()
+	tmuxAgentWidth.Placeholder = "0.3"
+	tmuxAgentWidth.Width = 10
+
 	sisTasksStoragePath := textinput.New()
 	sisTasksStoragePath.Placeholder = ".sisyphus/tasks"
 	sisTasksStoragePath.Width = 40
@@ -351,12 +382,17 @@ func NewWizardOther() WizardOther {
 		btDefaultConcurrency:   btConcurrency,
 		btProviderConcurrency:  btProviderConcurrency,
 		btModelConcurrency:     btModelConcurrency,
+		btStaleTimeoutMs:       btStaleTimeoutMs,
 		ccCustomPrompt:         ccPrompt,
 		dcpTurnProtTurns:       dcpTurnProtTurns,
 		dcpProtectedTools:      dcpProtectedTools,
 		dcpPurgeErrorsTurns:    dcpPurgeErrorsTurns,
 		ccPluginsOverride:      ccPluginsOverride,
 		skillsEditor:           skillsEditor,
+		tmuxLayout:             tmuxLayout,
+		tmuxMainPaneSize:       tmuxSize,
+		tmuxMainPaneMinWidth:   tmuxMinWidth,
+		tmuxAgentPaneMinWidth:  tmuxAgentWidth,
 		sisTasksStoragePath:    sisTasksStoragePath,
 		sisSwarmStoragePath:    sisSwarmStoragePath,
 		sectionExpanded:        sectionExpanded,
@@ -537,6 +573,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if len(cfg.BackgroundTask.ModelConcurrency) > 0 {
 			w.btModelConcurrency.SetValue(serializeMapStringInt(cfg.BackgroundTask.ModelConcurrency))
 		}
+		if cfg.BackgroundTask.StaleTimeoutMs != nil {
+			w.btStaleTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.StaleTimeoutMs))
+		}
 	}
 
 	// Notification
@@ -582,6 +621,25 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 					break
 				}
 			}
+		}
+	}
+
+	// Tmux
+	if cfg.Tmux != nil {
+		if cfg.Tmux.Enabled != nil {
+			w.tmuxEnabled = *cfg.Tmux.Enabled
+		}
+		if cfg.Tmux.Layout != "" {
+			w.tmuxLayout.SetValue(cfg.Tmux.Layout)
+		}
+		if cfg.Tmux.MainPaneSize != nil {
+			w.tmuxMainPaneSize.SetValue(fmt.Sprintf("%.2f", *cfg.Tmux.MainPaneSize))
+		}
+		if cfg.Tmux.MainPaneMinWidth != nil {
+			w.tmuxMainPaneMinWidth.SetValue(fmt.Sprintf("%.2f", *cfg.Tmux.MainPaneMinWidth))
+		}
+		if cfg.Tmux.AgentPaneMinWidth != nil {
+			w.tmuxAgentPaneMinWidth.SetValue(fmt.Sprintf("%.2f", *cfg.Tmux.AgentPaneMinWidth))
 		}
 	}
 
@@ -827,7 +885,8 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	// Background Task
 	btHasData := w.btDefaultConcurrency.Value() != "" ||
 		w.btProviderConcurrency.Value() != "" ||
-		w.btModelConcurrency.Value() != ""
+		w.btModelConcurrency.Value() != "" ||
+		w.btStaleTimeoutMs.Value() != ""
 	if btHasData {
 		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
 		if v := w.btDefaultConcurrency.Value(); v != "" {
@@ -842,6 +901,11 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if v := w.btModelConcurrency.Value(); v != "" {
 			cfg.BackgroundTask.ModelConcurrency = parseMapStringInt(v)
+		}
+		if v := w.btStaleTimeoutMs.Value(); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i > 0 {
+				cfg.BackgroundTask.StaleTimeoutMs = &i
+			}
 		}
 	}
 
@@ -881,6 +945,35 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	if w.baeProviderIdx > 0 {
 		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
 			Provider: baeProviderValues[w.baeProviderIdx],
+		}
+	}
+
+	// Tmux
+	tmuxHasData := w.tmuxEnabled || w.tmuxLayout.Value() != "" ||
+		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" ||
+		w.tmuxAgentPaneMinWidth.Value() != ""
+	if tmuxHasData {
+		cfg.Tmux = &config.TmuxConfig{}
+		if w.tmuxEnabled {
+			cfg.Tmux.Enabled = &w.tmuxEnabled
+		}
+		if v := w.tmuxLayout.Value(); v != "" {
+			cfg.Tmux.Layout = v
+		}
+		if v := w.tmuxMainPaneSize.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.MainPaneSize = &f
+			}
+		}
+		if v := w.tmuxMainPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.MainPaneMinWidth = &f
+			}
+		}
+		if v := w.tmuxAgentPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.AgentPaneMinWidth = &f
+			}
 		}
 	}
 
@@ -1278,6 +1371,41 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 3 {
+				switch msg.String() {
+				case "esc":
+					w.btStaleTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btStaleTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btStaleTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btStaleTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btStaleTimeoutMs.Focus()
+					w.btStaleTimeoutMs, cmd = w.btStaleTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.btStaleTimeoutMs.Focus()
+					w.btStaleTimeoutMs, cmd = w.btStaleTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionCommentChecker {
 				switch msg.String() {
 				case "esc":
@@ -1315,8 +1443,132 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					return w, cmd
 				}
 			}
+			if w.currentSection == sectionTmux && w.subCursor == 1 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxLayout.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxLayout.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxLayout.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxLayout.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.tmuxLayout.Focus()
+					w.tmuxLayout, cmd = w.tmuxLayout.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 2 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxMainPaneSize.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxMainPaneSize.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxMainPaneSize.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxMainPaneSize.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.tmuxMainPaneSize.Focus()
+					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 3 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxMainPaneMinWidth.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.tmuxMainPaneMinWidth.Focus()
+					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 4 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxAgentPaneMinWidth.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.tmuxAgentPaneMinWidth.Focus()
+					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
+					return w, cmd
+				}
+			}
 
 			switch msg.String() {
+
 			case "esc":
 				w.inSubSection = false
 			case "up", "k":
@@ -1470,6 +1722,10 @@ func (w *WizardOther) toggleSubItem() {
 	case sectionBrowserAutomationEngine:
 		if w.subCursor == 0 {
 			w.baeProviderIdx = (w.baeProviderIdx + 1) % len(baeProviderValues)
+		}
+	case sectionTmux:
+		if w.subCursor == 0 {
+			w.tmuxEnabled = !w.tmuxEnabled
 		}
 	case sectionSisyphus:
 		switch w.subCursor {
@@ -1718,6 +1974,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("default_concurrency: ")+w.btDefaultConcurrency.View())
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		lines = append(lines, indent+cursor+style.Render("stale_timeout_ms: ")+w.btStaleTimeoutMs.View())
+
 	case sectionNotification:
 		lines = append(lines, renderCheckbox(0, "force_enable", w.notifForceEnable))
 
@@ -1745,6 +2011,13 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			providerVal = baeProviderValues[w.baeProviderIdx]
 		}
 		lines = append(lines, indent+cursor+style.Render("provider: ")+providerVal)
+
+	case sectionTmux:
+		lines = append(lines, renderCheckbox(0, "enabled", w.tmuxEnabled))
+		lines = append(lines, indent+"  layout: "+w.tmuxLayout.View())
+		lines = append(lines, indent+"  main_pane_size: "+w.tmuxMainPaneSize.View())
+		lines = append(lines, indent+"  main_pane_min_width: "+w.tmuxMainPaneMinWidth.View())
+		lines = append(lines, indent+"  agent_pane_min_width: "+w.tmuxAgentPaneMinWidth.View())
 
 	case sectionSisyphus:
 		lines = append(lines, indent+"  "+dimStyle.Render("─── Tasks ───"))
