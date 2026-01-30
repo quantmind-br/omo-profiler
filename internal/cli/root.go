@@ -38,4 +38,5 @@ func init() {
 	rootCmd.AddCommand(cmd.SwitchCmd)
 	rootCmd.AddCommand(cmd.ImportCmd)
 	rootCmd.AddCommand(cmd.ModelsCmd)
+	rootCmd.AddCommand(cmd.CreateCmd)
 }

@@ -1,7 +1,11 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -9,7 +13,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/schema"
 	"github.com/diogenes/omo-profiler/internal/tui/views"
 )
 
@@ -24,6 +30,7 @@ const (
 	stateExport
 	stateModels
 	stateModelImport
+	stateTemplateSelect
 )
 
 // Toast message types
@@ -54,6 +61,17 @@ type deleteProfileDoneMsg struct {
 	err  error
 }
 
+type importProfileDoneMsg struct {
+	profileName  string
+	hadCollision bool
+	err          error
+}
+
+type exportProfileDoneMsg struct {
+	path string
+	err  error
+}
+
 type App struct {
 	state     appState
 	prevState appState
@@ -75,12 +93,15 @@ type App struct {
 	toastActive bool
 
 	// Views
-	dashboard     views.Dashboard
-	list          views.List
-	wizard        views.Wizard
-	diff          views.Diff
-	modelRegistry views.ModelRegistry
-	modelImport   views.ModelImport
+	dashboard      views.Dashboard
+	list           views.List
+	wizard         views.Wizard
+	diff           views.Diff
+	modelRegistry  views.ModelRegistry
+	modelImport    views.ModelImport
+	importView     views.Import
+	exportView     views.Export
+	templateSelect views.TemplateSelect
 }
 
 func NewApp() App {
@@ -151,6 +172,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dashboard.SetSize(msg.Width, msg.Height-3)
 		a.list.SetSize(msg.Width, msg.Height-3)
 		a.wizard.SetSize(msg.Width, msg.Height-3)
+		a.templateSelect.SetSize(msg.Width, msg.Height-3)
 
 	case spinner.TickMsg:
 		if a.loading {
@@ -201,10 +223,83 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.navigateTo(stateDiff)
 
 	case views.NavToImportMsg:
-		return a, a.showToast("Import not yet implemented", toastInfo, 2*time.Second)
+		a.importView = views.NewImport()
+		a.importView.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateImport)
 
 	case views.NavToExportMsg:
-		return a, a.showToast("Export not yet implemented", toastInfo, 2*time.Second)
+		active, err := profile.GetActive()
+		if err != nil || active == nil || !active.Exists || active.IsOrphan {
+			return a, a.showToast("No active profile to export", toastError, 3*time.Second)
+		}
+		a.exportView = views.NewExport(active.ProfileName)
+		a.exportView.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateExport)
+
+	case views.NavToTemplateSelectMsg:
+		a.templateSelect = views.NewTemplateSelect()
+		a.templateSelect.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateTemplateSelect)
+
+	case views.NavToWizardFromTemplateMsg:
+		wizard, err := views.NewWizardFromTemplate(msg.TemplateName)
+		if err != nil {
+			return a, a.showToast(err.Error(), toastError, 3*time.Second)
+		}
+		a.wizard = wizard
+		a.wizard.SetSize(a.width, a.height-3)
+		return a.navigateTo(stateWizard)
+
+	case views.TemplateSelectCancelMsg:
+		return a.navigateTo(stateDashboard)
+
+	case views.ImportDoneMsg:
+		if msg.Err != nil {
+			return a, a.showToast("Import failed: "+msg.Err.Error(), toastError, 3*time.Second)
+		}
+		a.loading = true
+		return a, tea.Batch(
+			a.spinner.Tick,
+			a.doImportProfile(msg.Path),
+		)
+
+	case views.ImportCancelMsg:
+		return a.navigateTo(stateDashboard)
+
+	case importProfileDoneMsg:
+		a.loading = false
+		if msg.err != nil {
+			return a, a.showToast("Import failed: "+msg.err.Error(), toastError, 3*time.Second)
+		}
+		var toastText string
+		if msg.hadCollision {
+			toastText = fmt.Sprintf("Profile imported as %q (name collision)", msg.profileName)
+		} else {
+			toastText = fmt.Sprintf("Imported profile: %s", msg.profileName)
+		}
+		cmds = append(cmds, a.showToast(toastText, toastSuccess, 3*time.Second))
+		return a.navigateTo(stateDashboard)
+
+	case views.ExportDoneMsg:
+		if msg.Err != nil {
+			return a, a.showToast("Export failed: "+msg.Err.Error(), toastError, 3*time.Second)
+		}
+		a.loading = true
+		return a, tea.Batch(
+			a.spinner.Tick,
+			a.doExportProfile(a.exportView.GetProfileName(), msg.Path),
+		)
+
+	case views.ExportCancelMsg:
+		return a.navigateTo(stateDashboard)
+
+	case exportProfileDoneMsg:
+		a.loading = false
+		if msg.err != nil {
+			return a, a.showToast("Export failed: "+msg.err.Error(), toastError, 3*time.Second)
+		}
+		cmds = append(cmds, a.showToast("Profile exported to "+msg.path, toastSuccess, 3*time.Second))
+		return a.navigateTo(stateDashboard)
 
 	case views.NavToModelsMsg:
 		a.modelRegistry = views.NewModelRegistry()
@@ -332,6 +427,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateModelImport:
 		a.modelImport, cmd = a.modelImport.Update(msg)
 		cmds = append(cmds, cmd)
+
+	case stateImport:
+		a.importView, cmd = a.importView.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case stateExport:
+		a.exportView, cmd = a.exportView.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case stateTemplateSelect:
+		a.templateSelect, cmd = a.templateSelect.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -357,6 +464,12 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 		cmd = a.modelRegistry.Init()
 	case stateModelImport:
 		cmd = a.modelImport.Init()
+	case stateImport:
+		cmd = a.importView.Init()
+	case stateExport:
+		cmd = a.exportView.Init()
+	case stateTemplateSelect:
+		cmd = a.templateSelect.Init()
 	}
 
 	return a, cmd
@@ -373,6 +486,85 @@ func (a App) doDeleteProfile(name string) tea.Cmd {
 	return func() tea.Msg {
 		err := profile.Delete(name)
 		return deleteProfileDoneMsg{name: name, err: err}
+	}
+}
+
+func (a App) doImportProfile(sourcePath string) tea.Cmd {
+	return func() tea.Msg {
+		data, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return importProfileDoneMsg{err: err}
+		}
+
+		var cfg config.Config
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			return importProfileDoneMsg{err: err}
+		}
+
+		validator, err := schema.GetValidator()
+		if err != nil {
+			return importProfileDoneMsg{err: err}
+		}
+
+		validationErrors, err := validator.ValidateJSON(data)
+		if err != nil {
+			return importProfileDoneMsg{err: err}
+		}
+		if len(validationErrors) > 0 {
+			return importProfileDoneMsg{err: fmt.Errorf("validation failed")}
+		}
+
+		filename := filepath.Base(sourcePath)
+		originalName := strings.TrimSuffix(filename, ".json")
+		profileName := profile.SanitizeName(originalName)
+
+		if profileName == "" {
+			return importProfileDoneMsg{err: fmt.Errorf("cannot derive valid profile name from filename")}
+		}
+
+		baseName := profileName
+		hadCollision := false
+		suffix := 1
+		for profile.Exists(profileName) {
+			hadCollision = true
+			profileName = fmt.Sprintf("%s-%d", baseName, suffix)
+			suffix++
+		}
+
+		p := &profile.Profile{
+			Name:   profileName,
+			Config: cfg,
+		}
+
+		if err := profile.Save(p); err != nil {
+			return importProfileDoneMsg{err: err}
+		}
+
+		return importProfileDoneMsg{
+			profileName:  profileName,
+			hadCollision: hadCollision,
+			err:          nil,
+		}
+	}
+}
+
+func (a App) doExportProfile(profileName, path string) tea.Cmd {
+	return func() tea.Msg {
+		p, err := profile.Load(profileName)
+		if err != nil {
+			return exportProfileDoneMsg{err: err}
+		}
+
+		data, err := json.MarshalIndent(p.Config, "", "  ")
+		if err != nil {
+			return exportProfileDoneMsg{err: err}
+		}
+
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			return exportProfileDoneMsg{err: err}
+		}
+
+		return exportProfileDoneMsg{path: path, err: nil}
 	}
 }
 
@@ -409,13 +601,15 @@ func (a App) View() string {
 		case stateDiff:
 			content = a.diff.View()
 		case stateImport:
-			content = a.placeholderView("Import Profile")
+			content = a.importView.View()
 		case stateExport:
-			content = a.placeholderView("Export Profile")
+			content = a.exportView.View()
 		case stateModels:
 			content = a.modelRegistry.View()
 		case stateModelImport:
 			content = a.modelImport.View()
+		case stateTemplateSelect:
+			content = a.templateSelect.View()
 		default:
 			content = "Unknown state"
 		}
@@ -473,6 +667,8 @@ func (a App) renderShortHelp() string {
 		hints = []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}
 	case stateModelImport:
 		hints = []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}
+	case stateTemplateSelect:
+		hints = []string{"↑↓ navigate", "enter select", "esc cancel"}
 	default:
 		hints = []string{"? help", "q quit"}
 	}
@@ -545,6 +741,13 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  enter      Import selected / Select provider"))
 		lines = append(lines, HelpStyle.Render("  /          Search models"))
 		lines = append(lines, HelpStyle.Render("  esc        Back"))
+
+	case stateTemplateSelect:
+		lines = append(lines, AccentStyle.Render("Template Selection:"))
+		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
+		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
+		lines = append(lines, HelpStyle.Render("  enter      Select template"))
+		lines = append(lines, HelpStyle.Render("  esc        Cancel"))
 	}
 
 	lines = append(lines, "")

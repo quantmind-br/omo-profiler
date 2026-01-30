@@ -117,6 +117,23 @@ func NewWizardForEdit(p *profile.Profile) Wizard {
 	return w
 }
 
+// NewWizardFromTemplate creates a wizard pre-populated with a template profile
+func NewWizardFromTemplate(templateName string) (Wizard, error) {
+	template, err := profile.Load(templateName)
+	if err != nil {
+		return Wizard{}, fmt.Errorf("template '%s' not found", templateName)
+	}
+
+	w := NewWizard()
+	w.editMode = false
+	w.config = template.Config
+	w.categoriesStep.SetConfig(&w.config)
+	w.agentsStep.SetConfig(&w.config)
+	w.hooksStep.SetConfig(&w.config)
+	w.otherStep.SetConfig(&w.config)
+	return w, nil
+}
+
 func (w Wizard) Init() tea.Cmd {
 	return w.nameStep.Init()
 }

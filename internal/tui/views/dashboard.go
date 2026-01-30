@@ -16,10 +16,12 @@ type NavToDiffMsg struct{}
 type NavToImportMsg struct{}
 type NavToExportMsg struct{}
 type NavToModelsMsg struct{}
+type NavToTemplateSelectMsg struct{}
 
 const (
 	menuSwitch = iota
 	menuCreate
+	menuCreateFromTemplate
 	menuEdit
 	menuCompare
 	menuModels
@@ -30,6 +32,7 @@ const (
 var menuItems = []string{
 	"Switch Profile",
 	"Create New",
+	"Create from Template",
 	"Edit Current",
 	"Compare Profiles",
 	"Manage Models",
@@ -48,9 +51,11 @@ type Dashboard struct {
 }
 
 type dashboardKeyMap struct {
-	Up    key.Binding
-	Down  key.Binding
-	Enter key.Binding
+	Up     key.Binding
+	Down   key.Binding
+	Enter  key.Binding
+	Import key.Binding
+	Export key.Binding
 }
 
 var (
@@ -100,6 +105,14 @@ func NewDashboard() Dashboard {
 			Enter: key.NewBinding(
 				key.WithKeys("enter"),
 				key.WithHelp("enter", "select"),
+			),
+			Import: key.NewBinding(
+				key.WithKeys("i"),
+				key.WithHelp("i", "import"),
+			),
+			Export: key.NewBinding(
+				key.WithKeys("e"),
+				key.WithHelp("e", "export"),
 			),
 		},
 	}
@@ -158,6 +171,10 @@ func (d Dashboard) Update(msg tea.Msg) (Dashboard, tea.Cmd) {
 			}
 		case key.Matches(msg, d.keys.Enter):
 			return d, d.handleSelect()
+		case key.Matches(msg, d.keys.Import):
+			return d, func() tea.Msg { return NavToImportMsg{} }
+		case key.Matches(msg, d.keys.Export):
+			return d, func() tea.Msg { return NavToExportMsg{} }
 		}
 	}
 
@@ -171,6 +188,8 @@ func (d Dashboard) handleSelect() tea.Cmd {
 			return NavToListMsg{}
 		case menuCreate:
 			return NavToWizardMsg{}
+		case menuCreateFromTemplate:
+			return NavToTemplateSelectMsg{}
 		case menuEdit:
 			return NavToEditorMsg{}
 		case menuCompare:
