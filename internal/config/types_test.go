@@ -248,79 +248,6 @@ func TestAgentSkillsRoundTrip(t *testing.T) {
 	}
 }
 
-func TestTmuxConfigRoundTrip(t *testing.T) {
-	jsonData := `{
-		"tmux": {
-			"enabled": true,
-			"layout": "main-horizontal",
-			"main_pane_size": 60.0,
-			"main_pane_min_width": 120.0,
-			"agent_pane_min_width": 40.0
-		}
-	}`
-
-	var cfg Config
-	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-
-	if cfg.Tmux == nil {
-		t.Fatal("tmux is nil")
-	}
-	if cfg.Tmux.Enabled == nil || *cfg.Tmux.Enabled != true {
-		t.Errorf("expected enabled=true, got %v", cfg.Tmux.Enabled)
-	}
-	if cfg.Tmux.Layout != "main-horizontal" {
-		t.Errorf("expected layout=main-horizontal, got %s", cfg.Tmux.Layout)
-	}
-	if cfg.Tmux.MainPaneSize == nil || *cfg.Tmux.MainPaneSize != 60.0 {
-		t.Errorf("expected main_pane_size=60.0, got %v", cfg.Tmux.MainPaneSize)
-	}
-
-	// Round-trip
-	marshaled, err := json.Marshal(&cfg)
-	if err != nil {
-		t.Fatalf("failed to marshal: %v", err)
-	}
-
-	var roundtrip Config
-	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
-		t.Fatalf("failed to unmarshal roundtrip: %v", err)
-	}
-
-	if !reflect.DeepEqual(cfg.Tmux, roundtrip.Tmux) {
-		t.Errorf("round-trip mismatch: original=%+v, roundtrip=%+v", cfg.Tmux, roundtrip.Tmux)
-	}
-}
-
-func TestBrowserAutomationEngineRoundTrip(t *testing.T) {
-	jsonData := `{"browser_automation_engine": {"provider": "playwright"}}`
-
-	var cfg Config
-	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-
-	if cfg.BrowserAutomationEngine == nil {
-		t.Fatal("browser_automation_engine is nil")
-	}
-	if cfg.BrowserAutomationEngine.Provider != "playwright" {
-		t.Errorf("expected provider=playwright, got %s", cfg.BrowserAutomationEngine.Provider)
-	}
-
-	// Round-trip
-	marshaled, err := json.Marshal(&cfg)
-	if err != nil {
-		t.Fatalf("failed to marshal: %v", err)
-	}
-	if !strings.Contains(string(marshaled), `"browser_automation_engine"`) {
-		t.Errorf("browser_automation_engine not in output: %s", marshaled)
-	}
-	if !strings.Contains(string(marshaled), `"provider":"playwright"`) {
-		t.Errorf("provider not preserved: %s", marshaled)
-	}
-}
-
 func TestCategoryConfigDescriptionRoundTrip(t *testing.T) {
 	jsonData := `{"categories": {"quick": {"model": "claude-haiku", "description": "Fast tasks"}}}`
 
@@ -350,16 +277,15 @@ func TestCategoryConfigDescriptionRoundTrip(t *testing.T) {
 	}
 }
 
-func TestAgentConfigExtendedFields(t *testing.T) {
+func TestCategoryConfigExtendedFields(t *testing.T) {
 	jsonData := `{
-		"agents": {
-			"build": {
+		"categories": {
+			"quick": {
 				"model": "claude-sonnet-4",
 				"maxTokens": 8192,
 				"thinking": {"type": "enabled", "budgetTokens": 4096},
 				"reasoningEffort": "high",
-				"textVerbosity": "medium",
-				"providerOptions": {"stream": true, "cache": false}
+				"textVerbosity": "medium"
 			}
 		}
 	}`
@@ -369,46 +295,35 @@ func TestAgentConfigExtendedFields(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	agent := cfg.Agents["build"]
-	if agent == nil {
-		t.Fatal("build agent is nil")
+	cat := cfg.Categories["quick"]
+	if cat == nil {
+		t.Fatal("quick category is nil")
 	}
 
 	// Verify MaxTokens
-	if agent.MaxTokens == nil || *agent.MaxTokens != 8192 {
-		t.Errorf("expected maxTokens=8192, got %v", agent.MaxTokens)
+	if cat.MaxTokens == nil || *cat.MaxTokens != 8192 {
+		t.Errorf("expected maxTokens=8192, got %v", cat.MaxTokens)
 	}
 
 	// Verify Thinking
-	if agent.Thinking == nil {
+	if cat.Thinking == nil {
 		t.Fatal("thinking is nil")
 	}
-	if agent.Thinking.Type != "enabled" {
-		t.Errorf("expected thinking.type=enabled, got %s", agent.Thinking.Type)
+	if cat.Thinking.Type != "enabled" {
+		t.Errorf("expected thinking.type=enabled, got %s", cat.Thinking.Type)
 	}
-	if agent.Thinking.BudgetTokens == nil || *agent.Thinking.BudgetTokens != 4096 {
-		t.Errorf("expected thinking.budgetTokens=4096, got %v", agent.Thinking.BudgetTokens)
+	if cat.Thinking.BudgetTokens == nil || *cat.Thinking.BudgetTokens != 4096 {
+		t.Errorf("expected thinking.budgetTokens=4096, got %v", cat.Thinking.BudgetTokens)
 	}
 
 	// Verify ReasoningEffort
-	if agent.ReasoningEffort != "high" {
-		t.Errorf("expected reasoningEffort=high, got %s", agent.ReasoningEffort)
+	if cat.ReasoningEffort != "high" {
+		t.Errorf("expected reasoningEffort=high, got %s", cat.ReasoningEffort)
 	}
 
 	// Verify TextVerbosity
-	if agent.TextVerbosity != "medium" {
-		t.Errorf("expected textVerbosity=medium, got %s", agent.TextVerbosity)
-	}
-
-	// Verify ProviderOptions
-	if agent.ProviderOptions == nil {
-		t.Fatal("providerOptions is nil")
-	}
-	if agent.ProviderOptions["stream"] != true {
-		t.Errorf("expected providerOptions.stream=true, got %v", agent.ProviderOptions["stream"])
-	}
-	if agent.ProviderOptions["cache"] != false {
-		t.Errorf("expected providerOptions.cache=false, got %v", agent.ProviderOptions["cache"])
+	if cat.TextVerbosity != "medium" {
+		t.Errorf("expected textVerbosity=medium, got %s", cat.TextVerbosity)
 	}
 
 	// Round-trip
@@ -422,24 +337,21 @@ func TestAgentConfigExtendedFields(t *testing.T) {
 		t.Fatalf("failed to unmarshal roundtrip: %v", err)
 	}
 
-	rtAgent := roundtrip.Agents["build"]
-	if rtAgent == nil {
-		t.Fatal("build agent not found after round-trip")
+	rtCat := roundtrip.Categories["quick"]
+	if rtCat == nil {
+		t.Fatal("roundtrip quick category is nil")
 	}
 
-	if !reflect.DeepEqual(agent.MaxTokens, rtAgent.MaxTokens) {
-		t.Errorf("maxTokens mismatch after round-trip")
+	if rtCat.MaxTokens == nil || *rtCat.MaxTokens != *cat.MaxTokens {
+		t.Errorf("roundtrip MaxTokens mismatch")
 	}
-	if !reflect.DeepEqual(agent.Thinking, rtAgent.Thinking) {
-		t.Errorf("thinking mismatch after round-trip")
+	if !reflect.DeepEqual(cat.Thinking, rtCat.Thinking) {
+		t.Errorf("roundtrip Thinking mismatch")
 	}
-	if agent.ReasoningEffort != rtAgent.ReasoningEffort {
-		t.Errorf("reasoningEffort mismatch after round-trip")
+	if cat.ReasoningEffort != rtCat.ReasoningEffort {
+		t.Errorf("roundtrip ReasoningEffort mismatch")
 	}
-	if agent.TextVerbosity != rtAgent.TextVerbosity {
-		t.Errorf("textVerbosity mismatch after round-trip")
-	}
-	if !reflect.DeepEqual(agent.ProviderOptions, rtAgent.ProviderOptions) {
-		t.Errorf("providerOptions mismatch after round-trip")
+	if cat.TextVerbosity != rtCat.TextVerbosity {
+		t.Errorf("roundtrip TextVerbosity mismatch")
 	}
 }
