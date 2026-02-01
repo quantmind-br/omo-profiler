@@ -355,3 +355,158 @@ func TestCategoryConfigExtendedFields(t *testing.T) {
 		t.Errorf("roundtrip TextVerbosity mismatch")
 	}
 }
+
+func TestBabysittingConfigRoundTrip(t *testing.T) {
+	jsonData := `{"babysitting": {"timeout_ms": 120000}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Babysitting == nil {
+		t.Fatal("babysitting is nil")
+	}
+	if cfg.Babysitting.TimeoutMs == nil || *cfg.Babysitting.TimeoutMs != 120000 {
+		t.Errorf("expected timeout_ms=120000, got %v", cfg.Babysitting.TimeoutMs)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"timeout_ms":120000`) {
+		t.Errorf("timeout_ms not preserved: %s", marshaled)
+	}
+}
+
+func TestBrowserAutomationEngineConfigRoundTrip(t *testing.T) {
+	jsonData := `{"browser_automation_engine": {"provider": "playwright"}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.BrowserAutomationEngine == nil {
+		t.Fatal("browser_automation_engine is nil")
+	}
+	if cfg.BrowserAutomationEngine.Provider != "playwright" {
+		t.Errorf("expected provider=playwright, got %s", cfg.BrowserAutomationEngine.Provider)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"provider":"playwright"`) {
+		t.Errorf("provider not preserved: %s", marshaled)
+	}
+}
+
+func TestTmuxConfigRoundTrip(t *testing.T) {
+	jsonData := `{"tmux": {"enabled": true, "layout": "main-vertical", "main_pane_size": 60}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Tmux == nil {
+		t.Fatal("tmux is nil")
+	}
+	if cfg.Tmux.Enabled == nil || !*cfg.Tmux.Enabled {
+		t.Error("expected enabled=true")
+	}
+	if cfg.Tmux.Layout != "main-vertical" {
+		t.Errorf("expected layout=main-vertical, got %s", cfg.Tmux.Layout)
+	}
+	if cfg.Tmux.MainPaneSize == nil || *cfg.Tmux.MainPaneSize != 60 {
+		t.Errorf("expected main_pane_size=60, got %v", cfg.Tmux.MainPaneSize)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"enabled":true`) {
+		t.Errorf("enabled not preserved: %s", marshaled)
+	}
+}
+
+func TestSisyphusConfigRoundTrip(t *testing.T) {
+	jsonData := `{"sisyphus": {"tasks": {"storage_path": ".sisyphus/tasks", "claude_code_compat": false}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Sisyphus == nil || cfg.Sisyphus.Tasks == nil {
+		t.Fatal("sisyphus or tasks is nil")
+	}
+	if cfg.Sisyphus.Tasks.StoragePath != ".sisyphus/tasks" {
+		t.Errorf("expected storage_path=.sisyphus/tasks, got %s", cfg.Sisyphus.Tasks.StoragePath)
+	}
+	if cfg.Sisyphus.Tasks.ClaudeCodeCompat == nil || *cfg.Sisyphus.Tasks.ClaudeCodeCompat != false {
+		t.Errorf("expected claude_code_compat=false, got %v", cfg.Sisyphus.Tasks.ClaudeCodeCompat)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"storage_path":".sisyphus/tasks"`) {
+		t.Errorf("storage_path not preserved: %s", marshaled)
+	}
+}
+
+func TestAgentConfigExtendedFieldsRoundTrip(t *testing.T) {
+	jsonData := `{
+		"agents": {
+			"build": {
+				"model": "claude-sonnet",
+				"maxTokens": 8192,
+				"thinking": {"type": "enabled", "budgetTokens": 4096},
+				"reasoningEffort": "medium",
+				"textVerbosity": "low",
+				"providerOptions": {"custom_option": true}
+			}
+		}
+	}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	build := cfg.Agents["build"]
+	if build == nil {
+		t.Fatal("build agent is nil")
+	}
+
+	if build.MaxTokens == nil || *build.MaxTokens != 8192 {
+		t.Errorf("expected maxTokens=8192, got %v", build.MaxTokens)
+	}
+	if build.Thinking == nil || build.Thinking.Type != "enabled" {
+		t.Error("expected thinking.type=enabled")
+	}
+	if build.ReasoningEffort != "medium" {
+		t.Errorf("expected reasoningEffort=medium, got %s", build.ReasoningEffort)
+	}
+	if build.TextVerbosity != "low" {
+		t.Errorf("expected textVerbosity=low, got %s", build.TextVerbosity)
+	}
+	if build.ProviderOptions == nil {
+		t.Error("expected providerOptions to be set")
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"maxTokens":8192`) {
+		t.Errorf("maxTokens not preserved: %s", marshaled)
+	}
+}
