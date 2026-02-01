@@ -10,7 +10,7 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
-// All 30 hooks
+// All 35 hooks
 var allHooks = []string{
 	"todo-continuation-enforcer",
 	"context-window-monitor",
@@ -35,13 +35,18 @@ var allHooks = []string{
 	"thinking-block-validator",
 	"ralph-loop",
 	"compaction-context-injector",
+	"category-skill-reminder",
 	"claude-code-hooks",
 	"auto-slash-command",
 	"edit-error-recovery",
 	"delegate-task-retry",
 	"prometheus-md-only",
 	"start-work",
+	"sisyphus-junior-notepad",
 	"atlas",
+	"unstable-agent-babysitter",
+	"stop-continuation-guard",
+	"tasks-todowrite-disabler",
 }
 
 type wizardHooksKeyMap struct {

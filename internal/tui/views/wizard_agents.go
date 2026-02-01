@@ -54,6 +54,7 @@ var allAgents = []string{
 	"build",
 	"plan",
 	"sisyphus",
+	"hephaestus",
 	"sisyphus-junior",
 	"OpenCode-Builder",
 	"prometheus",

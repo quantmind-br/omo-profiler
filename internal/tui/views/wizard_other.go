@@ -56,9 +56,10 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (9)
+// Disableable agents (10)
 var disableableAgents = []string{
 	"sisyphus",
+	"hephaestus",
 	"oracle",
 	"librarian",
 	"explore",
@@ -611,6 +612,47 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 			w.skillsEditor.SetValue(string(cfg.Skills))
 		}
 	}
+
+	// Browser Automation Engine
+	if cfg.BrowserAutomationEngine != nil {
+		if cfg.BrowserAutomationEngine.Provider != "" {
+			for i, v := range baeProviderValues {
+				if v == cfg.BrowserAutomationEngine.Provider {
+					w.baeProviderIdx = i
+					break
+				}
+			}
+		}
+	}
+
+	// Tmux
+	if cfg.Tmux != nil {
+		if cfg.Tmux.Enabled != nil {
+			w.tmuxEnabled = *cfg.Tmux.Enabled
+		}
+		if cfg.Tmux.Layout != "" {
+			w.tmuxLayout.SetValue(cfg.Tmux.Layout)
+		}
+		if cfg.Tmux.MainPaneSize != nil {
+			w.tmuxMainPaneSize.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.MainPaneSize))
+		}
+		if cfg.Tmux.MainPaneMinWidth != nil {
+			w.tmuxMainPaneMinWidth.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.MainPaneMinWidth))
+		}
+		if cfg.Tmux.AgentPaneMinWidth != nil {
+			w.tmuxAgentPaneMinWidth.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.AgentPaneMinWidth))
+		}
+	}
+
+	// Sisyphus
+	if cfg.Sisyphus != nil && cfg.Sisyphus.Tasks != nil {
+		if cfg.Sisyphus.Tasks.StoragePath != "" {
+			w.sisTasksStoragePath.SetValue(cfg.Sisyphus.Tasks.StoragePath)
+		}
+		if cfg.Sisyphus.Tasks.ClaudeCodeCompat != nil {
+			w.sisTasksClaudeCodeCompat = *cfg.Sisyphus.Tasks.ClaudeCodeCompat
+		}
+	}
 }
 
 func (w *WizardOther) Apply(cfg *config.Config) {
@@ -877,6 +919,56 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.Skills = json.RawMessage(v)
 	} else {
 		cfg.Skills = nil
+	}
+
+	// Browser Automation Engine
+	if w.baeProviderIdx > 0 {
+		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
+			Provider: baeProviderValues[w.baeProviderIdx],
+		}
+	}
+
+	// Tmux
+	tmuxHasData := w.tmuxEnabled || w.tmuxLayout.Value() != "" ||
+		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" ||
+		w.tmuxAgentPaneMinWidth.Value() != ""
+	if tmuxHasData {
+		cfg.Tmux = &config.TmuxConfig{}
+		if w.tmuxEnabled {
+			cfg.Tmux.Enabled = &w.tmuxEnabled
+		}
+		if v := w.tmuxLayout.Value(); v != "" {
+			cfg.Tmux.Layout = v
+		}
+		if v := w.tmuxMainPaneSize.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.MainPaneSize = &f
+			}
+		}
+		if v := w.tmuxMainPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.MainPaneMinWidth = &f
+			}
+		}
+		if v := w.tmuxAgentPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				cfg.Tmux.AgentPaneMinWidth = &f
+			}
+		}
+	}
+
+	// Sisyphus
+	sisHasData := w.sisTasksStoragePath.Value() != "" || w.sisTasksClaudeCodeCompat
+	if sisHasData {
+		cfg.Sisyphus = &config.SisyphusConfig{
+			Tasks: &config.SisyphusTasksConfig{},
+		}
+		if v := w.sisTasksStoragePath.Value(); v != "" {
+			cfg.Sisyphus.Tasks.StoragePath = v
+		}
+		if w.sisTasksClaudeCodeCompat {
+			cfg.Sisyphus.Tasks.ClaudeCodeCompat = &w.sisTasksClaudeCodeCompat
+		}
 	}
 }
 
