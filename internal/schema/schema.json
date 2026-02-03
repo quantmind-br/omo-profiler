@@ -15,6 +15,9 @@
         "minLength": 1
       }
     },
+    "default_run_agent": {
+      "type": "string"
+    },
     "disabled_agents": {
       "type": "array",
       "items": {
@@ -60,8 +63,9 @@
           "directory-readme-injector",
           "empty-task-response-detector",
           "think-mode",
-          "anthropic-context-window-limit-recovery",
-          "rules-injector",
+           "anthropic-context-window-limit-recovery",
+           "preemptive-compaction",
+           "rules-injector",
           "background-notification",
           "auto-update-checker",
           "startup-toast",
@@ -2287,10 +2291,16 @@
         "auto_resume": {
           "type": "boolean"
         },
-        "truncate_all_tool_outputs": {
-          "type": "boolean"
-        },
-        "dynamic_context_pruning": {
+         "truncate_all_tool_outputs": {
+           "type": "boolean"
+         },
+         "preemptive_compaction": {
+           "type": "boolean"
+         },
+         "task_system": {
+           "type": "boolean"
+         },
+         "dynamic_context_pruning": {
           "type": "object",
           "properties": {
             "enabled": {

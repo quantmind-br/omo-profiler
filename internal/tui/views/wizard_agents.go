@@ -595,6 +595,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			case "esc":
 				w.inForm = false
 				ac.expanded = false
+				w.viewport.SetContent(w.renderContent())
 				return w, nil
 			case "down", "j":
 				w.focusedField++
@@ -602,6 +603,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "up", "k":
@@ -611,6 +613,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					w.focusedField = fieldPermEdit
 				}
 				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "tab":
@@ -619,6 +622,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "shift+tab":
@@ -628,10 +632,10 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					w.focusedField = fieldPermEdit
 				}
 				w.updateFieldFocus(ac)
+				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "enter":
-				// Cycle through options for dropdown fields
 				switch w.focusedField {
 				case fieldModel:
 					ac.selectingModel = true
@@ -645,55 +649,44 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				case fieldPermEdit:
 					ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
 				}
+				w.viewport.SetContent(w.renderContent())
 				return w, nil
 			}
 
-			// Update focused text input
 			switch w.focusedField {
-			case fieldModel:
-				// Model uses selector, handled separately via enter key
 			case fieldVariant:
-				ac.variant.Focus()
 				ac.variant, cmd = ac.variant.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldCategory:
-				ac.category.Focus()
 				ac.category, cmd = ac.category.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldTemperature:
-				ac.temperature.Focus()
 				ac.temperature, cmd = ac.temperature.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldTopP:
-				ac.topP.Focus()
 				ac.topP, cmd = ac.topP.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldSkills:
-				ac.skills.Focus()
 				ac.skills, cmd = ac.skills.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldTools:
-				ac.tools.Focus()
 				ac.tools, cmd = ac.tools.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldPrompt:
-				ac.prompt.Focus()
 				ac.prompt, cmd = ac.prompt.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldPromptAppend:
-				ac.promptAppend.Focus()
 				ac.promptAppend, cmd = ac.promptAppend.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldDescription:
-				ac.description.Focus()
 				ac.description, cmd = ac.description.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldColor:
-				ac.color.Focus()
 				ac.color, cmd = ac.color.Update(msg)
 				cmds = append(cmds, cmd)
 			}
 
+			w.viewport.SetContent(w.renderContent())
 			return w, tea.Batch(cmds...)
 		}
 
@@ -806,40 +799,47 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	indent := "      "
 	fieldStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 	focusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
+	cursorStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF6AC1"))
 
 	// Only show focus styling if this is the active agent being edited
 	isActiveAgent := name == allAgents[w.cursor]
 
 	renderField := func(label string, field agentFormField, value string) string {
 		style := fieldStyle
+		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
+			cursor = cursorStyle.Render("> ")
 		}
-		return indent + style.Render(fmt.Sprintf("%-12s: ", label)) + value
+		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + value
 	}
 
 	renderDropdown := func(label string, field agentFormField, options []string, idx int) string {
 		style := fieldStyle
+		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
+			cursor = cursorStyle.Render("> ")
 		}
 		val := "(none)"
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent + style.Render(fmt.Sprintf("%-12s: ", label)) + val + " [←/→]"
+		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + val + " [←/→]"
 	}
 
 	renderBool := func(label string, field agentFormField, val bool) string {
 		style := fieldStyle
+		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
 			style = focusStyle
+			cursor = cursorStyle.Render("> ")
 		}
 		checkbox := "[ ]"
 		if val {
 			checkbox = "[✓]"
 		}
-		return indent + style.Render(fmt.Sprintf("%-12s: ", label)) + checkbox + " [←/→]"
+		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + checkbox + " [←/→]"
 	}
 
 	lines = append(lines, "")

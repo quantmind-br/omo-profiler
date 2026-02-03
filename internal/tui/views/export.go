@@ -1,0 +1,213 @@
+package views
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// ExportDoneMsg is sent when export is completed
+type ExportDoneMsg struct {
+	Path string
+	Err  error
+}
+
+// ExportCancelMsg is sent when user cancels export
+type ExportCancelMsg struct{}
+
+type exportKeyMap struct {
+	Confirm key.Binding
+	Cancel  key.Binding
+}
+
+func newExportKeyMap() exportKeyMap {
+	return exportKeyMap{
+		Confirm: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "export"),
+		),
+		Cancel: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "cancel"),
+		),
+	}
+}
+
+// Export is a view for exporting profiles to JSON files
+type Export struct {
+	textInput   textinput.Model
+	profileName string
+	width       int
+	height      int
+	err         error
+	loading     bool
+	keys        exportKeyMap
+}
+
+// NewExport creates a new Export view for the given profile
+func NewExport(profileName string) Export {
+	ti := textinput.New()
+	ti.Placeholder = "Export path..."
+	ti.Focus()
+	ti.Width = 60
+
+	return Export{
+		textInput:   ti,
+		profileName: profileName,
+		keys:        newExportKeyMap(),
+	}
+}
+
+// Init initializes the view
+func (e Export) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+// SetSize sets the view dimensions
+func (e *Export) SetSize(width, height int) {
+	e.width = width
+	e.height = height
+	e.textInput.Width = width - 10
+}
+
+// Update handles messages and user input
+func (e Export) Update(msg tea.Msg) (Export, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, e.keys.Confirm):
+			path := e.textInput.Value()
+			if path == "" {
+				e.err = fmt.Errorf("please enter a file path")
+				return e, nil
+			}
+
+			// Expand path
+			expandedPath, err := expandExportPath(path)
+			if err != nil {
+				e.err = err
+				return e, nil
+			}
+
+			// Auto-rename if file exists
+			expandedPath = autoRenameIfExists(expandedPath)
+
+			return e, func() tea.Msg {
+				return ExportDoneMsg{
+					Path: expandedPath,
+					Err:  nil,
+				}
+			}
+
+		case key.Matches(msg, e.keys.Cancel):
+			return e, func() tea.Msg {
+				return ExportCancelMsg{}
+			}
+		}
+	}
+
+	e.textInput, cmd = e.textInput.Update(msg)
+	return e, cmd
+}
+
+// View renders the export view
+func (e Export) View() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#CDD6F4")).
+		MarginBottom(1)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6C7086")).
+		MarginBottom(1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6C7086"))
+
+	errorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F38BA8"))
+
+	profileStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7D56F4"))
+
+	title := titleStyle.Render("Export Profile")
+	profileInfo := fmt.Sprintf("Exporting profile: %s", profileStyle.Render(e.profileName))
+	desc := descStyle.Render("Enter the destination path for the JSON file")
+	input := e.textInput.View()
+	help := helpStyle.Render("[enter] export  [esc] cancel")
+
+	content := []string{
+		"",
+		title,
+		"",
+		profileInfo,
+		desc,
+		input,
+	}
+
+	if e.err != nil {
+		content = append(content, errorStyle.Render("✗ "+e.err.Error()))
+	}
+
+	content = append(content, "", help)
+
+	return lipgloss.JoinVertical(lipgloss.Left, content...)
+}
+
+// GetPath returns the current path value
+func (e Export) GetPath() string {
+	return e.textInput.Value()
+}
+
+// GetProfileName returns the profile being exported
+func (e Export) GetProfileName() string {
+	return e.profileName
+}
+
+// expandExportPath expands ~ to home directory and converts relative paths to absolute
+func expandExportPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Join(home, path[1:])
+	}
+
+	if !filepath.IsAbs(path) {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return "", err
+		}
+		path = absPath
+	}
+
+	return path, nil
+}
+
+// autoRenameIfExists adds a numeric suffix if the file already exists
+func autoRenameIfExists(path string) string {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+
+	dir := filepath.Dir(path)
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(filepath.Base(path), ext)
+
+	for i := 1; ; i++ {
+		newPath := filepath.Join(dir, fmt.Sprintf("%s-%d%s", base, i, ext))
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			return newPath
+		}
+	}
+}

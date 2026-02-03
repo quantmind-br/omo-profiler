@@ -1,29 +1,40 @@
 # INTERNAL/CONFIG
 
 ## OVERVIEW
-Defines the `Config` struct ecosystem mapping `oh-my-opencode.json` schema and manages centralized configuration file paths.
 
-## CORE RESPONSIBILITIES
-- **Schema Authority**: Maintains Go struct representations of the OpenCode configuration JSON schema (`Config` struct).
-- **Path Resolution**: Centralizes logic for standard directories (`~/.config/opencode/`) via `paths.go`.
-- **Testing Hooks**: Provides `SetBaseDir` to redirect filesystem operations to temporary directories during tests.
-- **Serialization**: Defines JSON tags ensuring correct marshaling/unmarshaling of config files.
-- **Type Safety**: Enforces type correctness for complex nested structures like `AgentConfig`, `CategoryConfig`, and `PermissionConfig`.
+Schema authority and path resolution. This package is the **Source of Truth** for `oh-my-opencode.json` structure. Changes affect persistence, UI rendering, and upstream compatibility.
 
-## IMPACT & DEPENDENCIES
-- **Central Dependency**: Used by `internal/profile` (loading/saving), `internal/tui` (displaying/editing), and `internal/schema` (validation).
-- **High Risk**: Changes in `types.go` ripple through the entire application. Breaking changes here can corrupt user configuration files.
-- **External Contract**: Must remain synchronized with the `oh-my-opencode` upstream schema.
+## RESPONSIBILITIES
 
-## KEY FILES
-- `types.go`: **The Source of Truth**. Contains the nested `Config` struct hierarchy.
-    - `Config`: Root struct containing global settings and maps for Agents/Categories.
-    - `AgentConfig`: Detailed configuration for individual AI agents (model, skills, permissions).
-    - `PermissionConfig`: Granular security controls for tools and file access.
-- `paths.go`: Path resolvers for `oh-my-opencode.json` and `profiles/` directory. Handles `os.UserHomeDir` abstraction.
+- **Schema Authority**: Maps Go structs (`types.go`) to JSON schema 1:1
+- **Path Resolution**: Manages `~/.config/opencode/` paths via `paths.go`
+- **Environment Abstraction**: Isolates filesystem paths for testability
+- **Serialization**: Controls `json:"..."` tags for correct file I/O
+
+## SCHEMA SAFETY
+
+`types.go` is CRITICAL:
+
+1. **JSON Tags**: Must match `oh-my-opencode` schema keys exactly
+2. **Pointers**: Use pointers (`*bool`) to distinguish `false` from "missing"
+3. **No Logic**: Structs must remain pure data containers; no methods
+4. **Synchronization**: Fields must stay in sync with upstream schema
+
+## TESTING HOOKS
+
+Filesystem isolation is mandatory for all tests:
+
+```go
+// IN TESTS ONLY:
+config.SetBaseDir(t.TempDir())
+defer config.ResetBaseDir()
+```
+
+This redirects `ConfigDir()` to a temp directory, protecting the real `~/.config`.
 
 ## ANTI-PATTERNS
-- **Schema Divergence**: Adding fields to `types.go` that do not exist in the official `oh-my-opencode` JSON schema.
-- **Hardcoded Paths**: Constructing configuration paths manually instead of using `paths.ConfigFile()` or `paths.ProfilesDir()`.
-- **Global State Abuse**: Modifying `baseDir` via `SetBaseDir` in production code (strictly for testing only).
-- **Logic Leaks**: Adding business logic or validation methods to these data-only structs (logic belongs in `internal/profile` or `internal/schema`).
+
+- **Hardcoded Paths**: `"/home/user/..."` (use `paths.ConfigDir()`)
+- **Direct Struct Access**: Mutating `Config` fields outside `profile` package
+- **Missing Tags**: Omitting `json:"...,omitempty"` creates dirty config files
+- **Logic in Types**: Adding validation methods to `Config` struct (keep it pure)

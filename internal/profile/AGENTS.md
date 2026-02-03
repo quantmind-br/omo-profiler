@@ -1,24 +1,33 @@
-# INTERNAL/PROFILE KNOWLEDGE BASE
+# INTERNAL/PROFILE
 
 ## OVERVIEW
-Core business logic for profile persistence, state management, and switching mechanisms.
 
-## CORE RESPONSIBILITIES
-- **Persistence**: Handles full lifecycle (Create, Read, Update, Delete) of profile JSON files stored in `~/.config/opencode/profiles/`.
-- **Directory Management**: Automatically ensures configuration directories exist via `config.EnsureDirs()` before any write operation.
-- **State Management**: specific logic to determine the "active" profile, using a dual-strategy approach (cache vs. content match).
-- **Switching**: Implements `SetActive` to atomically overwrite the main `oh-my-opencode.json` config with the selected profile's content.
-- **Validation**: Enforces strict naming conventions (`^[a-zA-Z0-9_-]+$`) to ensure filesystem safety and consistent CLI usage.
+Core business logic for profile persistence, state management, and switching. Handles CRUD operations for JSON profiles and manages the active configuration state.
 
-## KEY FILES
-| File | Purpose |
-|---|---|
-| `profile.go` | Defines `Profile` struct and implements filesystem persistence (`Load`, `Save`, `Delete`, `List`). |
-| `active.go` | Logic for `GetActive`/`SetActive`, managing the `.active-profile` cache and content comparison. |
-| `naming.go` | Regex-based validation (`ValidateName`) and sanitization (`SanitizeName`) for profile identifiers. |
+## PERSISTENCE MODEL
 
-## PATTERNS
-- **Copy-over-Symlink**: `SetActive` copies JSON content to the target config location instead of using symlinks. This ensures compatibility with external tools that might overwrite the file or rely on `fsnotify` events on the real file.
-- **Optimistic State Caching**: Maintains a hidden `.active-profile` sidecar file to enable O(1) lookup of the current profile name. This avoids the expensive O(N) operation of loading and comparing every profile against the active config on every CLI run.
-- **Fallback Verification**: If the cache is stale or missing, `GetActive` falls back to scanning all profiles (`List()`) and comparing content byte-for-byte to identify the active configuration.
-- **Config Normalization**: The `MatchesConfig` method specifically strips non-functional metadata (like `$schema`) before comparing JSON payloads, preventing false negatives when the schema URL changes but content remains identical.
+- **Storage**: Profiles stored as individual JSON files in `~/.config/opencode/profiles/`
+- **Format**: Standard `oh-my-opencode.json` schema structure
+- **Lifecycle**: Full CRUD via `profile.go`
+- **Safety**: `config.EnsureDirs()` called before writes
+
+## SWITCHING LOGIC
+
+- **Mechanism**: **COPY**, not symlink. `SetActive` overwrites `oh-my-opencode.json` with profile content
+  - Reason: Ensures compatibility with external tools/fsnotify
+- **State Tracking**:
+  1. **Primary**: Fast O(1) lookup via hidden `.active-profile` sidecar (stores name)
+  2. **Fallback**: If sidecar stale/missing, performs O(N) content scan of all profiles
+- **Comparison**: `MatchesConfig` normalizes data (strips `$schema`) before byte-for-byte check
+
+## VALIDATION RULES
+
+- **Naming**: Strict regex `^[a-zA-Z0-9_-]+$` (alphanumeric, underscores, hyphens)
+- **Sanitization**: `SanitizeName` strips invalid chars and trims separators
+- **Constraints**: Name cannot be empty
+
+## ANTI-PATTERNS
+
+- **Symlinking**: DO NOT use symlinks for switching. Always copy content.
+- **Manual State**: DO NOT manually edit `.active-profile`. Let `SetActive` manage it.
+- **Raw File Access**: Avoid `os.Open` for profiles; always use `profile.Load()`.

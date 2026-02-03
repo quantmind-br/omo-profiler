@@ -109,6 +109,7 @@ const (
 	sectionBrowserAutomationEngine
 	sectionTmux
 	sectionSisyphus
+	sectionDefaultRunAgent
 )
 
 var otherSectionNames = []string{
@@ -129,6 +130,7 @@ var otherSectionNames = []string{
 	"Browser Automation Engine",
 	"Tmux",
 	"Sisyphus",
+	"Default Run Agent",
 }
 
 type wizardOtherKeyMap struct {
@@ -191,9 +193,11 @@ type WizardOther struct {
 	autoUpdate bool
 
 	// Experimental flags
-	expAggressiveTrunc    bool
-	expAutoResume         bool
-	expTruncateAllOutputs bool
+	expAggressiveTrunc      bool
+	expAutoResume           bool
+	expTruncateAllOutputs   bool
+	expPreemptiveCompaction bool
+	expTaskSystem           bool
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -264,6 +268,9 @@ type WizardOther struct {
 	sisSwarmEnabled     bool
 	sisSwarmStoragePath textinput.Model
 	sisSwarmUIModeIdx   int
+
+	// Default Run Agent
+	defaultRunAgent textinput.Model
 
 	// UI State
 	currentSection  otherSection
@@ -373,6 +380,10 @@ func NewWizardOther() WizardOther {
 	sisSwarmStoragePath.Placeholder = ".sisyphus/teams"
 	sisSwarmStoragePath.Width = 40
 
+	defaultRunAgent := textinput.New()
+	defaultRunAgent.Placeholder = "build"
+	defaultRunAgent.Width = 30
+
 	return WizardOther{
 		disabledMcps:           disabledMcps,
 		disabledAgents:         disabledAgents,
@@ -396,6 +407,7 @@ func NewWizardOther() WizardOther {
 		tmuxAgentPaneMinWidth:  tmuxAgentWidth,
 		sisTasksStoragePath:    sisTasksStoragePath,
 		sisSwarmStoragePath:    sisSwarmStoragePath,
+		defaultRunAgent:        defaultRunAgent,
 		sectionExpanded:        sectionExpanded,
 		keys:                   newWizardOtherKeyMap(),
 	}
@@ -449,6 +461,11 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		w.autoUpdate = *cfg.AutoUpdate
 	}
 
+	// Default run agent
+	if cfg.DefaultRunAgent != "" {
+		w.defaultRunAgent.SetValue(cfg.DefaultRunAgent)
+	}
+
 	// Experimental
 	if cfg.Experimental != nil {
 		if cfg.Experimental.AggressiveTruncation != nil {
@@ -459,6 +476,12 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.Experimental.TruncateAllToolOutputs != nil {
 			w.expTruncateAllOutputs = *cfg.Experimental.TruncateAllToolOutputs
+		}
+		if cfg.Experimental.PreemptiveCompaction != nil {
+			w.expPreemptiveCompaction = *cfg.Experimental.PreemptiveCompaction
+		}
+		if cfg.Experimental.TaskSystem != nil {
+			w.expTaskSystem = *cfg.Experimental.TaskSystem
 		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
@@ -711,9 +734,14 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.AutoUpdate = &w.autoUpdate
 	}
 
+	// Default run agent
+	if v := w.defaultRunAgent.Value(); v != "" {
+		cfg.DefaultRunAgent = v
+	}
+
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
-		w.expTruncateAllOutputs ||
+		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -729,6 +757,12 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.expTruncateAllOutputs {
 			cfg.Experimental.TruncateAllToolOutputs = &w.expTruncateAllOutputs
+		}
+		if w.expPreemptiveCompaction {
+			cfg.Experimental.PreemptiveCompaction = &w.expPreemptiveCompaction
+		}
+		if w.expTaskSystem {
+			cfg.Experimental.TaskSystem = &w.expTaskSystem
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -1224,6 +1258,25 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionDefaultRunAgent {
+				switch msg.String() {
+				case "esc":
+					w.defaultRunAgent.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.defaultRunAgent.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.defaultRunAgent.Focus()
+					w.defaultRunAgent, cmd = w.defaultRunAgent.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionRalphLoop && w.subCursor == 1 {
 				switch msg.String() {
 				case "esc":
@@ -1633,6 +1686,10 @@ func (w *WizardOther) toggleSubItem() {
 		case 11:
 			w.dcpPurgeErrorsEnabled = !w.dcpPurgeErrorsEnabled
 		case 12:
+		case 16:
+			w.expPreemptiveCompaction = !w.expPreemptiveCompaction
+		case 17:
+			w.expTaskSystem = !w.expTaskSystem
 		}
 	case sectionClaudeCode:
 		switch w.subCursor {
@@ -1854,6 +1911,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_purge_errors_turns: ")+w.dcpPurgeErrorsTurns.View())
 
+		lines = append(lines, renderCheckbox(16, "preemptive_compaction", w.expPreemptiveCompaction))
+		lines = append(lines, renderCheckbox(17, "task_system", w.expTaskSystem))
+
 	case sectionClaudeCode:
 		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
 		lines = append(lines, renderCheckbox(1, "commands", w.ccCommands))
@@ -2019,6 +2079,17 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			uiModeVal = sisSwarmUIModeValues[w.sisSwarmUIModeIdx]
 		}
 		lines = append(lines, indent+cursor+style.Render("ui_mode: ")+uiModeVal)
+
+	case sectionDefaultRunAgent:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+		}
+		lines = append(lines, indent+cursor+style.Render("agent: ")+w.defaultRunAgent.View())
 	}
 
 	lines = append(lines, "")

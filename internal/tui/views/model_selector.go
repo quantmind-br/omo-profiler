@@ -2,12 +2,14 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/sahilm/fuzzy"
 )
 
 // Messages
@@ -60,15 +62,18 @@ func newModelSelectorKeyMap() modelSelectorKeyMap {
 }
 
 type ModelSelector struct {
-	items        []selectorItem
-	cursor       int
-	scrollOffset int
-	customMode   bool
-	customInput  textinput.Model
-	width        int
-	height       int
-	keys         modelSelectorKeyMap
-	loadError    error
+	items         []selectorItem
+	groups        []models.ProviderGroup
+	cursor        int
+	scrollOffset  int
+	customMode    bool
+	customInput   textinput.Model
+	searchInput   textinput.Model
+	filteredCount int
+	width         int
+	height        int
+	keys          modelSelectorKeyMap
+	loadError     error
 }
 
 func NewModelSelector() ModelSelector {
@@ -76,8 +81,14 @@ func NewModelSelector() ModelSelector {
 	customInput.Placeholder = "e.g., gpt-4o-mini"
 	customInput.Width = 40
 
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Search models..."
+	searchInput.Width = 40
+	searchInput.Focus()
+
 	m := ModelSelector{
 		customInput: customInput,
+		searchInput: searchInput,
 		keys:        newModelSelectorKeyMap(),
 	}
 
@@ -90,6 +101,7 @@ func NewModelSelector() ModelSelector {
 			{isCustom: true},
 		}
 		m.cursor = 1 // Point to custom option
+		m.filteredCount = 0
 		return m
 	}
 
@@ -98,24 +110,64 @@ func NewModelSelector() ModelSelector {
 }
 
 func (m *ModelSelector) buildItems(registry *models.ModelsRegistry) {
-	m.items = nil
-	groups := registry.ListByProvider()
+	m.groups = registry.ListByProvider()
+	m.rebuildItems()
+}
 
-	for _, group := range groups {
+func (m *ModelSelector) rebuildItems() {
+	m.items = nil
+	m.filteredCount = 0
+	searchTerm := strings.TrimSpace(m.searchInput.Value())
+
+	for _, group := range m.groups {
 		providerName := group.Provider
 		if providerName == "" {
 			providerName = "Other"
 		}
-		// Add provider header
+
+		if searchTerm == "" {
+			// Add provider header
+			m.items = append(m.items, selectorItem{
+				isHeader: true,
+				provider: providerName,
+			})
+			// Add models under this provider
+			for i := range group.Models {
+				m.items = append(m.items, selectorItem{
+					model: &group.Models[i],
+				})
+			}
+			m.filteredCount += len(group.Models)
+			continue
+		}
+
+		searchStrings := make([]string, len(group.Models))
+		for i, model := range group.Models {
+			provider := model.Provider
+			if provider == "" {
+				provider = "Other"
+			}
+			searchStrings[i] = fmt.Sprintf("%s/%s %s", provider, model.ModelID, model.DisplayName)
+		}
+
+		matches := fuzzy.Find(searchTerm, searchStrings)
+		if len(matches) == 0 {
+			continue
+		}
+
 		m.items = append(m.items, selectorItem{
 			isHeader: true,
 			provider: providerName,
 		})
-		// Add models under this provider
-		for i := range group.Models {
+		for _, match := range matches {
+			idx := match.Index
+			if idx < 0 || idx >= len(group.Models) {
+				continue
+			}
 			m.items = append(m.items, selectorItem{
-				model: &group.Models[i],
+				model: &group.Models[idx],
 			})
+			m.filteredCount++
 		}
 	}
 
@@ -164,10 +216,7 @@ func (m ModelSelector) listHeight() int {
 		return 0
 	}
 
-	headerHeight := 2
-	if m.loadError != nil {
-		headerHeight += 2
-	}
+	headerHeight := m.headerHeight()
 
 	footerHeight := 2
 	available := m.height - headerHeight - footerHeight
@@ -179,6 +228,18 @@ func (m ModelSelector) listHeight() int {
 	}
 
 	return available
+}
+
+func (m ModelSelector) headerHeight() int {
+	height := 2 // title + empty line
+	if m.loadError != nil {
+		height += 2
+	}
+	height += 2 // search line + empty line
+	if m.filteredCount == 0 && strings.TrimSpace(m.searchInput.Value()) != "" {
+		height += 2
+	}
+	return height
 }
 
 func (m *ModelSelector) ensureCursorVisible() {
@@ -246,8 +307,37 @@ func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.searchInput.Focused() {
+			switch msg.String() {
+			case "esc":
+				if strings.TrimSpace(m.searchInput.Value()) == "" {
+					m.searchInput.Blur()
+					return m, func() tea.Msg {
+						return ModelSelectorCancelMsg{}
+					}
+				}
+				m.searchInput.Blur()
+				m.searchInput.SetValue("")
+				m.rebuildItems()
+				return m, nil
+			case "enter", "down":
+				m.searchInput.Blur()
+				return m, nil
+			}
+
+			oldValue := m.searchInput.Value()
+			m.searchInput, cmd = m.searchInput.Update(msg)
+			if oldValue != m.searchInput.Value() {
+				m.rebuildItems()
+			}
+			return m, cmd
+		}
+
 		// List mode
 		switch {
+		case msg.String() == "/":
+			m.searchInput.Focus()
+			return m, nil
 		case key.Matches(msg, m.keys.Up):
 			newCursor := m.cursor - 1
 			for newCursor >= 0 && !m.isSelectable(newCursor) {
@@ -275,6 +365,7 @@ func (m ModelSelector) Update(msg tea.Msg) (ModelSelector, tea.Cmd) {
 					m.customMode = true
 					m.customInput.SetValue("")
 					m.customInput.Focus()
+					m.searchInput.Blur()
 					return m, textinput.Blink
 				}
 				if item.model != nil {
@@ -325,6 +416,15 @@ func (m ModelSelector) renderList() string {
 	if m.loadError != nil {
 		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
 		headerLines = append(headerLines, errStyle.Render("Could not load models registry"))
+		headerLines = append(headerLines, "")
+	}
+
+	searchLine := "Search: " + m.searchInput.View()
+	headerLines = append(headerLines, searchLine)
+	headerLines = append(headerLines, "")
+
+	if m.filteredCount == 0 && strings.TrimSpace(m.searchInput.Value()) != "" {
+		headerLines = append(headerLines, dimStyle.Render("No models match the search."))
 		headerLines = append(headerLines, "")
 	}
 
@@ -385,7 +485,7 @@ func (m ModelSelector) renderList() string {
 	var footerLines []string
 	footerLines = append(footerLines, "")
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	footerLines = append(footerLines, helpStyle.Render("[↑↓] navigate  [Enter] select  [Esc] cancel"))
+	footerLines = append(footerLines, helpStyle.Render("[/] search  [↑↓] navigate  [Enter] select  [Esc] cancel"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.JoinVertical(lipgloss.Left, headerLines...),

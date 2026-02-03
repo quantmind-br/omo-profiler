@@ -47,6 +47,7 @@ type listKeyMap struct {
 	New    key.Binding
 	Search key.Binding
 	Back   key.Binding
+	Import key.Binding
 }
 
 func newListKeyMap() listKeyMap {
@@ -74,6 +75,10 @@ func newListKeyMap() listKeyMap {
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
+		),
+		Import: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "import"),
 		),
 	}
 }
@@ -224,6 +229,11 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 		case key.Matches(msg, l.keys.New):
 			return l, func() tea.Msg {
 				return NavigateToWizardMsg{}
+			}
+
+		case key.Matches(msg, l.keys.Import):
+			return l, func() tea.Msg {
+				return NavToImportMsg{}
 			}
 		}
 

@@ -1,34 +1,47 @@
-# Views Knowledge Base
+# TUI/VIEWS
 
 ## OVERVIEW
-Collection of Bubble Tea view components, primarily centered around a 6-step configuration wizard.
 
-## WIZARD ARCHITECTURE
-The `Wizard` struct (`wizard.go`) acts as a stateful orchestrator for 6 steps:
-1. `StepName` (WizardName): Profile naming.
-2. `StepCategories` (WizardCategories): Model categorization.
-3. `StepAgents` (WizardAgents): Detailed agent configuration (longest step).
-4. `StepHooks` (WizardHooks): Event hooks setup.
-5. `StepOther` (WizardOther): Misc settings.
-6. `StepReview` (WizardReview): Final validation and save.
+16 files implementing Bubble Tea views. Dominated by Profile Wizard logic. `Wizard` acts as parent component orchestrating 6 sequential configuration steps.
 
-Data flow: `Wizard` holds `config.Config`. Steps receive copy via `SetConfig()`, mutate internal state, and write back via `Apply()` on navigation.
+## WIZARD FLOW
 
-## MESSAGE PATTERNS
-| Message | Source | Purpose |
-|---------|--------|---------|
-| `WizardNextMsg` | Step View | Advance to next step (triggers `Apply`) |
-| `WizardBackMsg` | Step View | Return to previous step |
-| `WizardSaveMsg` | Review View | Finalize creation/edit (payload: `*profile.Profile`) |
-| `WizardCancelMsg` | Any View | Abort wizard and return to dashboard |
-| `NavTo*Msg` | Dashboard | Global navigation request |
+State machine driven by `wizard.go` `Update` loop:
 
-## CONVENTIONS
-- **Responsive Layout**: All views implement `SetSize(w, h)` to adjust viewports/lists.
-- **Config Mutation**: Steps never mutate shared config directly; only on `Apply()`.
-- **Keybindings**: Consistent usage of `WizardKeyMap` (Tab/Enter=Next, Shift+Tab/Esc=Back).
-- **Edit Mode**: `NewWizardForEdit` pre-fills all steps; name changes trigger rename logic.
+1. **Name** (`StepName`): Profile naming & validation
+2. **Categories** (`StepCategories`): Model groupings
+3. **Agents** (`StepAgents`): Complex form (~1000 lines) for agent config
+4. **Hooks** (`StepHooks`): Event triggers
+5. **Other** (`StepOther`): Misc settings
+6. **Review** (`StepReview`): Final JSON validation & persistence
 
-## KNOWN ISSUES
-- `wizard_hooks.go`: incomplete implementation (search "todo-continuation-enforcer").
-- `keybindings_test.go`: context-dependent Enter key behavior requires careful testing.
+## KEY COMPONENTS
+
+### Wizard State Machine
+- **Orchestrator**: `Wizard` struct holds `config.Config` and manages transitions
+- **Data Flow**: Steps read config via `SetConfig()`, mutate local state, write back via `Apply()` on exit
+- **Implicit Interface**: All steps implement:
+  - `SetConfig(*config.Config)`: Load state
+  - `Apply(*config.Config)`: Save state
+  - `SetSize(w, h)`: Responsive layout
+  - `Init() tea.Cmd`: Lifecycle hook
+
+### Views
+- **List**: Dashboard with filtering/actions (`list.go`)
+- **Diff**: Side-by-side profile comparison (`diff.go`)
+
+## MESSAGE PROTOCOL
+
+| Message | Trigger | Action |
+|---------|---------|--------|
+| `WizardNextMsg` | `Enter`/`Tab` | Call `Apply()`, increment step, `Init()` next |
+| `WizardBackMsg` | `Esc`/`Shift+Tab` | Decrement step, `Init()` prev |
+| `WizardSaveMsg` | Review Step | Persist profile to disk, return to Dashboard |
+| `WizardCancelMsg` | `Ctrl+C` | Discard changes, return to Dashboard |
+
+## ANTI-PATTERNS
+
+- **Direct Config Mutation**: Steps must NOT modify `config.Config` directly; use `Apply()` only
+- **Blocking Operations**: Disk I/O (Save/Load) should be wrapped in `tea.Cmd`
+- **Hardcoded Dimensions**: Always use `SetSize()` provided by parent
+- **Incomplete Features**: `wizard_hooks.go` has known TODOs ("todo-continuation-enforcer")

@@ -1,36 +1,45 @@
-# TUI Architecture
+# TUI ARCHITECTURE
 
 ## OVERVIEW
-Bubble Tea application orchestrating navigation, state management, and global UI components.
+
+Built with **Bubble Tea** using **Model-View-Update (MVU)** pattern. Root `App` model (`app.go`) acts as state container, router, and composition layer for all sub-views.
 
 ## STATE MACHINE
-Centralized in `App.state` (`app.go`). Transitions via `navigateTo(state)` triggered by messages.
 
-**States:** `stateDashboard` (default), `stateList`, `stateWizard`, `stateDiff`, `stateModels`, `stateModelImport`
+Application state centralized in `App` struct and `appState` enum:
+- **State Enum**: `stateDashboard`, `stateList`, `stateWizard`, etc.
+- **Transitions**: Controlled via `navigateTo(state)` which:
+  1. Updates `App.state`
+  2. Re-initializes target view model
+  3. Returns view's `Init()` command
 
-## KEY FILES
-| File | Role |
-|------|------|
-| `app.go` | **Main Hub**: State machine, message routing, global layout (Toast, Help). |
-| `tui.go` | **Entry**: Initializes `tea.Program` with `NewApp()`. |
-| `styles.go` | **Design**: Centralized Lipgloss styles (Palettes, Borders). |
-| `keys.go` | **Input**: Global keybindings (`q`, `?`, `esc`) & Help constants. |
+## GLOBAL COMPONENTS
 
-## APP STRUCT
-The `App` model owns all sub-models and global state:
-- **State**: `state`, `prevState`, `ready`, `loading`
-- **UI**: `spinner`, `help`, `toast`
-- **Views**: `dashboard`, `list`, `wizard`, `diff`, `modelRegistry`
+Global UI elements overlay active view in `App.View()`:
 
-## PATTERNS
-- **Navigation**: Views emit `NavTo*Msg` → `App.Update` calls `navigateTo()` → Re-inits view.
-- **Async Commands**: Operations (e.g., `doSwitchProfile`) return `tea.Cmd`, results handled via `*DoneMsg`.
-- **Toast Notifications**: Global overlay via `showToast()`, auto-clears after duration.
-- **Layout**: `App.View()` renders active view + global overlays (Toast, Help) vertically.
+1. **Toast System**:
+   - Triggered via `showToast(text, type, duration)` cmd
+   - Renders at bottom of viewport
+   - Auto-clears via `tea.Tick` command
 
-## ADDING A VIEW
-1. **Create**: `internal/tui/views/myview.go` implementing `Init/Update/View`.
-2. **Register**: Add `stateMyView` to `appState` enum in `app.go`.
-3. **Embed**: Add `myView views.MyView` to `App` struct.
-4. **Route**: Handle `NavToMyViewMsg` in `App.Update` -> `navigateTo(stateMyView)`.
-5. **Render**: Add case to `App.View()` switch.
+2. **Help Bubble**:
+   - Managed globally by `help.Model`
+   - Context-aware: `renderShortHelp()` vs `renderFullHelp()` based on `App.state`
+
+3. **Loading Spinner**:
+   - Activated by setting `App.loading = true`
+   - Replaces content with spinner overlay during async operations
+
+## NAVIGATION FLOW
+
+Navigation is **message-driven** to decouple views from router:
+1. **View** emits `NavTo*Msg` (e.g., `NavToWizardMsg`)
+2. **App.Update** intercepts message
+3. **App** calls `navigateTo(newState)`
+4. **App** updates `activeView` field
+
+## ANTI-PATTERNS
+
+- **NO Direct State Mutation**: Sub-views must NEVER modify `App` state; always return `Msg`
+- **NO Blocking Operations**: File I/O must happen in `tea.Cmd`, never in `Update()`
+- **NO Persisted View State**: Views are re-created on navigation; don't rely on state persistence

@@ -28,6 +28,7 @@ type Config struct {
 	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
+	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
 }
 
 type AgentConfig struct {
@@ -107,6 +108,8 @@ type ExperimentalConfig struct {
 	AggressiveTruncation   *bool                        `json:"aggressive_truncation,omitempty"`
 	AutoResume             *bool                        `json:"auto_resume,omitempty"`
 	TruncateAllToolOutputs *bool                        `json:"truncate_all_tool_outputs,omitempty"`
+	PreemptiveCompaction   *bool                        `json:"preemptive_compaction,omitempty"`
+	TaskSystem             *bool                        `json:"task_system,omitempty"`
 	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
 }
 

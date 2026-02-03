@@ -510,3 +510,218 @@ func TestAgentConfigExtendedFieldsRoundTrip(t *testing.T) {
 		t.Errorf("maxTokens not preserved: %s", marshaled)
 	}
 }
+
+func TestDefaultRunAgentRoundTrip(t *testing.T) {
+	// Test DefaultRunAgent string field with value
+	jsonData := `{"default_run_agent": "build"}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.DefaultRunAgent != "build" {
+		t.Errorf("expected default_run_agent=build, got %s", cfg.DefaultRunAgent)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"default_run_agent":"build"`) {
+		t.Errorf("default_run_agent not preserved: %s", marshaled)
+	}
+
+	// Verify round-trip equality
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+	if roundtrip.DefaultRunAgent != cfg.DefaultRunAgent {
+		t.Errorf("roundtrip mismatch: expected %s, got %s", cfg.DefaultRunAgent, roundtrip.DefaultRunAgent)
+	}
+}
+
+func TestDefaultRunAgentOmitempty(t *testing.T) {
+	// Test that empty DefaultRunAgent is omitted from JSON
+	cfg := Config{
+		DefaultRunAgent: "",
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	if strings.Contains(string(marshaled), "default_run_agent") {
+		t.Errorf("empty default_run_agent should be omitted: %s", marshaled)
+	}
+	if string(marshaled) != "{}" {
+		t.Errorf("empty config should marshal to {}, got: %s", marshaled)
+	}
+}
+
+func TestPreemptiveCompactionRoundTrip(t *testing.T) {
+	// Test PreemptiveCompaction with true value
+	jsonData := `{"experimental": {"preemptive_compaction": true}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.PreemptiveCompaction == nil || !*cfg.Experimental.PreemptiveCompaction {
+		t.Errorf("expected preemptive_compaction=true, got %v", cfg.Experimental.PreemptiveCompaction)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"preemptive_compaction":true`) {
+		t.Errorf("preemptive_compaction not preserved: %s", marshaled)
+	}
+
+	// Verify round-trip equality
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+	if roundtrip.Experimental == nil || roundtrip.Experimental.PreemptiveCompaction == nil {
+		t.Fatal("roundtrip experimental or preemptive_compaction is nil")
+	}
+	if *roundtrip.Experimental.PreemptiveCompaction != *cfg.Experimental.PreemptiveCompaction {
+		t.Errorf("roundtrip mismatch: expected %v, got %v", *cfg.Experimental.PreemptiveCompaction, *roundtrip.Experimental.PreemptiveCompaction)
+	}
+}
+
+func TestPreemptiveCompactionFalse(t *testing.T) {
+	// Test PreemptiveCompaction with false value
+	jsonData := `{"experimental": {"preemptive_compaction": false}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.PreemptiveCompaction == nil || *cfg.Experimental.PreemptiveCompaction {
+		t.Errorf("expected preemptive_compaction=false, got %v", cfg.Experimental.PreemptiveCompaction)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"preemptive_compaction":false`) {
+		t.Errorf("preemptive_compaction=false not preserved: %s", marshaled)
+	}
+}
+
+func TestPreemptiveCompactionOmitempty(t *testing.T) {
+	// Test that nil PreemptiveCompaction is omitted from JSON
+	cfg := Config{
+		Experimental: &ExperimentalConfig{
+			PreemptiveCompaction: nil,
+		},
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	if strings.Contains(string(marshaled), "preemptive_compaction") {
+		t.Errorf("nil preemptive_compaction should be omitted: %s", marshaled)
+	}
+}
+
+func TestTaskSystemRoundTrip(t *testing.T) {
+	// Test TaskSystem with true value
+	jsonData := `{"experimental": {"task_system": true}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.TaskSystem == nil || !*cfg.Experimental.TaskSystem {
+		t.Errorf("expected task_system=true, got %v", cfg.Experimental.TaskSystem)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"task_system":true`) {
+		t.Errorf("task_system not preserved: %s", marshaled)
+	}
+
+	// Verify round-trip equality
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+	if roundtrip.Experimental == nil || roundtrip.Experimental.TaskSystem == nil {
+		t.Fatal("roundtrip experimental or task_system is nil")
+	}
+	if *roundtrip.Experimental.TaskSystem != *cfg.Experimental.TaskSystem {
+		t.Errorf("roundtrip mismatch: expected %v, got %v", *cfg.Experimental.TaskSystem, *roundtrip.Experimental.TaskSystem)
+	}
+}
+
+func TestTaskSystemFalse(t *testing.T) {
+	// Test TaskSystem with false value
+	jsonData := `{"experimental": {"task_system": false}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.TaskSystem == nil || *cfg.Experimental.TaskSystem {
+		t.Errorf("expected task_system=false, got %v", cfg.Experimental.TaskSystem)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"task_system":false`) {
+		t.Errorf("task_system=false not preserved: %s", marshaled)
+	}
+}
+
+func TestTaskSystemOmitempty(t *testing.T) {
+	// Test that nil TaskSystem is omitted from JSON
+	cfg := Config{
+		Experimental: &ExperimentalConfig{
+			TaskSystem: nil,
+		},
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	if strings.Contains(string(marshaled), "task_system") {
+		t.Errorf("nil task_system should be omitted: %s", marshaled)
+	}
+}
