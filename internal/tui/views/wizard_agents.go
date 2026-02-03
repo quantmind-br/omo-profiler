@@ -60,11 +60,11 @@ var allAgents = []string{
 	"prometheus",
 	"metis",
 	"momus",
-	"atlas",
 	"oracle",
 	"librarian",
 	"explore",
 	"multimodal-looker",
+	"atlas",
 }
 
 // Mode options for agents

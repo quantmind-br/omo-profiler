@@ -10,7 +10,7 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
-// All 36 hooks
+// All 36 hooks - must stay in sync with upstream schema order
 var allHooks = []string{
 	"todo-continuation-enforcer",
 	"context-window-monitor",
@@ -24,6 +24,7 @@ var allHooks = []string{
 	"empty-task-response-detector",
 	"think-mode",
 	"anthropic-context-window-limit-recovery",
+	"preemptive-compaction",
 	"rules-injector",
 	"background-notification",
 	"auto-update-checker",
@@ -34,20 +35,19 @@ var allHooks = []string{
 	"interactive-bash-session",
 	"thinking-block-validator",
 	"ralph-loop",
-	"compaction-context-injector",
 	"category-skill-reminder",
+	"compaction-context-injector",
 	"claude-code-hooks",
 	"auto-slash-command",
 	"edit-error-recovery",
 	"delegate-task-retry",
 	"prometheus-md-only",
-	"start-work",
 	"sisyphus-junior-notepad",
+	"start-work",
 	"atlas",
 	"unstable-agent-babysitter",
 	"stop-continuation-guard",
 	"tasks-todowrite-disabler",
-	"preemptive-compaction",
 }
 
 type wizardHooksKeyMap struct {

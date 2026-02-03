@@ -60,6 +60,7 @@ func serializeMapStringInt(m map[string]int) string {
 var disableableAgents = []string{
 	"sisyphus",
 	"hephaestus",
+	"prometheus",
 	"oracle",
 	"librarian",
 	"explore",
@@ -67,15 +68,14 @@ var disableableAgents = []string{
 	"metis",
 	"momus",
 	"atlas",
-	"prometheus",
 }
 
-// Disableable skills (3)
+// Disableable skills (4)
 var disableableSkills = []string{
 	"playwright",
+	"agent-browser",
 	"frontend-ui-ux",
 	"git-master",
-	"agent-browser",
 }
 
 // Disableable commands (2)
@@ -86,7 +86,6 @@ var disableableCommands = []string{
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
 var baeProviderValues = []string{"", "playwright", "agent-browser", "dev-browser"}
-var sisSwarmUIModeValues = []string{"", "toast", "tmux", "both"}
 
 // Sections in the other settings
 type otherSection int
@@ -260,14 +259,8 @@ type WizardOther struct {
 	tmuxAgentPaneMinWidth textinput.Model
 
 	// Sisyphus Tasks
-	sisTasksEnabled          bool
 	sisTasksStoragePath      textinput.Model
 	sisTasksClaudeCodeCompat bool
-
-	// Sisyphus Swarm
-	sisSwarmEnabled     bool
-	sisSwarmStoragePath textinput.Model
-	sisSwarmUIModeIdx   int
 
 	// Default Run Agent
 	defaultRunAgent textinput.Model
@@ -376,10 +369,6 @@ func NewWizardOther() WizardOther {
 	sisTasksStoragePath.Placeholder = ".sisyphus/tasks"
 	sisTasksStoragePath.Width = 40
 
-	sisSwarmStoragePath := textinput.New()
-	sisSwarmStoragePath.Placeholder = ".sisyphus/teams"
-	sisSwarmStoragePath.Width = 40
-
 	defaultRunAgent := textinput.New()
 	defaultRunAgent.Placeholder = "build"
 	defaultRunAgent.Width = 30
@@ -406,7 +395,6 @@ func NewWizardOther() WizardOther {
 		tmuxMainPaneMinWidth:   tmuxMinWidth,
 		tmuxAgentPaneMinWidth:  tmuxAgentWidth,
 		sisTasksStoragePath:    sisTasksStoragePath,
-		sisSwarmStoragePath:    sisSwarmStoragePath,
 		defaultRunAgent:        defaultRunAgent,
 		sectionExpanded:        sectionExpanded,
 		keys:                   newWizardOtherKeyMap(),
@@ -1745,17 +1733,9 @@ func (w *WizardOther) toggleSubItem() {
 	case sectionSisyphus:
 		switch w.subCursor {
 		case 0:
-			w.sisTasksEnabled = !w.sisTasksEnabled
+			// storage_path - handled in Update
 		case 1:
-			// storage_path - handled in Update
-		case 2:
 			w.sisTasksClaudeCodeCompat = !w.sisTasksClaudeCodeCompat
-		case 3:
-			w.sisSwarmEnabled = !w.sisSwarmEnabled
-		case 4:
-			// storage_path - handled in Update
-		case 5:
-			w.sisSwarmUIModeIdx = (w.sisSwarmUIModeIdx + 1) % len(sisSwarmUIModeValues)
 		}
 	}
 }
@@ -2039,46 +2019,18 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionSisyphus:
 		lines = append(lines, indent+"  "+dimStyle.Render("─── Tasks ───"))
-		lines = append(lines, renderCheckbox(0, "enabled", w.sisTasksEnabled))
 
 		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
 			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
 		}
 		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisTasksStoragePath.View())
 
-		lines = append(lines, renderCheckbox(2, "claude_code_compat", w.sisTasksClaudeCodeCompat))
-
-		lines = append(lines, indent+"  "+dimStyle.Render("─── Swarm ───"))
-		lines = append(lines, renderCheckbox(3, "enabled", w.sisSwarmEnabled))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-		}
-		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisSwarmStoragePath.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-		}
-		uiModeVal := ""
-		if w.sisSwarmUIModeIdx > 0 {
-			uiModeVal = sisSwarmUIModeValues[w.sisSwarmUIModeIdx]
-		}
-		lines = append(lines, indent+cursor+style.Render("ui_mode: ")+uiModeVal)
+		lines = append(lines, renderCheckbox(1, "claude_code_compat", w.sisTasksClaudeCodeCompat))
 
 	case sectionDefaultRunAgent:
 		cursor := "  "
