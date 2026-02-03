@@ -24,6 +24,7 @@
         "type": "string",
         "enum": [
           "sisyphus",
+          "hephaestus",
           "prometheus",
           "oracle",
           "librarian",
@@ -41,9 +42,9 @@
         "type": "string",
         "enum": [
           "playwright",
+          "agent-browser",
           "frontend-ui-ux",
-          "git-master",
-          "agent-browser"
+          "git-master"
         ]
       }
     },
@@ -75,16 +76,16 @@
           "interactive-bash-session",
           "thinking-block-validator",
           "ralph-loop",
+          "category-skill-reminder",
           "compaction-context-injector",
           "claude-code-hooks",
           "auto-slash-command",
           "edit-error-recovery",
           "delegate-task-retry",
           "prometheus-md-only",
+          "sisyphus-junior-notepad",
           "start-work",
           "atlas",
-          "category-skill-reminder",
-          "sisyphus-junior-notepad",
           "unstable-agent-babysitter",
           "stop-continuation-guard",
           "tasks-todowrite-disabler"
