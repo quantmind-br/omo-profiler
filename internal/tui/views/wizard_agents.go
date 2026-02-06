@@ -109,6 +109,12 @@ const (
 	fieldDescription
 	fieldMode
 	fieldColor
+	fieldMaxTokens
+	fieldThinkingType
+	fieldThinkingBudget
+	fieldReasoningEffort
+	fieldTextVerbosity
+	fieldProviderOptions
 	fieldPermEdit
 	fieldPermBash
 	fieldPermWebfetch
@@ -117,22 +123,28 @@ const (
 )
 
 type agentConfig struct {
-	enabled      bool
-	expanded     bool
-	modelValue   string
-	modelDisplay string
-	variant      textinput.Model
-	category     textinput.Model
-	temperature  textinput.Model
-	topP         textinput.Model
-	skills       textinput.Model
-	tools        textinput.Model
-	prompt       textarea.Model
-	promptAppend textarea.Model
-	disable      bool
-	description  textinput.Model
-	modeIdx      int
-	color        textinput.Model
+	enabled                bool
+	expanded               bool
+	modelValue             string
+	modelDisplay           string
+	variant                textinput.Model
+	category               textinput.Model
+	temperature            textinput.Model
+	topP                   textinput.Model
+	skills                 textinput.Model
+	tools                  textinput.Model
+	prompt                 textarea.Model
+	promptAppend           textarea.Model
+	disable                bool
+	description            textinput.Model
+	modeIdx                int
+	color                  textinput.Model
+	maxTokens              textinput.Model
+	thinkingTypeIdx        int
+	thinkingBudget         textinput.Model
+	reasoningEffortIdx     int
+	textVerbosityIdx       int
+	providerOptionsDisplay string
 	// Permissions
 	permEditIdx     int
 	permBashIdx     int
@@ -195,6 +207,14 @@ func newAgentConfig() agentConfig {
 	color.Placeholder = "#RRGGBB"
 	color.Width = 10
 
+	maxTokens := textinput.New()
+	maxTokens.Placeholder = "e.g. 8192"
+	maxTokens.CharLimit = 10
+
+	thinkingBudget := textinput.New()
+	thinkingBudget.Placeholder = "e.g. 10000"
+	thinkingBudget.CharLimit = 10
+
 	saveDisplayNameInput := textinput.New()
 	saveDisplayNameInput.Placeholder = "Display name"
 	saveDisplayNameInput.Width = 30
@@ -214,6 +234,8 @@ func newAgentConfig() agentConfig {
 		promptAppend:         promptAppend,
 		description:          description,
 		color:                color,
+		maxTokens:            maxTokens,
+		thinkingBudget:       thinkingBudget,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -411,6 +433,37 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 					}
 				}
 			}
+			if agentCfg.MaxTokens != nil {
+				ac.maxTokens.SetValue(fmt.Sprintf("%.0f", *agentCfg.MaxTokens))
+			}
+			if agentCfg.Thinking != nil {
+				for i, t := range thinkingTypes {
+					if t == agentCfg.Thinking.Type {
+						ac.thinkingTypeIdx = i
+						break
+					}
+				}
+				if agentCfg.Thinking.BudgetTokens != nil {
+					ac.thinkingBudget.SetValue(fmt.Sprintf("%.0f", *agentCfg.Thinking.BudgetTokens))
+				}
+			}
+			for i, e := range effortLevels {
+				if e == agentCfg.ReasoningEffort {
+					ac.reasoningEffortIdx = i
+					break
+				}
+			}
+			for i, v := range verbosityLevels {
+				if v == agentCfg.TextVerbosity {
+					ac.textVerbosityIdx = i
+					break
+				}
+			}
+			if len(agentCfg.ProviderOptions) > 0 {
+				ac.providerOptionsDisplay = fmt.Sprintf("[%d options set]", len(agentCfg.ProviderOptions))
+			} else {
+				ac.providerOptionsDisplay = "(none)"
+			}
 		}
 	}
 }
@@ -503,6 +556,33 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 		} else {
 			agentCfg.Permission = nil
 		}
+
+		if val := ac.maxTokens.Value(); val != "" {
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				agentCfg.MaxTokens = &f
+			}
+		} else {
+			agentCfg.MaxTokens = nil
+		}
+
+		if ac.thinkingTypeIdx > 0 || ac.thinkingBudget.Value() != "" {
+			if agentCfg.Thinking == nil {
+				agentCfg.Thinking = &config.ThinkingConfig{}
+			}
+			if ac.thinkingTypeIdx > 0 {
+				agentCfg.Thinking.Type = thinkingTypes[ac.thinkingTypeIdx]
+			}
+			if val := ac.thinkingBudget.Value(); val != "" {
+				if f, err := strconv.ParseFloat(val, 64); err == nil {
+					agentCfg.Thinking.BudgetTokens = &f
+				}
+			}
+		} else if agentCfg.Thinking != nil && ac.thinkingTypeIdx == 0 && ac.thinkingBudget.Value() == "" {
+			agentCfg.Thinking = nil
+		}
+
+		agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
+		agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
 
 		cfg.Agents[name] = agentCfg
 	}
@@ -708,6 +788,12 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					ac.disable = !ac.disable
 				case fieldMode:
 					ac.modeIdx = (ac.modeIdx + 1) % len(agentModes)
+				case fieldThinkingType:
+					ac.thinkingTypeIdx = (ac.thinkingTypeIdx + 1) % len(thinkingTypes)
+				case fieldReasoningEffort:
+					ac.reasoningEffortIdx = (ac.reasoningEffortIdx + 1) % len(effortLevels)
+				case fieldTextVerbosity:
+					ac.textVerbosityIdx = (ac.textVerbosityIdx + 1) % len(verbosityLevels)
 				case fieldPermEdit:
 					ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
 				case fieldPermBash:
@@ -756,6 +842,12 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			case fieldColor:
 				ac.color, cmd = ac.color.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldMaxTokens:
+				ac.maxTokens, cmd = ac.maxTokens.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldThinkingBudget:
+				ac.thinkingBudget, cmd = ac.thinkingBudget.Update(msg)
 				cmds = append(cmds, cmd)
 			}
 
@@ -925,6 +1017,12 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("description", fieldDescription, ac.description.View()))
 	lines = append(lines, renderDropdown("mode", fieldMode, agentModes, ac.modeIdx))
 	lines = append(lines, renderField("color", fieldColor, ac.color.View()))
+	lines = append(lines, renderField("maxTokens", fieldMaxTokens, ac.maxTokens.View()))
+	lines = append(lines, renderDropdown("thinking", fieldThinkingType, thinkingTypes, ac.thinkingTypeIdx))
+	lines = append(lines, renderField("thinkBudget", fieldThinkingBudget, ac.thinkingBudget.View()))
+	lines = append(lines, renderDropdown("reasoning", fieldReasoningEffort, effortLevels, ac.reasoningEffortIdx))
+	lines = append(lines, renderDropdown("verbosity", fieldTextVerbosity, verbosityLevels, ac.textVerbosityIdx))
+	lines = append(lines, renderField("providerOpts", fieldProviderOptions, ac.providerOptionsDisplay+" (read-only)"))
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Permissions ──"))
 	lines = append(lines, renderDropdown("edit", fieldPermEdit, permissionValues, ac.permEditIdx))
