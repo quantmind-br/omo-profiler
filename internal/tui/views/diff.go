@@ -115,15 +115,19 @@ func (d Diff) computeDiff() tea.Msg {
 	return diffComputedMsg{result: result, err: err}
 }
 
+func (d *Diff) SetSize(width, height int) {
+	d.width = width
+	d.height = height
+	d.initViewports()
+	d.updateViewportContent()
+}
+
 func (d Diff) Update(msg tea.Msg) (Diff, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		d.width = msg.Width
-		d.height = msg.Height
-		d.initViewports()
-		d.updateViewportContent()
+		d.SetSize(msg.Width, msg.Height)
 
 	case diffProfilesLoadedMsg:
 		d.profiles = msg.profiles

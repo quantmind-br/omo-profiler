@@ -612,3 +612,8 @@ func (m *ModelRegistry) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 }
+
+// IsEditing returns true when text input is active (form fields or search)
+func (m ModelRegistry) IsEditing() bool {
+	return m.formMode || m.searchInput.Focused()
+}

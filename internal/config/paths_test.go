@@ -71,6 +71,19 @@ func TestConfigFile(t *testing.T) {
 	}
 }
 
+func TestModelsFile(t *testing.T) {
+	defer ResetBaseDir()
+
+	tmpDir := t.TempDir()
+	SetBaseDir(tmpDir)
+
+	got := ModelsFile()
+	expected := filepath.Join(tmpDir, ".config", "opencode", "models.json")
+	if got != expected {
+		t.Errorf("ModelsFile() = %s, want %s", got, expected)
+	}
+}
+
 func TestEnsureDirs(t *testing.T) {
 	defer ResetBaseDir()
 

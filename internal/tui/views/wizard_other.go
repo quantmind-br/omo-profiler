@@ -16,6 +16,23 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
+var (
+	wizOtherPurple = lipgloss.Color("#7D56F4")
+	wizOtherGreen  = lipgloss.Color("#A6E3A1")
+	wizOtherRed    = lipgloss.Color("#F38BA8")
+	wizOtherGray   = lipgloss.Color("#6C7086")
+	wizOtherWhite  = lipgloss.Color("#CDD6F4")
+)
+
+var (
+	wizOtherSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizOtherPurple)
+	wizOtherEnabledStyle  = lipgloss.NewStyle().Foreground(wizOtherGreen)
+	wizOtherDisabledStyle = lipgloss.NewStyle().Foreground(wizOtherRed)
+	wizOtherDimStyle      = lipgloss.NewStyle().Foreground(wizOtherGray)
+	wizOtherLabelStyle    = lipgloss.NewStyle().Bold(true).Foreground(wizOtherWhite)
+	wizOtherHelpStyle     = lipgloss.NewStyle().Foreground(wizOtherGray)
+)
+
 // parseMapStringInt parses "key:val, key2:val2" into map[string]int
 func parseMapStringInt(s string) map[string]int {
 	if s == "" {
@@ -86,6 +103,7 @@ var disableableCommands = []string{
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
 var baeProviderValues = []string{"", "playwright", "agent-browser", "dev-browser"}
+var websearchProviderValues = []string{"", "exa", "tavily"}
 
 // Sections in the other settings
 type otherSection int
@@ -107,6 +125,7 @@ const (
 	sectionSkillsJson
 	sectionBrowserAutomationEngine
 	sectionTmux
+	sectionWebsearch
 	sectionSisyphus
 	sectionDefaultRunAgent
 )
@@ -128,6 +147,7 @@ var otherSectionNames = []string{
 	"Skills (JSON)",
 	"Browser Automation Engine",
 	"Tmux",
+	"Websearch",
 	"Sisyphus",
 	"Default Run Agent",
 }
@@ -257,6 +277,9 @@ type WizardOther struct {
 	tmuxMainPaneSize      textinput.Model
 	tmuxMainPaneMinWidth  textinput.Model
 	tmuxAgentPaneMinWidth textinput.Model
+
+	// Websearch
+	websearchProviderIdx int
 
 	// Sisyphus Tasks
 	sisTasksStoragePath      textinput.Model
@@ -655,6 +678,18 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 	}
 
+	// Websearch
+	if cfg.Websearch != nil {
+		if cfg.Websearch.Provider != "" {
+			for i, v := range websearchProviderValues {
+				if v == cfg.Websearch.Provider {
+					w.websearchProviderIdx = i
+					break
+				}
+			}
+		}
+	}
+
 	// Sisyphus
 	if cfg.Sisyphus != nil && cfg.Sisyphus.Tasks != nil {
 		if cfg.Sisyphus.Tasks.StoragePath != "" {
@@ -976,6 +1011,13 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				cfg.Tmux.AgentPaneMinWidth = &f
 			}
+		}
+	}
+
+	// Websearch
+	if w.websearchProviderIdx > 0 {
+		cfg.Websearch = &config.WebsearchConfig{
+			Provider: websearchProviderValues[w.websearchProviderIdx],
 		}
 	}
 
@@ -1730,6 +1772,10 @@ func (w *WizardOther) toggleSubItem() {
 		if w.subCursor == 0 {
 			w.tmuxEnabled = !w.tmuxEnabled
 		}
+	case sectionWebsearch:
+		if w.subCursor == 0 {
+			w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviderValues)
+		}
 	case sectionSisyphus:
 		switch w.subCursor {
 		case 0:
@@ -1743,11 +1789,11 @@ func (w *WizardOther) toggleSubItem() {
 func (w WizardOther) renderContent() string {
 	var lines []string
 
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	enabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#A6E3A1"))
-	disabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+	selectedStyle := wizOtherSelectedStyle
+	enabledStyle := wizOtherEnabledStyle
+	disabledStyle := wizOtherDisabledStyle
+	dimStyle := wizOtherDimStyle
+	labelStyle := wizOtherLabelStyle
 
 	for i, name := range otherSectionNames {
 		section := otherSection(i)
@@ -1792,10 +1838,10 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	var lines []string
 	indent := "      "
 
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	enabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#A6E3A1"))
-	disabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	selectedStyle := wizOtherSelectedStyle
+	enabledStyle := wizOtherEnabledStyle
+	disabledStyle := wizOtherDisabledStyle
+	dimStyle := wizOtherDimStyle
 
 	renderCheckbox := func(idx int, label string, checked bool) string {
 		cursor := "  "
@@ -1810,7 +1856,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == idx {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 
 		return indent + cursor + checkbox + " " + style.Render(label)
@@ -1850,7 +1896,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_notification: ")+dcpNotificationValues[w.dcpNotificationIdx])
 
@@ -1862,7 +1908,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_turn_protection_turns: ")+w.dcpTurnProtTurns.View())
 
@@ -1872,7 +1918,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_protected_tools: ")+w.dcpProtectedTools.View())
 
@@ -1887,7 +1933,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_purge_errors_turns: ")+w.dcpPurgeErrorsTurns.View())
 
@@ -1908,7 +1954,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("plugins_override: ")+w.ccPluginsOverride.View())
 
@@ -1927,7 +1973,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("max_iterations: ")+w.rlDefaultMaxIterations.View())
 
@@ -1937,7 +1983,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("state_dir: ")+w.rlStateDir.View())
 
@@ -1948,7 +1994,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("provider_concurrency: ")+w.btProviderConcurrency.View())
 
@@ -1958,7 +2004,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("model_concurrency: ")+w.btModelConcurrency.View())
 
@@ -1968,7 +2014,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("default_concurrency: ")+w.btDefaultConcurrency.View())
 
@@ -1978,7 +2024,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style = dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("stale_timeout_ms: ")+w.btStaleTimeoutMs.View())
 
@@ -2002,7 +2048,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		providerVal := ""
 		if w.baeProviderIdx > 0 {
@@ -2017,6 +2063,21 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, indent+"  main_pane_min_width: "+w.tmuxMainPaneMinWidth.View())
 		lines = append(lines, indent+"  agent_pane_min_width: "+w.tmuxAgentPaneMinWidth.View())
 
+	case sectionWebsearch:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = wizOtherLabelStyle
+		}
+		providerVal := ""
+		if w.websearchProviderIdx > 0 {
+			providerVal = websearchProviderValues[w.websearchProviderIdx]
+		}
+		lines = append(lines, indent+cursor+style.Render("provider: ")+providerVal)
+
 	case sectionSisyphus:
 		lines = append(lines, indent+"  "+dimStyle.Render("─── Tasks ───"))
 
@@ -2026,7 +2087,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisTasksStoragePath.View())
 
@@ -2039,7 +2100,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		style := dimStyle
 		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("agent: ")+w.defaultRunAgent.View())
 	}
@@ -2049,8 +2110,8 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 }
 
 func (w WizardOther) View() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	titleStyle := wizOtherLabelStyle
+	helpStyle := wizOtherHelpStyle
 
 	title := titleStyle.Render("Other Settings")
 	desc := helpStyle.Render("Enter to expand • Space to toggle • Tab next • Shift+Tab back")

@@ -203,6 +203,35 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestList(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	reg, _ := Load()
+
+	// Empty registry
+	list := reg.List()
+	if len(list) != 0 {
+		t.Errorf("Expected empty list, got %d items", len(list))
+	}
+
+	// Add some models
+	_ = reg.Add(RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"})
+	_ = reg.Add(RegisteredModel{DisplayName: "M2", ModelID: "m2", Provider: "p2"})
+	_ = reg.Add(RegisteredModel{DisplayName: "M3", ModelID: "m3", Provider: "p3"})
+
+	list = reg.List()
+	if len(list) != 3 {
+		t.Errorf("Expected 3 items, got %d", len(list))
+	}
+
+	// Verify it returns a copy, not the original slice
+	list[0].DisplayName = "Modified"
+	if reg.Models[0].DisplayName == "Modified" {
+		t.Error("List should return a copy, not reference to original")
+	}
+}
+
 func TestListByProvider(t *testing.T) {
 	cleanup := setupTestEnv(t)
 	defer cleanup()

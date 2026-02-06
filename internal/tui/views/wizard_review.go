@@ -12,6 +12,22 @@ import (
 	"github.com/diogenes/omo-profiler/internal/schema"
 )
 
+var (
+	wizReviewWhite = lipgloss.Color("#CDD6F4")
+	wizReviewGray  = lipgloss.Color("#6C7086")
+	wizReviewRed   = lipgloss.Color("#F38BA8")
+	wizReviewGreen = lipgloss.Color("#A6E3A1")
+	wizReviewBlue  = lipgloss.Color("#89B4FA")
+)
+
+var (
+	wizReviewTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(wizReviewWhite)
+	wizReviewHelpStyle    = lipgloss.NewStyle().Foreground(wizReviewGray)
+	wizReviewErrorStyle   = lipgloss.NewStyle().Foreground(wizReviewRed)
+	wizReviewSuccessStyle = lipgloss.NewStyle().Foreground(wizReviewGreen)
+	wizReviewCodeStyle    = lipgloss.NewStyle().Foreground(wizReviewBlue)
+)
+
 type wizardReviewKeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
@@ -154,38 +170,32 @@ func (w WizardReview) Update(msg tea.Msg) (WizardReview, tea.Cmd) {
 }
 
 func (w WizardReview) View() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#A6E3A1"))
-	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#89B4FA"))
-
-	title := titleStyle.Render("Review & Save")
+	title := wizReviewTitleStyle.Render("Review & Save")
 
 	// Profile name
-	nameLabel := helpStyle.Render("Profile Name: ") + titleStyle.Render(w.profileName)
+	nameLabel := wizReviewHelpStyle.Render("Profile Name: ") + wizReviewTitleStyle.Render(w.profileName)
 
 	// Validation status
 	var validationStatus string
 	if w.isValid {
-		validationStatus = successStyle.Render("✓ Configuration is valid")
+		validationStatus = wizReviewSuccessStyle.Render("✓ Configuration is valid")
 	} else {
-		validationStatus = errorStyle.Render("✗ Validation errors found:")
+		validationStatus = wizReviewErrorStyle.Render("✗ Validation errors found:")
 		for _, e := range w.validationErrs {
-			validationStatus += "\n  " + errorStyle.Render(fmt.Sprintf("• %s: %s", e.Path, e.Message))
+			validationStatus += "\n  " + wizReviewErrorStyle.Render(fmt.Sprintf("• %s: %s", e.Path, e.Message))
 		}
 	}
 
 	// JSON preview in viewport
-	w.viewport.SetContent(codeStyle.Render(w.jsonPreview))
+	w.viewport.SetContent(wizReviewCodeStyle.Render(w.jsonPreview))
 	preview := w.viewport.View()
 
 	// Help text
 	var help string
 	if w.isValid {
-		help = helpStyle.Render("Enter to save • Shift+Tab to go back • ↑/↓ to scroll")
+		help = wizReviewHelpStyle.Render("Enter to save • Shift+Tab to go back • ↑/↓ to scroll")
 	} else {
-		help = helpStyle.Render("Fix errors before saving • Shift+Tab to go back")
+		help = wizReviewHelpStyle.Render("Fix errors before saving • Shift+Tab to go back")
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -194,7 +204,7 @@ func (w WizardReview) View() string {
 		"",
 		validationStatus,
 		"",
-		titleStyle.Render("JSON Preview:"),
+		wizReviewTitleStyle.Render("JSON Preview:"),
 		preview,
 		"",
 		help,

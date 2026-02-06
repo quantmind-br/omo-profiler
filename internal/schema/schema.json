@@ -2966,14 +2966,28 @@
           "type": "object",
           "properties": {
             "storage_path": {
-              "default": ".sisyphus/tasks",
-              "type": "string"
+              "type": "string",
+              "description": "Path for Sisyphus task storage"
             },
             "claude_code_compat": {
               "default": false,
               "type": "boolean"
+            },
+            "task_list_id": {
+              "type": "string",
+              "description": "Force task list ID (alternative to env ULTRAWORK_TASK_LIST_ID)"
             }
           }
+        }
+      }
+    },
+    "websearch": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["exa", "tavily"],
+          "description": "Websearch provider. 'exa' works without API key. 'tavily' requires TAVILY_API_KEY."
         }
       }
     },

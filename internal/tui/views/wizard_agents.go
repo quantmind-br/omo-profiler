@@ -73,6 +73,25 @@ var agentModes = []string{"", "subagent", "primary", "all"}
 // Permission values
 var permissionValues = []string{"", "ask", "allow", "deny"}
 
+var (
+	wizAgentPurple = lipgloss.Color("#7D56F4")
+	wizAgentGray   = lipgloss.Color("#6C7086")
+	wizAgentText   = lipgloss.Color("#CDD6F4")
+	wizAgentRed    = lipgloss.Color("#F38BA8")
+	wizAgentGreen  = lipgloss.Color("#A6E3A1")
+	wizAgentPink   = lipgloss.Color("#FF6AC1")
+)
+
+var (
+	wizAgentLabelStyle    = lipgloss.NewStyle().Bold(true).Foreground(wizAgentText)
+	wizAgentDimStyle      = lipgloss.NewStyle().Foreground(wizAgentGray)
+	wizAgentSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizAgentPurple)
+	wizAgentEnabledStyle  = lipgloss.NewStyle().Foreground(wizAgentGreen)
+	wizAgentCursorStyle   = lipgloss.NewStyle().Bold(true).Foreground(wizAgentPink)
+	wizAgentTextStyle     = lipgloss.NewStyle().Foreground(wizAgentText)
+	wizAgentErrorStyle    = lipgloss.NewStyle().Foreground(wizAgentRed)
+)
+
 type agentFormField int
 
 const (
@@ -749,22 +768,17 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 func (w WizardAgents) renderContent() string {
 	var lines []string
 
-	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	enabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#A6E3A1"))
-
 	for i, name := range allAgents {
 		ac := w.agents[name]
 
 		cursor := "  "
 		if i == w.cursor {
-			cursor = selectedStyle.Render("> ")
+			cursor = wizAgentSelectedStyle.Render("> ")
 		}
 
 		checkbox := "[ ]"
 		if ac.enabled {
-			checkbox = enabledStyle.Render("[✓]")
+			checkbox = wizAgentEnabledStyle.Render("[✓]")
 		}
 
 		expandIcon := ""
@@ -776,9 +790,9 @@ func (w WizardAgents) renderContent() string {
 			}
 		}
 
-		nameStyle := dimStyle
+		nameStyle := wizAgentDimStyle
 		if i == w.cursor {
-			nameStyle = labelStyle
+			nameStyle = wizAgentLabelStyle
 		}
 
 		line := fmt.Sprintf("%s%s %s%s", cursor, checkbox, nameStyle.Render(name), expandIcon)
@@ -797,29 +811,26 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	var lines []string
 
 	indent := "      "
-	fieldStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	focusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	cursorStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF6AC1"))
 
 	// Only show focus styling if this is the active agent being edited
 	isActiveAgent := name == allAgents[w.cursor]
 
 	renderField := func(label string, field agentFormField, value string) string {
-		style := fieldStyle
+		style := wizAgentDimStyle
 		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
-			style = focusStyle
-			cursor = cursorStyle.Render("> ")
+			style = wizAgentSelectedStyle
+			cursor = wizAgentCursorStyle.Render("> ")
 		}
 		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + value
 	}
 
 	renderDropdown := func(label string, field agentFormField, options []string, idx int) string {
-		style := fieldStyle
+		style := wizAgentDimStyle
 		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
-			style = focusStyle
-			cursor = cursorStyle.Render("> ")
+			style = wizAgentSelectedStyle
+			cursor = wizAgentCursorStyle.Render("> ")
 		}
 		val := "(none)"
 		if idx > 0 && idx < len(options) {
@@ -829,11 +840,11 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	}
 
 	renderBool := func(label string, field agentFormField, val bool) string {
-		style := fieldStyle
+		style := wizAgentDimStyle
 		cursor := "  "
 		if w.inForm && isActiveAgent && w.focusedField == field {
-			style = focusStyle
-			cursor = cursorStyle.Render("> ")
+			style = wizAgentSelectedStyle
+			cursor = wizAgentCursorStyle.Render("> ")
 		}
 		checkbox := "[ ]"
 		if val {
@@ -861,7 +872,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderDropdown("mode", fieldMode, agentModes, ac.modeIdx))
 	lines = append(lines, renderField("color", fieldColor, ac.color.View()))
 	lines = append(lines, "")
-	lines = append(lines, indent+fieldStyle.Render("── Permissions ──"))
+	lines = append(lines, indent+wizAgentDimStyle.Render("── Permissions ──"))
 	lines = append(lines, renderDropdown("edit", fieldPermEdit, permissionValues, ac.permEditIdx))
 	lines = append(lines, "")
 
@@ -969,14 +980,11 @@ func (w WizardAgents) View() string {
 		return w.renderSaveCustomPrompt(ac)
 	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-
-	title := titleStyle.Render("Configure Agents")
-	desc := helpStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
+	title := wizAgentLabelStyle.Render("Configure Agents")
+	desc := wizAgentDimStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
+		desc = wizAgentDimStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
 	}
 
 	content := w.viewport.View()
@@ -990,33 +998,28 @@ func (w WizardAgents) View() string {
 }
 
 func (w WizardAgents) renderSaveCustomPrompt(ac *agentConfig) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-
 	var lines []string
-	lines = append(lines, titleStyle.Render("Custom Model"))
+	lines = append(lines, wizAgentSelectedStyle.Render("Custom Model"))
 	lines = append(lines, "")
-	lines = append(lines, labelStyle.Render(fmt.Sprintf("Model ID: %s", ac.customModelToSave)))
+	lines = append(lines, wizAgentTextStyle.Render(fmt.Sprintf("Model ID: %s", ac.customModelToSave)))
 	lines = append(lines, "")
 
 	if ac.savePromptAnswer == "" {
-		lines = append(lines, labelStyle.Render("Save this model for future use? (y/n)"))
+		lines = append(lines, wizAgentTextStyle.Render("Save this model for future use? (y/n)"))
 		lines = append(lines, "")
-		lines = append(lines, helpStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+		lines = append(lines, wizAgentDimStyle.Render("[y] yes  [n] no  [Esc] cancel"))
 	} else {
-		lines = append(lines, labelStyle.Render("Display name:"))
+		lines = append(lines, wizAgentTextStyle.Render("Display name:"))
 		lines = append(lines, ac.saveDisplayNameInput.View())
 		lines = append(lines, "")
-		lines = append(lines, labelStyle.Render("Provider (optional):"))
+		lines = append(lines, wizAgentTextStyle.Render("Provider (optional):"))
 		lines = append(lines, ac.saveProviderInput.View())
 		lines = append(lines, "")
 		if ac.saveError != "" {
-			lines = append(lines, errStyle.Render("Error: "+ac.saveError))
+			lines = append(lines, wizAgentErrorStyle.Render("Error: "+ac.saveError))
 			lines = append(lines, "")
 		}
-		lines = append(lines, helpStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+		lines = append(lines, wizAgentDimStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)

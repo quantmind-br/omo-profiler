@@ -537,3 +537,8 @@ func (m *ModelImport) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 }
+
+// IsEditing returns true when text input is active (search field)
+func (m ModelImport) IsEditing() bool {
+	return m.searchInput.Focused()
+}

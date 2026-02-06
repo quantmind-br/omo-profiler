@@ -725,3 +725,119 @@ func TestTaskSystemOmitempty(t *testing.T) {
 		t.Errorf("nil task_system should be omitted: %s", marshaled)
 	}
 }
+
+func TestWebsearchConfigRoundTrip(t *testing.T) {
+	// Test WebsearchConfig with provider set
+	jsonData := `{"websearch": {"provider": "exa"}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Websearch == nil {
+		t.Fatal("websearch is nil")
+	}
+	if cfg.Websearch.Provider != "exa" {
+		t.Errorf("expected provider=exa, got %s", cfg.Websearch.Provider)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"provider":"exa"`) {
+		t.Errorf("provider not preserved: %s", marshaled)
+	}
+
+	// Verify round-trip equality
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+	if roundtrip.Websearch == nil {
+		t.Fatal("roundtrip websearch is nil")
+	}
+	if roundtrip.Websearch.Provider != cfg.Websearch.Provider {
+		t.Errorf("roundtrip mismatch: expected %s, got %s", cfg.Websearch.Provider, roundtrip.Websearch.Provider)
+	}
+}
+
+func TestWebsearchConfigOmitempty(t *testing.T) {
+	// Test that nil WebsearchConfig is omitted from JSON
+	cfg := Config{
+		Websearch: nil,
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	// Nil websearch should be omitted
+	if strings.Contains(string(marshaled), "websearch") {
+		t.Errorf("nil websearch should be omitted: %s", marshaled)
+	}
+	if string(marshaled) != "{}" {
+		t.Errorf("empty config should marshal to {}, got: %s", marshaled)
+	}
+}
+
+func TestTaskListIDRoundTrip(t *testing.T) {
+	// Test TaskListID field in SisyphusTasksConfig
+	jsonData := `{"sisyphus": {"tasks": {"storage_path": ".sisyphus/tasks", "task_list_id": "task-123"}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Sisyphus == nil || cfg.Sisyphus.Tasks == nil {
+		t.Fatal("sisyphus or tasks is nil")
+	}
+	if cfg.Sisyphus.Tasks.TaskListID != "task-123" {
+		t.Errorf("expected task_list_id=task-123, got %s", cfg.Sisyphus.Tasks.TaskListID)
+	}
+
+	// Round-trip
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"task_list_id":"task-123"`) {
+		t.Errorf("task_list_id not preserved: %s", marshaled)
+	}
+
+	// Verify round-trip equality
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("failed to unmarshal roundtrip: %v", err)
+	}
+	if roundtrip.Sisyphus == nil || roundtrip.Sisyphus.Tasks == nil {
+		t.Fatal("roundtrip sisyphus or tasks is nil")
+	}
+	if roundtrip.Sisyphus.Tasks.TaskListID != cfg.Sisyphus.Tasks.TaskListID {
+		t.Errorf("roundtrip mismatch: expected %s, got %s", cfg.Sisyphus.Tasks.TaskListID, roundtrip.Sisyphus.Tasks.TaskListID)
+	}
+}
+
+func TestTaskListIDOmitempty(t *testing.T) {
+	// Test that empty TaskListID is omitted from JSON
+	jsonData := `{"sisyphus": {"tasks": {"storage_path": ".sisyphus/tasks"}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	// Empty task_list_id should be omitted
+	if strings.Contains(string(marshaled), "task_list_id") {
+		t.Errorf("empty task_list_id should be omitted: %s", marshaled)
+	}
+}

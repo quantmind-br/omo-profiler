@@ -19,6 +19,21 @@ var thinkingTypes = []string{"", "enabled", "disabled"}
 var effortLevels = []string{"", "low", "medium", "high", "xhigh"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
+var (
+	wizCatPurple = lipgloss.Color("#7D56F4")
+	wizCatGray   = lipgloss.Color("#6C7086")
+	wizCatText   = lipgloss.Color("#CDD6F4")
+	wizCatRed    = lipgloss.Color("#F38BA8")
+)
+
+var (
+	wizCatLabelStyle    = lipgloss.NewStyle().Bold(true).Foreground(wizCatText)
+	wizCatDimStyle      = lipgloss.NewStyle().Foreground(wizCatGray)
+	wizCatSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizCatPurple)
+	wizCatTextStyle     = lipgloss.NewStyle().Foreground(wizCatText)
+	wizCatErrorStyle    = lipgloss.NewStyle().Foreground(wizCatRed)
+)
+
 type categoryFormField int
 
 const (
@@ -698,18 +713,14 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 func (w WizardCategories) renderContent() string {
 	var lines []string
 
-	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-
 	if len(w.categories) == 0 {
-		lines = append(lines, dimStyle.Render("No categories defined. Press 'n' to create one."))
+		lines = append(lines, wizCatDimStyle.Render("No categories defined. Press 'n' to create one."))
 	}
 
 	for i, cc := range w.categories {
 		cursor := "  "
 		if i == w.cursor {
-			cursor = selectedStyle.Render("> ")
+			cursor = wizCatSelectedStyle.Render("> ")
 		}
 
 		expandIcon := ""
@@ -719,9 +730,9 @@ func (w WizardCategories) renderContent() string {
 			expandIcon = " ▶"
 		}
 
-		nameStyle := dimStyle
+		nameStyle := wizCatDimStyle
 		if i == w.cursor {
-			nameStyle = labelStyle
+			nameStyle = wizCatLabelStyle
 		}
 
 		displayName := cc.nameInput.Value()
@@ -744,21 +755,19 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	var lines []string
 
 	indent := "      "
-	fieldStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	focusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
 
 	renderField := func(label string, field categoryFormField, value string) string {
-		style := fieldStyle
+		style := wizCatDimStyle
 		if w.inForm && w.focusedField == field {
-			style = focusStyle
+			style = wizCatSelectedStyle
 		}
 		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + value
 	}
 
 	renderDropdown := func(label string, field categoryFormField, options []string, idx int) string {
-		style := fieldStyle
+		style := wizCatDimStyle
 		if w.inForm && w.focusedField == field {
-			style = focusStyle
+			style = wizCatSelectedStyle
 		}
 		val := "(none)"
 		if idx > 0 && idx < len(options) {
@@ -768,9 +777,9 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	}
 
 	renderBool := func(label string, field categoryFormField, val bool) string {
-		style := fieldStyle
+		style := wizCatDimStyle
 		if w.inForm && w.focusedField == field {
-			style = focusStyle
+			style = wizCatSelectedStyle
 		}
 		checkbox := "[ ]"
 		if val {
@@ -793,7 +802,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, renderField("top_p", catFieldTopP, cc.topP.View()))
 	lines = append(lines, renderField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
 	lines = append(lines, "")
-	lines = append(lines, indent+fieldStyle.Render("── Thinking ──"))
+	lines = append(lines, indent+wizCatDimStyle.Render("── Thinking ──"))
 	lines = append(lines, renderDropdown("type", catFieldThinkingType, thinkingTypes, cc.thinkingTypeIdx))
 	lines = append(lines, renderField("budget_tokens", catFieldThinkingBudget, cc.thinkingBudget.View()))
 	lines = append(lines, "")
@@ -818,14 +827,11 @@ func (w WizardCategories) View() string {
 		}
 	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-
-	title := titleStyle.Render("Configure Categories")
-	desc := helpStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
+	title := wizCatLabelStyle.Render("Configure Categories")
+	desc := wizCatDimStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = helpStyle.Render("↑/↓/Tab: navigate • Enter: select/toggle • Esc: close form")
+		desc = wizCatDimStyle.Render("↑/↓/Tab: navigate • Enter: select/toggle • Esc: close form")
 	}
 
 	content := w.viewport.View()
@@ -928,33 +934,28 @@ func (w WizardCategories) handleSaveCustomModel(cc *categoryConfig, msg tea.KeyM
 }
 
 func (w WizardCategories) renderSaveCustomPrompt(cc *categoryConfig) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-
 	var lines []string
-	lines = append(lines, titleStyle.Render("Custom Model"))
+	lines = append(lines, wizCatSelectedStyle.Render("Custom Model"))
 	lines = append(lines, "")
-	lines = append(lines, labelStyle.Render(fmt.Sprintf("Model ID: %s", cc.customModelToSave)))
+	lines = append(lines, wizCatTextStyle.Render(fmt.Sprintf("Model ID: %s", cc.customModelToSave)))
 	lines = append(lines, "")
 
 	if cc.savePromptAnswer == "" {
-		lines = append(lines, labelStyle.Render("Save this model for future use? (y/n)"))
+		lines = append(lines, wizCatTextStyle.Render("Save this model for future use? (y/n)"))
 		lines = append(lines, "")
-		lines = append(lines, helpStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+		lines = append(lines, wizCatDimStyle.Render("[y] yes  [n] no  [Esc] cancel"))
 	} else {
-		lines = append(lines, labelStyle.Render("Display name:"))
+		lines = append(lines, wizCatTextStyle.Render("Display name:"))
 		lines = append(lines, cc.saveDisplayNameInput.View())
 		lines = append(lines, "")
-		lines = append(lines, labelStyle.Render("Provider (optional):"))
+		lines = append(lines, wizCatTextStyle.Render("Provider (optional):"))
 		lines = append(lines, cc.saveProviderInput.View())
 		lines = append(lines, "")
 		if cc.saveError != "" {
-			lines = append(lines, errStyle.Render("Error: "+cc.saveError))
+			lines = append(lines, wizCatErrorStyle.Render("Error: "+cc.saveError))
 			lines = append(lines, "")
 		}
-		lines = append(lines, helpStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+		lines = append(lines, wizCatDimStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)

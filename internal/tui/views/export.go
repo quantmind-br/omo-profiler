@@ -12,6 +12,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var (
+	exportWhite  = lipgloss.Color("#CDD6F4")
+	exportGray   = lipgloss.Color("#6C7086")
+	exportRed    = lipgloss.Color("#F38BA8")
+	exportPurple = lipgloss.Color("#7D56F4")
+)
+
+var (
+	exportTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(exportWhite).MarginBottom(1)
+	exportDescStyle    = lipgloss.NewStyle().Foreground(exportGray).MarginBottom(1)
+	exportHelpStyle    = lipgloss.NewStyle().Foreground(exportGray)
+	exportErrorStyle   = lipgloss.NewStyle().Foreground(exportRed)
+	exportProfileStyle = lipgloss.NewStyle().Bold(true).Foreground(exportPurple)
+)
+
 // ExportDoneMsg is sent when export is completed
 type ExportDoneMsg struct {
 	Path string
@@ -46,7 +61,6 @@ type Export struct {
 	width       int
 	height      int
 	err         error
-	loading     bool
 	keys        exportKeyMap
 }
 
@@ -120,30 +134,11 @@ func (e Export) Update(msg tea.Msg) (Export, tea.Cmd) {
 
 // View renders the export view
 func (e Export) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#CDD6F4")).
-		MarginBottom(1)
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6C7086")).
-		MarginBottom(1)
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6C7086"))
-
-	errorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F38BA8"))
-
-	profileStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4"))
-
-	title := titleStyle.Render("Export Profile")
-	profileInfo := fmt.Sprintf("Exporting profile: %s", profileStyle.Render(e.profileName))
-	desc := descStyle.Render("Enter the destination path for the JSON file")
+	title := exportTitleStyle.Render("Export Profile")
+	profileInfo := fmt.Sprintf("Exporting profile: %s", exportProfileStyle.Render(e.profileName))
+	desc := exportDescStyle.Render("Enter the destination path for the JSON file")
 	input := e.textInput.View()
-	help := helpStyle.Render("[enter] export  [esc] cancel")
+	help := exportHelpStyle.Render("[enter] export  [esc] cancel")
 
 	content := []string{
 		"",
@@ -155,7 +150,7 @@ func (e Export) View() string {
 	}
 
 	if e.err != nil {
-		content = append(content, errorStyle.Render("✗ "+e.err.Error()))
+		content = append(content, exportErrorStyle.Render("✗ "+e.err.Error()))
 	}
 
 	content = append(content, "", help)

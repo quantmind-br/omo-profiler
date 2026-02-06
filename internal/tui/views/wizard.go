@@ -17,6 +17,12 @@ type WizardBackMsg struct{}
 type WizardSaveMsg struct{ Profile *profile.Profile }
 type WizardCancelMsg struct{}
 
+// Internal message for async save completion
+type wizardSaveDoneMsg struct {
+	profile *profile.Profile
+	err     error
+}
+
 const (
 	StepName = iota + 1
 	StepCategories
@@ -135,7 +141,14 @@ func NewWizardFromTemplate(templateName string) (Wizard, error) {
 }
 
 func (w Wizard) Init() tea.Cmd {
-	return w.nameStep.Init()
+	return tea.Batch(
+		w.nameStep.Init(),
+		w.categoriesStep.Init(),
+		w.agentsStep.Init(),
+		w.hooksStep.Init(),
+		w.otherStep.Init(),
+		w.reviewStep.Init(),
+	)
 }
 
 func (w *Wizard) SetSize(width, height int) {
@@ -171,6 +184,13 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 
 	case WizardSaveMsg:
 		return w, func() tea.Msg { return NavigateToDashboardMsg{} }
+
+	case wizardSaveDoneMsg:
+		if msg.err != nil {
+			w.err = msg.err
+			return w, nil
+		}
+		return w, func() tea.Msg { return WizardSaveMsg{Profile: msg.profile} }
 
 	case tea.KeyMsg:
 		// Global navigation keys
@@ -277,27 +297,33 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 			}
 		}
 
-		// Save profile
+		// Capture values for async closure
 		p := &profile.Profile{
 			Name:   w.profileName,
 			Config: w.config,
 		}
-		if err := profile.Save(p); err != nil {
-			w.err = err
-			return w, nil
-		}
+		editMode := w.editMode
+		originalName := w.originalProfileName
 
-		// Delete old profile if renamed (AFTER successful save)
-		if w.editMode && w.profileName != w.originalProfileName {
-			// Delete old profile - ignore error (new profile is already saved)
-			_ = profile.Delete(w.originalProfileName)
+		return w, func() tea.Msg {
+			if err := profile.Save(p); err != nil {
+				return wizardSaveDoneMsg{err: err}
+			}
+			if editMode && p.Name != originalName {
+				_ = profile.Delete(originalName)
+			}
+			return wizardSaveDoneMsg{profile: p}
 		}
-
-		return w, func() tea.Msg { return WizardSaveMsg{Profile: p} }
 	}
 	return w, nil
 }
 
+// prevStep navigates to the previous wizard step WITHOUT calling Apply()
+// on the current step. This means any unsaved edits in the current step
+// are intentionally discarded. When the user navigates forward again,
+// SetConfig() will reload from the canonical w.config, restoring the
+// last-applied state. This design gives users a natural "undo" mechanism:
+// going back discards uncommitted changes in the current step.
 func (w Wizard) prevStep() (Wizard, tea.Cmd) {
 	switch w.step {
 	case StepName:

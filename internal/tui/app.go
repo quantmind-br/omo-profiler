@@ -138,16 +138,27 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Global keys - but don't intercept 'q' in Wizard (text input)
 		switch {
 		case key.Matches(msg, Keys.Quit):
-			// Only quit with 'q' in Dashboard or List states
-			// Wizard handles its own quit via ctrl+c
-			if msg.String() == "q" && a.state == stateWizard {
-				break
+			if msg.String() == "q" {
+				if a.state == stateWizard {
+					break
+				}
+				if a.state == stateModels && a.modelRegistry.IsEditing() {
+					break
+				}
+				if a.state == stateModelImport && a.modelImport.IsEditing() {
+					break
+				}
 			}
 			return a, tea.Quit
 		case key.Matches(msg, Keys.Help):
+			if a.state == stateModels && a.modelRegistry.IsEditing() {
+				break
+			}
+			if a.state == stateModelImport && a.modelImport.IsEditing() {
+				break
+			}
 			a.showHelp = !a.showHelp
 			return a, nil
 		case key.Matches(msg, Keys.Back):
@@ -173,6 +184,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.list.SetSize(msg.Width, msg.Height-3)
 		a.wizard.SetSize(msg.Width, msg.Height-3)
 		a.templateSelect.SetSize(msg.Width, msg.Height-3)
+		a.diff.SetSize(msg.Width, msg.Height-3)
+		a.modelRegistry.SetSize(msg.Width, msg.Height-3)
+		a.modelImport.SetSize(msg.Width, msg.Height-3)
+		a.importView.SetSize(msg.Width, msg.Height-3)
+		a.exportView.SetSize(msg.Width, msg.Height-3)
 
 	case spinner.TickMsg:
 		if a.loading {
@@ -277,8 +293,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			toastText = fmt.Sprintf("Imported profile: %s", msg.profileName)
 		}
-		cmds = append(cmds, a.showToast(toastText, toastSuccess, 3*time.Second))
-		return a.navigateTo(stateDashboard)
+		return a, tea.Batch(
+			a.showToast(toastText, toastSuccess, 3*time.Second),
+			func() tea.Msg { return views.NavigateToDashboardMsg{} },
+		)
 
 	case views.ExportDoneMsg:
 		if msg.Err != nil {
@@ -298,8 +316,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return a, a.showToast("Export failed: "+msg.err.Error(), toastError, 3*time.Second)
 		}
-		cmds = append(cmds, a.showToast("Profile exported to "+msg.path, toastSuccess, 3*time.Second))
-		return a.navigateTo(stateDashboard)
+		return a, tea.Batch(
+			a.showToast("Profile exported to "+msg.path, toastSuccess, 3*time.Second),
+			func() tea.Msg { return views.NavigateToDashboardMsg{} },
+		)
 
 	case views.NavToModelsMsg:
 		a.modelRegistry = views.NewModelRegistry()
@@ -455,20 +475,28 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 		a.dashboard.SetSize(a.width, a.height-3)
 		cmd = a.dashboard.Init()
 	case stateList:
+		a.list.SetSize(a.width, a.height-3)
 		cmd = a.list.Init()
 	case stateWizard:
+		a.wizard.SetSize(a.width, a.height-3)
 		cmd = a.wizard.Init()
 	case stateDiff:
+		a.diff.SetSize(a.width, a.height-3)
 		cmd = a.diff.Init()
 	case stateModels:
+		a.modelRegistry.SetSize(a.width, a.height-3)
 		cmd = a.modelRegistry.Init()
 	case stateModelImport:
+		a.modelImport.SetSize(a.width, a.height-3)
 		cmd = a.modelImport.Init()
 	case stateImport:
+		a.importView.SetSize(a.width, a.height-3)
 		cmd = a.importView.Init()
 	case stateExport:
+		a.exportView.SetSize(a.width, a.height-3)
 		cmd = a.exportView.Init()
 	case stateTemplateSelect:
+		a.templateSelect.SetSize(a.width, a.height-3)
 		cmd = a.templateSelect.Init()
 	}
 
@@ -664,9 +692,17 @@ func (a App) renderShortHelp() string {
 	case stateDiff:
 		hints = []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}
 	case stateModels:
-		hints = []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}
+		if a.modelRegistry.IsEditing() {
+			hints = []string{"tab next field", "enter save", "esc cancel"}
+		} else {
+			hints = []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}
+		}
 	case stateModelImport:
-		hints = []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}
+		if a.modelImport.IsEditing() {
+			hints = []string{"enter confirm", "esc cancel search"}
+		} else {
+			hints = []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}
+		}
 	case stateTemplateSelect:
 		hints = []string{"↑↓ navigate", "enter select", "esc cancel"}
 	default:

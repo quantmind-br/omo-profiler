@@ -12,6 +12,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var (
+	importWhite = lipgloss.Color("#CDD6F4")
+	importGray  = lipgloss.Color("#6C7086")
+	importRed   = lipgloss.Color("#F38BA8")
+)
+
+var (
+	importTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(importWhite).MarginBottom(1)
+	importDescStyle  = lipgloss.NewStyle().Foreground(importGray).MarginBottom(1)
+	importHelpStyle  = lipgloss.NewStyle().Foreground(importGray)
+	importErrorStyle = lipgloss.NewStyle().Foreground(importRed)
+)
+
 // ImportDoneMsg is sent when import is completed
 type ImportDoneMsg struct {
 	ProfileName string
@@ -46,7 +59,6 @@ type Import struct {
 	width     int
 	height    int
 	err       error
-	loading   bool
 	keys      importKeyMap
 }
 
@@ -122,25 +134,10 @@ func (i Import) Update(msg tea.Msg) (Import, tea.Cmd) {
 
 // View renders the import view
 func (i Import) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#CDD6F4")).
-		MarginBottom(1)
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6C7086")).
-		MarginBottom(1)
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6C7086"))
-
-	errorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F38BA8"))
-
-	title := titleStyle.Render("Import Profile")
-	desc := descStyle.Render("Enter the path to a JSON profile file")
+	title := importTitleStyle.Render("Import Profile")
+	desc := importDescStyle.Render("Enter the path to a JSON profile file")
 	input := i.textInput.View()
-	help := helpStyle.Render("[enter] import  [esc] cancel")
+	help := importHelpStyle.Render("[enter] import  [esc] cancel")
 
 	content := []string{
 		"",
@@ -151,7 +148,7 @@ func (i Import) View() string {
 	}
 
 	if i.err != nil {
-		content = append(content, errorStyle.Render("✗ "+i.err.Error()))
+		content = append(content, importErrorStyle.Render("✗ "+i.err.Error()))
 	}
 
 	content = append(content, "", help)

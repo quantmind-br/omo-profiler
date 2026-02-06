@@ -10,6 +10,20 @@ import (
 	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
+var (
+	wizNameWhite = lipgloss.Color("#CDD6F4")
+	wizNameGray  = lipgloss.Color("#6C7086")
+	wizNameRed   = lipgloss.Color("#F38BA8")
+	wizNameGreen = lipgloss.Color("#A6E3A1")
+)
+
+var (
+	wizNameLabelStyle = lipgloss.NewStyle().Bold(true).Foreground(wizNameWhite)
+	wizNameDescStyle  = lipgloss.NewStyle().Foreground(wizNameGray)
+	wizNameErrorStyle = lipgloss.NewStyle().Foreground(wizNameRed)
+	wizNameValidStyle = lipgloss.NewStyle().Foreground(wizNameGreen)
+)
+
 type wizardNameKeyMap struct {
 	Next   key.Binding
 	Cancel key.Binding
@@ -110,31 +124,18 @@ func (w WizardName) Update(msg tea.Msg) (WizardName, tea.Cmd) {
 }
 
 func (w WizardName) View() string {
-	labelStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#CDD6F4"))
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6C7086"))
-
-	errorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F38BA8"))
-
-	validStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#A6E3A1"))
-
-	label := labelStyle.Render("Profile Name")
-	desc := descStyle.Render("Enter a name for your profile (letters, numbers, hyphens, underscores only)")
+	label := wizNameLabelStyle.Render("Profile Name")
+	desc := wizNameDescStyle.Render("Enter a name for your profile (letters, numbers, hyphens, underscores only)")
 
 	input := w.input.View()
 
 	var status string
 	if w.input.Value() == "" {
-		status = descStyle.Render("Required")
+		status = wizNameDescStyle.Render("Required")
 	} else if w.err != nil {
-		status = errorStyle.Render(fmt.Sprintf("✗ %s", w.err.Error()))
+		status = wizNameErrorStyle.Render(fmt.Sprintf("✗ %s", w.err.Error()))
 	} else {
-		status = validStyle.Render("✓ Valid name")
+		status = wizNameValidStyle.Render("✓ Valid name")
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,

@@ -27,6 +27,7 @@ type Config struct {
 	Babysitting             *BabysittingConfig             `json:"babysitting,omitempty"`
 	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
+	Websearch               *WebsearchConfig               `json:"websearch,omitempty"`
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
 }
@@ -64,7 +65,7 @@ type PermissionConfig struct {
 
 // CategoryConfig
 type CategoryConfig struct {
-	Model           string          `json:"model"`
+	Model           string          `json:"model,omitempty"`
 	Variant         string          `json:"variant,omitempty"`
 	Description     string          `json:"description,omitempty"`
 	Temperature     *float64        `json:"temperature,omitempty"`
@@ -202,6 +203,11 @@ type TmuxConfig struct {
 	AgentPaneMinWidth *float64 `json:"agent_pane_min_width,omitempty"`
 }
 
+// WebsearchConfig - websearch provider configuration
+type WebsearchConfig struct {
+	Provider string `json:"provider,omitempty"`
+}
+
 // SisyphusConfig (different from SisyphusAgentConfig!)
 type SisyphusConfig struct {
 	Tasks *SisyphusTasksConfig `json:"tasks,omitempty"`
@@ -211,4 +217,5 @@ type SisyphusConfig struct {
 type SisyphusTasksConfig struct {
 	StoragePath      string `json:"storage_path,omitempty"`
 	ClaudeCodeCompat *bool  `json:"claude_code_compat,omitempty"`
+	TaskListID       string `json:"task_list_id,omitempty"`
 }

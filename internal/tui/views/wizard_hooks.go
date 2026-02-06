@@ -10,6 +10,24 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
+var (
+	wizHooksPurple = lipgloss.Color("#7D56F4")
+	wizHooksGreen  = lipgloss.Color("#A6E3A1")
+	wizHooksRed    = lipgloss.Color("#F38BA8")
+	wizHooksGray   = lipgloss.Color("#6C7086")
+	wizHooksWhite  = lipgloss.Color("#CDD6F4")
+)
+
+var (
+	wizHooksSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizHooksPurple)
+	wizHooksEnabledStyle  = lipgloss.NewStyle().Foreground(wizHooksGreen)
+	wizHooksDisabledStyle = lipgloss.NewStyle().Foreground(wizHooksRed)
+	wizHooksDimStyle      = lipgloss.NewStyle().Foreground(wizHooksGray)
+	wizHooksNameStyle     = lipgloss.NewStyle().Bold(true).Foreground(wizHooksWhite)
+	wizHooksTitleStyle    = lipgloss.NewStyle().Bold(true).Foreground(wizHooksWhite)
+	wizHooksHelpStyle     = lipgloss.NewStyle().Foreground(wizHooksGray)
+)
+
 // All 36 hooks - must stay in sync with upstream schema order
 var allHooks = []string{
 	"todo-continuation-enforcer",
@@ -206,10 +224,10 @@ func (w WizardHooks) Update(msg tea.Msg) (WizardHooks, tea.Cmd) {
 func (w WizardHooks) renderContent() string {
 	var lines []string
 
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	enabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#A6E3A1"))
-	disabledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	selectedStyle := wizHooksSelectedStyle
+	enabledStyle := wizHooksEnabledStyle
+	disabledStyle := wizHooksDisabledStyle
+	dimStyle := wizHooksDimStyle
 
 	for i, hook := range allHooks {
 		cursor := "  "
@@ -226,7 +244,7 @@ func (w WizardHooks) renderContent() string {
 
 		nameStyle := dimStyle
 		if i == w.cursor {
-			nameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+			nameStyle = wizHooksNameStyle
 		}
 
 		status := ""
@@ -242,8 +260,8 @@ func (w WizardHooks) renderContent() string {
 }
 
 func (w WizardHooks) View() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+	titleStyle := wizHooksTitleStyle
+	helpStyle := wizHooksHelpStyle
 
 	title := titleStyle.Render("Configure Hooks")
 	desc := helpStyle.Render("Space to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")

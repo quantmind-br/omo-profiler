@@ -286,6 +286,71 @@ func TestWizardHooksSpaceToggles(t *testing.T) {
 	}
 }
 
+func TestModelRegistryIsEditingInFormMode(t *testing.T) {
+	m := NewModelRegistry()
+
+	if m.IsEditing() {
+		t.Error("expected IsEditing() to be false initially")
+	}
+
+	m.enterAddMode()
+	if !m.IsEditing() {
+		t.Error("expected IsEditing() to be true in form mode")
+	}
+
+	m.formMode = false
+	m.resetForm()
+	if m.IsEditing() {
+		t.Error("expected IsEditing() to be false after exiting form mode")
+	}
+}
+
+func TestModelRegistryIsEditingWithSearchFocused(t *testing.T) {
+	m := NewModelRegistry()
+
+	if m.IsEditing() {
+		t.Error("expected IsEditing() to be false initially")
+	}
+
+	m.searchInput.Focus()
+	if !m.IsEditing() {
+		t.Error("expected IsEditing() to be true when search is focused")
+	}
+
+	m.searchInput.Blur()
+	if m.IsEditing() {
+		t.Error("expected IsEditing() to be false after search is blurred")
+	}
+}
+
+func TestModelRegistryQKeyPassesThroughInFormMode(t *testing.T) {
+	m := NewModelRegistry()
+	m.enterAddMode()
+
+	m, _ = m.Update(keyMsg("q"))
+
+	if m.displayNameInput.Value() != "q" {
+		t.Errorf("expected 'q' in displayNameInput, got %q", m.displayNameInput.Value())
+	}
+
+	if !m.formMode {
+		t.Error("expected to remain in form mode after typing 'q'")
+	}
+}
+
+func TestModelImportIsEditingWithSearchFocused(t *testing.T) {
+	m := NewModelImport()
+
+	if m.IsEditing() {
+		t.Error("expected IsEditing() to be false initially")
+	}
+
+	m.searchInput.Focus()
+	if !m.IsEditing() {
+		t.Error("expected IsEditing() to be true when search is focused")
+	}
+}
+
 func TestWizardHooksEnterDoesNotToggle(t *testing.T) {
 	w := NewWizardHooks()
 	w.SetSize(80, 24)
