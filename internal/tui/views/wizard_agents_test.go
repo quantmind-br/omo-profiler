@@ -555,7 +555,7 @@ func TestAgentApplyPreservesExistingFields(t *testing.T) {
 				MaxTokens:       &maxTokens,
 				Thinking:        &config.ThinkingConfig{Type: "enabled", BudgetTokens: &budgetTokens},
 				ReasoningEffort: "high",
-				TextVerbosity:   "verbose",
+				TextVerbosity:   "high",
 				ProviderOptions: map[string]interface{}{"custom_flag": true, "timeout": 30},
 				Permission: &config.PermissionConfig{
 					Edit:              "allow",
@@ -645,7 +645,6 @@ func TestAgentApplyPreservesExistingFields(t *testing.T) {
 }
 
 func TestAgentApplyPreservesBashObjectPermission(t *testing.T) {
-	// Create config with bash as a map[string]interface{} object
 	bashObj := map[string]interface{}{"git": "allow", "rm": "deny"}
 	cfg := &config.Config{
 		Agents: map[string]*config.AgentConfig{
@@ -658,15 +657,12 @@ func TestAgentApplyPreservesBashObjectPermission(t *testing.T) {
 		},
 	}
 
-	// Create WizardAgents and load config
 	wa := NewWizardAgents()
 	wa.SetConfig(cfg)
 
-	// Apply to a new config
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
 	wa.Apply(newCfg)
 
-	// Assert bash object is preserved
 	agentCfg, ok := newCfg.Agents["build"]
 	if !ok {
 		t.Fatal("expected 'build' agent to exist after Apply")
@@ -700,7 +696,6 @@ func TestAgentSetConfigPopulatesPromptTextareas(t *testing.T) {
 	wa := NewWizardAgents()
 	wa.SetConfig(cfg)
 
-	// Verify via Apply output since agents map is internal
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
 	wa.Apply(newCfg)
 
@@ -758,7 +753,6 @@ func TestAgentApplyPreservesProviderOptions(t *testing.T) {
 }
 
 func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
-	// Create config with fields that the wizard UI doesn't manage directly
 	maxTokens := float64(8192)
 	budgetTokens := float64(10000)
 
@@ -769,7 +763,7 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 				MaxTokens:       &maxTokens,
 				Thinking:        &config.ThinkingConfig{Type: "enabled", BudgetTokens: &budgetTokens},
 				ReasoningEffort: "high",
-				TextVerbosity:   "verbose",
+				TextVerbosity:   "high",
 			},
 		},
 	}
@@ -777,15 +771,13 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 	wa := NewWizardAgents()
 	wa.SetConfig(cfg)
 
-	// Simulate editing: Apply to existing config (merge scenario)
-	// The existing config has the unmanaged fields
 	existingCfg := &config.Config{
 		Agents: map[string]*config.AgentConfig{
 			"build": {
 				MaxTokens:       &maxTokens,
 				Thinking:        &config.ThinkingConfig{Type: "enabled", BudgetTokens: &budgetTokens},
 				ReasoningEffort: "high",
-				TextVerbosity:   "verbose",
+				TextVerbosity:   "high",
 			},
 		},
 	}
@@ -796,14 +788,12 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 		t.Fatal("expected 'build' agent to exist after Apply")
 	}
 
-	// MaxTokens should be preserved
 	if agentCfg.MaxTokens == nil {
 		t.Error("MaxTokens: expected to be preserved, got nil")
 	} else if *agentCfg.MaxTokens != 8192 {
 		t.Errorf("MaxTokens: expected 8192, got %f", *agentCfg.MaxTokens)
 	}
 
-	// Thinking should be preserved
 	if agentCfg.Thinking == nil {
 		t.Error("Thinking: expected to be preserved, got nil")
 	} else {
@@ -815,11 +805,10 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 		}
 	}
 
-	// ReasoningEffort and TextVerbosity should be preserved
 	if agentCfg.ReasoningEffort != "high" {
 		t.Errorf("ReasoningEffort: expected 'high', got %q", agentCfg.ReasoningEffort)
 	}
-	if agentCfg.TextVerbosity != "verbose" {
-		t.Errorf("TextVerbosity: expected 'verbose', got %q", agentCfg.TextVerbosity)
+	if agentCfg.TextVerbosity != "high" {
+		t.Errorf("TextVerbosity: expected 'high', got %q", agentCfg.TextVerbosity)
 	}
 }

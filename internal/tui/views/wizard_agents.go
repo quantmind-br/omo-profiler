@@ -604,6 +604,8 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	ac.promptAppend.Blur()
 	ac.description.Blur()
 	ac.color.Blur()
+	ac.maxTokens.Blur()
+	ac.thinkingBudget.Blur()
 
 	switch w.focusedField {
 	case fieldModel:
@@ -628,6 +630,10 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 		ac.description.Focus()
 	case fieldColor:
 		ac.color.Focus()
+	case fieldMaxTokens:
+		ac.maxTokens.Focus()
+	case fieldThinkingBudget:
+		ac.thinkingBudget.Focus()
 	}
 }
 
@@ -639,7 +645,7 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		baseLine++ // agent header line
 		ac := w.agents[allAgents[i]]
 		if ac.expanded && ac.enabled {
-			baseLine += 30 // expanded form ~30 lines
+			baseLine += 36 // expanded form ~36 lines (added 6 new fields)
 		}
 	}
 	baseLine++ // current agent header
@@ -647,24 +653,30 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 
 	// Field offsets within the form
 	fieldOffsets := map[agentFormField]int{
-		fieldModel:        0,
-		fieldVariant:      1,
-		fieldCategory:     2,
-		fieldTemperature:  3,
-		fieldTopP:         4,
-		fieldSkills:       5,
-		fieldTools:        6,
-		fieldPrompt:       7,
-		fieldPromptAppend: 10,
-		fieldDisable:      13,
-		fieldDescription:  14,
-		fieldMode:         15,
-		fieldColor:        16,
-		fieldPermEdit:     18,
-		fieldPermBash:     19,
-		fieldPermWebfetch: 20,
-		fieldPermDoomLoop: 21,
-		fieldPermExtDir:   22,
+		fieldModel:           0,
+		fieldVariant:         1,
+		fieldCategory:        2,
+		fieldTemperature:     3,
+		fieldTopP:            4,
+		fieldSkills:          5,
+		fieldTools:           6,
+		fieldPrompt:          7,
+		fieldPromptAppend:    10,
+		fieldDisable:         13,
+		fieldDescription:     14,
+		fieldMode:            15,
+		fieldColor:           16,
+		fieldMaxTokens:       17,
+		fieldThinkingType:    18,
+		fieldThinkingBudget:  19,
+		fieldReasoningEffort: 20,
+		fieldTextVerbosity:   21,
+		fieldProviderOptions: 22,
+		fieldPermEdit:        25,
+		fieldPermBash:        26,
+		fieldPermWebfetch:    27,
+		fieldPermDoomLoop:    28,
+		fieldPermExtDir:      29,
 	}
 
 	return baseLine + fieldOffsets[field]
