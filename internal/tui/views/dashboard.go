@@ -252,16 +252,16 @@ func (d Dashboard) View() string {
 func (d Dashboard) renderMenuContent() string {
 	var lines []string
 
-	cursor := accentStyle.Render(">")
-
 	for i, item := range menuItems {
+		var line string
 		if i == d.cursor {
-			line := fmt.Sprintf(" %s %s", cursor, selectedStyle.Render(item))
-			lines = append(lines, line)
+			cursor := accentStyle.Render(">")
+			label := selectedStyle.Render(item)
+			line = "  " + cursor + " " + label
 		} else {
-			line := normalStyle.Render(fmt.Sprintf("   %s", item))
-			lines = append(lines, line)
+			line = "    " + normalStyle.Render(item)
 		}
+		lines = append(lines, line)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
