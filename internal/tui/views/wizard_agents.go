@@ -110,6 +110,10 @@ const (
 	fieldMode
 	fieldColor
 	fieldPermEdit
+	fieldPermBash
+	fieldPermWebfetch
+	fieldPermDoomLoop
+	fieldPermExtDir
 )
 
 type agentConfig struct {
@@ -135,6 +139,7 @@ type agentConfig struct {
 	permWebfetchIdx int
 	permDoomLoopIdx int
 	permExtDirIdx   int
+	originalBash    interface{} // Preserve bash object through edit cycle
 	// Model selector state
 	selectingModel       bool
 	modelSelector        ModelSelector
@@ -379,8 +384,15 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 			if agentCfg.Color != "" {
 				ac.color.SetValue(agentCfg.Color)
 			}
+			if agentCfg.Prompt != "" {
+				ac.prompt.SetValue(agentCfg.Prompt)
+			}
+			if agentCfg.PromptAppend != "" {
+				ac.promptAppend.SetValue(agentCfg.PromptAppend)
+			}
 			// Permissions
 			if agentCfg.Permission != nil {
+				ac.originalBash = agentCfg.Permission.Bash
 				for i, v := range permissionValues {
 					if v == agentCfg.Permission.Edit {
 						ac.permEditIdx = i
@@ -414,26 +426,29 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			continue
 		}
 
-		agentCfg := &config.AgentConfig{}
+		var agentCfg *config.AgentConfig
+		if existing, ok := cfg.Agents[name]; ok {
+			agentCfg = existing
+		} else {
+			agentCfg = &config.AgentConfig{}
+		}
 
-		if ac.modelValue != "" {
-			agentCfg.Model = ac.modelValue
-		}
-		if v := ac.variant.Value(); v != "" {
-			agentCfg.Variant = v
-		}
-		if v := ac.category.Value(); v != "" {
-			agentCfg.Category = v
-		}
+		agentCfg.Model = ac.modelValue
+		agentCfg.Variant = ac.variant.Value()
+		agentCfg.Category = ac.category.Value()
 		if v := ac.temperature.Value(); v != "" {
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				agentCfg.Temperature = &f
 			}
+		} else {
+			agentCfg.Temperature = nil
 		}
 		if v := ac.topP.Value(); v != "" {
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				agentCfg.TopP = &f
 			}
+		} else {
+			agentCfg.TopP = nil
 		}
 		if v := ac.skills.Value(); v != "" {
 			parts := strings.Split(v, ",")
@@ -443,36 +458,38 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 					skills = append(skills, s)
 				}
 			}
-			if len(skills) > 0 {
-				agentCfg.Skills = skills
-			}
+			agentCfg.Skills = skills
+		} else {
+			agentCfg.Skills = nil
 		}
-		if v := ac.tools.Value(); v != "" {
-			agentCfg.Tools = parseMapStringBool(v)
-		}
+		agentCfg.Tools = parseMapStringBool(ac.tools.Value())
 		if ac.disable {
 			b := true
 			agentCfg.Disable = &b
+		} else {
+			agentCfg.Disable = nil
 		}
-		if v := ac.description.Value(); v != "" {
-			agentCfg.Description = v
-		}
+		agentCfg.Description = ac.description.Value()
 		if ac.modeIdx > 0 {
 			agentCfg.Mode = agentModes[ac.modeIdx]
+		} else {
+			agentCfg.Mode = ""
 		}
-		if v := ac.color.Value(); v != "" {
-			agentCfg.Color = v
-		}
+		agentCfg.Color = ac.color.Value()
+		agentCfg.Prompt = ac.prompt.Value()
+		agentCfg.PromptAppend = ac.promptAppend.Value()
 
 		// Permissions
-		if ac.permEditIdx > 0 || ac.permBashIdx > 0 || ac.permWebfetchIdx > 0 ||
-			ac.permDoomLoopIdx > 0 || ac.permExtDirIdx > 0 {
+		if ac.permEditIdx > 0 || ac.permBashIdx > 0 || ac.originalBash != nil ||
+			ac.permWebfetchIdx > 0 || ac.permDoomLoopIdx > 0 || ac.permExtDirIdx > 0 {
 			agentCfg.Permission = &config.PermissionConfig{}
 			if ac.permEditIdx > 0 {
 				agentCfg.Permission.Edit = permissionValues[ac.permEditIdx]
 			}
 			if ac.permBashIdx > 0 {
 				agentCfg.Permission.Bash = permissionValues[ac.permBashIdx]
+			} else if ac.originalBash != nil {
+				agentCfg.Permission.Bash = ac.originalBash
 			}
 			if ac.permWebfetchIdx > 0 {
 				agentCfg.Permission.Webfetch = permissionValues[ac.permWebfetchIdx]
@@ -483,6 +500,8 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			if ac.permExtDirIdx > 0 {
 				agentCfg.Permission.ExternalDirectory = permissionValues[ac.permExtDirIdx]
 			}
+		} else {
+			agentCfg.Permission = nil
 		}
 
 		cfg.Agents[name] = agentCfg
@@ -562,6 +581,10 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		fieldMode:         15,
 		fieldColor:        16,
 		fieldPermEdit:     18,
+		fieldPermBash:     19,
+		fieldPermWebfetch: 20,
+		fieldPermDoomLoop: 21,
+		fieldPermExtDir:   22,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -638,7 +661,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "down", "j":
 				w.focusedField++
-				if w.focusedField > fieldPermEdit {
+				if w.focusedField > fieldPermExtDir {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -649,7 +672,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldPermEdit
+					w.focusedField = fieldPermExtDir
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
@@ -657,7 +680,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "tab":
 				w.focusedField++
-				if w.focusedField > fieldPermEdit {
+				if w.focusedField > fieldPermExtDir {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -687,6 +710,17 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					ac.modeIdx = (ac.modeIdx + 1) % len(agentModes)
 				case fieldPermEdit:
 					ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
+				case fieldPermBash:
+					// Only cycle if bash is a string (not object)
+					if _, isObject := ac.originalBash.(map[string]interface{}); !isObject {
+						ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
+					}
+				case fieldPermWebfetch:
+					ac.permWebfetchIdx = (ac.permWebfetchIdx + 1) % len(permissionValues)
+				case fieldPermDoomLoop:
+					ac.permDoomLoopIdx = (ac.permDoomLoopIdx + 1) % len(permissionValues)
+				case fieldPermExtDir:
+					ac.permExtDirIdx = (ac.permExtDirIdx + 1) % len(permissionValues)
 				}
 				w.viewport.SetContent(w.renderContent())
 				return w, nil
@@ -894,6 +928,34 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Permissions ──"))
 	lines = append(lines, renderDropdown("edit", fieldPermEdit, permissionValues, ac.permEditIdx))
+
+	// Bash permission - special handling for object type
+	bashValue := ""
+	switch v := ac.originalBash.(type) {
+	case map[string]interface{}:
+		bashValue = fmt.Sprintf("[object: %d rules]", len(v))
+	default:
+		if ac.permBashIdx > 0 && ac.permBashIdx < len(permissionValues) {
+			bashValue = permissionValues[ac.permBashIdx]
+		} else {
+			bashValue = "(none)"
+		}
+	}
+	bashStyle := wizAgentDimStyle
+	bashCursor := "  "
+	if w.inForm && isActiveAgent && w.focusedField == fieldPermBash {
+		bashStyle = wizAgentSelectedStyle
+		bashCursor = wizAgentCursorStyle.Render("> ")
+	}
+	bashHint := " [←/→]"
+	if _, isObject := ac.originalBash.(map[string]interface{}); isObject {
+		bashHint = " (read-only)"
+	}
+	lines = append(lines, indent[:4]+bashCursor+bashStyle.Render(fmt.Sprintf("%-12s: ", "bash"))+bashValue+bashHint)
+
+	lines = append(lines, renderDropdown("webfetch", fieldPermWebfetch, permissionValues, ac.permWebfetchIdx))
+	lines = append(lines, renderDropdown("doom_loop", fieldPermDoomLoop, permissionValues, ac.permDoomLoopIdx))
+	lines = append(lines, renderDropdown("external_dir", fieldPermExtDir, permissionValues, ac.permExtDirIdx))
 	lines = append(lines, "")
 
 	return lines
