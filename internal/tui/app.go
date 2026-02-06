@@ -92,6 +92,8 @@ type App struct {
 	toastType   toastType
 	toastActive bool
 
+	belowMinSize bool
+
 	// Views
 	dashboard      views.Dashboard
 	list           views.List
@@ -178,6 +180,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.height = msg.Height
 		a.help.Width = msg.Width
 		a.ready = true
+		a.belowMinSize = IsBelowMinimumSize(a.width, a.height)
 
 		// Propagate to all views
 		a.dashboard.SetSize(msg.Width, msg.Height-3)
@@ -605,6 +608,10 @@ func (a App) showToast(text string, typ toastType, duration time.Duration) tea.C
 func (a App) View() string {
 	if !a.ready {
 		return "Initializing..."
+	}
+
+	if a.belowMinSize {
+		return RenderMinimumSizeWarning(a.width, a.height)
 	}
 
 	var content string

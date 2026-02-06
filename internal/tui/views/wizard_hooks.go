@@ -148,6 +148,7 @@ func (w *WizardHooks) SetSize(width, height int) {
 		w.viewport.Width = width
 		w.viewport.Height = height - 4
 	}
+	w.viewport.SetContent(w.renderContent())
 }
 
 func (w *WizardHooks) SetConfig(cfg *config.Config) {

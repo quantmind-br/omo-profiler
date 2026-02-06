@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -536,6 +537,7 @@ func (m ModelImport) renderError() string {
 func (m *ModelImport) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.searchInput.Width = layout.MediumFieldWidth(width)
 }
 
 // IsEditing returns true when text input is active (search field)

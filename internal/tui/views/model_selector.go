@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -187,6 +188,8 @@ func (m ModelSelector) Init() tea.Cmd {
 func (m *ModelSelector) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.customInput.Width = layout.MediumFieldWidth(width)
+	m.searchInput.Width = layout.MediumFieldWidth(width)
 	m.ensureCursorVisible()
 }
 

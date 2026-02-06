@@ -4,9 +4,11 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 type NavToListMsg struct{}
@@ -48,6 +50,8 @@ type Dashboard struct {
 	height        int
 	keys          dashboardKeyMap
 	err           error
+	viewport      viewport.Model
+	ready         bool
 }
 
 type dashboardKeyMap struct {
@@ -146,6 +150,8 @@ type profileLoadedMsg struct {
 }
 
 func (d Dashboard) Update(msg tea.Msg) (Dashboard, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case profileLoadedMsg:
 		if msg.err != nil {
@@ -178,7 +184,10 @@ func (d Dashboard) Update(msg tea.Msg) (Dashboard, tea.Cmd) {
 		}
 	}
 
-	return d, nil
+	d.viewport.SetContent(d.renderMenuContent())
+	d.viewport, cmd = d.viewport.Update(msg)
+
+	return d, cmd
 }
 
 func (d Dashboard) handleSelect() tea.Cmd {
@@ -221,13 +230,13 @@ func (d Dashboard) View() string {
 	} else if d.activeProfile.IsOrphan {
 		profileStatus = fmt.Sprintf("Active: %s", warningStyle.Render("(Custom)"))
 	} else {
-		profileStatus = fmt.Sprintf("Active: %s", successStyle.Render(d.activeProfile.ProfileName))
+		name := layout.TruncateWithEllipsis(d.activeProfile.ProfileName, d.width-12)
+		profileStatus = fmt.Sprintf("Active: %s", successStyle.Render(name))
 	}
 
 	statsLine := subtitleStyle.Render(fmt.Sprintf("%d profiles available", d.profileCount))
-	menuView := d.renderMenu()
 
-	return lipgloss.JoinVertical(lipgloss.Left,
+	header := lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
 		subtitle,
@@ -235,11 +244,12 @@ func (d Dashboard) View() string {
 		profileStatus,
 		statsLine,
 		"",
-		menuView,
 	)
+
+	return header + d.viewport.View()
 }
 
-func (d Dashboard) renderMenu() string {
+func (d Dashboard) renderMenuContent() string {
 	var lines []string
 
 	for i, item := range menuItems {
@@ -265,4 +275,14 @@ func (d Dashboard) Refresh() tea.Cmd {
 func (d *Dashboard) SetSize(width, height int) {
 	d.width = width
 	d.height = height
+	// Header: empty line + title + subtitle + empty line + profileStatus + statsLine + empty line = 7 lines
+	headerHeight := 7
+	if !d.ready {
+		d.viewport = viewport.New(width, height-headerHeight)
+		d.ready = true
+	} else {
+		d.viewport.Width = width
+		d.viewport.Height = height - headerHeight
+	}
+	d.viewport.SetContent(d.renderMenuContent())
 }

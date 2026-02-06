@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -84,7 +85,7 @@ func (i Import) Init() tea.Cmd {
 func (i *Import) SetSize(width, height int) {
 	i.width = width
 	i.height = height
-	i.textInput.Width = width - 10
+	i.textInput.Width = layout.WideFieldWidth(width, 10)
 }
 
 // Update handles messages and user input

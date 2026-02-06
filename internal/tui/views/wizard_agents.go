@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 func parseMapStringBool(s string) map[string]bool {
@@ -311,6 +312,25 @@ func (w *WizardAgents) SetSize(width, height int) {
 		w.viewport.Width = width
 		w.viewport.Height = height - 4
 	}
+
+	// Guard against uninitialized struct (e.g. before navigation)
+	if w.agents == nil {
+		return
+	}
+
+	for _, ac := range w.agents {
+		ac.variant.Width = layout.MediumFieldWidth(width)
+		ac.category.Width = layout.MediumFieldWidth(width)
+		ac.skills.Width = layout.WideFieldWidth(width, 10)
+		ac.tools.Width = layout.WideFieldWidth(width, 10)
+		ac.description.Width = layout.WideFieldWidth(width, 10)
+		ac.prompt.SetWidth(layout.WideFieldWidth(width, 10))
+		ac.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
+		ac.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
+		ac.saveProviderInput.Width = layout.MediumFieldWidth(width)
+		ac.modelSelector.SetSize(width, height)
+	}
+	w.viewport.SetContent(w.renderContent())
 }
 
 func (w *WizardAgents) SetConfig(cfg *config.Config) {

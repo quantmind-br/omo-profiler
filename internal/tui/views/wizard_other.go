@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -438,6 +439,34 @@ func (w *WizardOther) SetSize(width, height int) {
 		w.viewport.Width = width
 		w.viewport.Height = height - 4
 	}
+
+	// Guard against uninitialized struct (e.g. before navigation)
+	if w.disabledAgents == nil {
+		return
+	}
+
+	med := layout.MediumFieldWidth(width)
+	wide := layout.WideFieldWidth(width, 10)
+	w.disabledMcps.Width = wide
+	w.rlDefaultMaxIterations.Width = layout.FixedSmallWidth()
+	w.rlStateDir.Width = wide
+	w.btDefaultConcurrency.Width = layout.FixedSmallWidth()
+	w.btProviderConcurrency.Width = wide
+	w.btModelConcurrency.Width = wide
+	w.btStaleTimeoutMs.Width = layout.FixedSmallWidth()
+	w.ccCustomPrompt.Width = wide
+	w.dcpTurnProtTurns.Width = layout.FixedSmallWidth()
+	w.dcpProtectedTools.Width = wide
+	w.dcpPurgeErrorsTurns.Width = layout.FixedSmallWidth()
+	w.ccPluginsOverride.Width = wide
+	w.skillsEditor.SetWidth(wide)
+	w.tmuxLayout.Width = med
+	w.tmuxMainPaneSize.Width = layout.FixedSmallWidth()
+	w.tmuxMainPaneMinWidth.Width = layout.FixedSmallWidth()
+	w.tmuxAgentPaneMinWidth.Width = layout.FixedSmallWidth()
+	w.sisTasksStoragePath.Width = wide
+	w.defaultRunAgent.Width = med
+	w.viewport.SetContent(w.renderContent())
 }
 
 func (w *WizardOther) SetConfig(cfg *config.Config) {

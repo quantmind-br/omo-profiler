@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -73,6 +74,7 @@ func (w WizardName) Init() tea.Cmd {
 func (w *WizardName) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	w.input.Width = layout.MediumFieldWidth(width)
 }
 
 func (w *WizardName) SetName(name string) {

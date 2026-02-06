@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -611,6 +612,11 @@ func (m ModelRegistry) renderDeleteConfirm() string {
 func (m *ModelRegistry) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	med := layout.MediumFieldWidth(width)
+	m.searchInput.Width = med
+	m.displayNameInput.Width = med
+	m.modelIdInput.Width = med
+	m.providerInput.Width = med
 }
 
 // IsEditing returns true when text input is active (form fields or search)

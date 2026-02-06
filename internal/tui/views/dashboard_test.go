@@ -388,7 +388,7 @@ func TestDashboardRenderMenu(t *testing.T) {
 	d := NewDashboard()
 	d.SetSize(80, 24)
 
-	menu := d.renderMenu()
+	menu := d.renderMenuContent()
 
 	if menu == "" {
 		t.Error("expected non-empty menu")
@@ -413,7 +413,7 @@ func TestDashboardRenderMenuCursorPosition(t *testing.T) {
 	d := NewDashboard()
 	d.cursor = 3
 
-	menu := d.renderMenu()
+	menu := d.renderMenuContent()
 
 	// Cursor should be at position 3 (Edit Current)
 	// The menu should show the cursor indicator

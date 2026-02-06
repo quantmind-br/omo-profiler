@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var thinkingTypes = []string{"", "enabled", "disabled"}
@@ -241,6 +242,23 @@ func (w *WizardCategories) SetSize(width, height int) {
 		w.viewport.Width = width
 		w.viewport.Height = height - 4
 	}
+
+	// Guard against uninitialized struct (e.g. before navigation)
+	if w.categories == nil {
+		return
+	}
+
+	for _, cc := range w.categories {
+		cc.nameInput.Width = layout.MediumFieldWidth(width)
+		cc.description.Width = layout.MediumFieldWidth(width)
+		cc.variant.Width = layout.MediumFieldWidth(width)
+		cc.tools.Width = layout.WideFieldWidth(width, 10)
+		cc.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
+		cc.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
+		cc.saveProviderInput.Width = layout.MediumFieldWidth(width)
+		cc.modelSelector.SetSize(width, height)
+	}
+	w.viewport.SetContent(w.renderContent())
 }
 
 func (w *WizardCategories) SetConfig(cfg *config.Config) {
