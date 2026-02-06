@@ -691,7 +691,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldPermEdit
+					w.focusedField = fieldPermExtDir
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
