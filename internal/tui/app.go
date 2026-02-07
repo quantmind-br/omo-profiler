@@ -194,6 +194,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.modelImport.SetSize(msg.Width, msg.Height-3)
 		a.importView.SetSize(msg.Width, msg.Height-3)
 		a.exportView.SetSize(msg.Width, msg.Height-3)
+		a.schemaCheck.SetSize(msg.Width, msg.Height-3)
 
 	case spinner.TickMsg:
 		if a.loading {
