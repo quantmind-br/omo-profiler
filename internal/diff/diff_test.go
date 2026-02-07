@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -408,5 +409,51 @@ func TestComputeDiffMultilineJSON(t *testing.T) {
 
 	if !hasDiff {
 		t.Error("Expected to find some different lines")
+	}
+}
+
+// TestComputeUnifiedDiff_IdenticalContent tests ComputeUnifiedDiff with identical content
+func TestComputeUnifiedDiff_IdenticalContent(t *testing.T) {
+	oldContent := []byte("line1\nline2\nline3")
+	newContent := []byte("line1\nline2\nline3")
+	oldName := "old.json"
+	newName := "new.json"
+
+	diff := ComputeUnifiedDiff(oldName, newName, oldContent, newContent)
+
+	expectedHeader := "--- old.json\n+++ new.json\n"
+	if diff != expectedHeader {
+		t.Errorf("Expected only headers for identical content, got:\n%q", diff)
+	}
+}
+
+// TestComputeUnifiedDiff_WithDifferences tests ComputeUnifiedDiff with differences
+func TestComputeUnifiedDiff_WithDifferences(t *testing.T) {
+	oldContent := []byte("line1\nline2\nline3")
+	newContent := []byte("line1\nline2.modified\nline3")
+	oldName := "old.json"
+	newName := "new.json"
+
+	diff := ComputeUnifiedDiff(oldName, newName, oldContent, newContent)
+
+	if !strings.Contains(diff, "-line2") {
+		t.Errorf("Expected diff to contain -line2, got:\n%s", diff)
+	}
+	if !strings.Contains(diff, "+line2.modified") {
+		t.Errorf("Expected diff to contain +line2.modified, got:\n%s", diff)
+	}
+}
+
+// TestComputeUnifiedDiff_HeadersPresent tests ComputeUnifiedDiff headers
+func TestComputeUnifiedDiff_HeadersPresent(t *testing.T) {
+	oldContent := []byte("a")
+	newContent := []byte("b")
+	oldName := "file1"
+	newName := "file2"
+
+	diff := ComputeUnifiedDiff(oldName, newName, oldContent, newContent)
+
+	if !strings.HasPrefix(diff, "--- file1\n+++ file2\n") {
+		t.Errorf("Expected unified diff headers, got:\n%s", diff)
 	}
 }

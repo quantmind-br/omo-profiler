@@ -43,6 +43,40 @@ func ComputeDiff(json1, json2 []byte) (*DiffResult, error) {
 	return buildDiffResult(diffs), nil
 }
 
+// ComputeUnifiedDiff generates a unified diff format string
+func ComputeUnifiedDiff(oldName, newName string, old, new []byte) string {
+	differ := dmp.New()
+
+	text1 := string(old)
+	text2 := string(new)
+
+	// Use DiffLinesToChars to get line-based diffs
+	chars1, chars2, lineArray := differ.DiffLinesToChars(text1, text2)
+	diffs := differ.DiffMain(chars1, chars2, false)
+	diffs = differ.DiffCharsToLines(diffs, lineArray)
+
+	// PatchMake can take the original text and the line-based diffs
+	patches := differ.PatchMake(text1, diffs)
+	patchText := differ.PatchToText(patches)
+
+	// PatchToText encodes characters like \n as %0A and spaces as %20.
+	// For a standard unified diff, we need to decode these.
+	patchText = strings.ReplaceAll(patchText, "%0A", "\n")
+	patchText = strings.ReplaceAll(patchText, "%20", " ")
+	patchText = strings.ReplaceAll(patchText, "%09", "\t")
+
+	var builder strings.Builder
+	builder.WriteString("--- ")
+	builder.WriteString(oldName)
+	builder.WriteString("\n")
+	builder.WriteString("+++ ")
+	builder.WriteString(newName)
+	builder.WriteString("\n")
+	builder.WriteString(patchText)
+
+	return builder.String()
+}
+
 // buildDiffResult converts dmp.Diff slices to DiffResult with side-by-side representation
 func buildDiffResult(diffs []dmp.Diff) *DiffResult {
 	result := &DiffResult{
