@@ -39,4 +39,5 @@ func init() {
 	rootCmd.AddCommand(cmd.ImportCmd)
 	rootCmd.AddCommand(cmd.ModelsCmd)
 	rootCmd.AddCommand(cmd.CreateCmd)
+	rootCmd.AddCommand(cmd.SchemaCheckCmd)
 }
