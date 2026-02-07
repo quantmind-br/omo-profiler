@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -215,7 +216,7 @@ func (d Dashboard) handleSelect() tea.Cmd {
 }
 
 func (d Dashboard) View() string {
-	title := titleStyle.Render("omo-profiler")
+	title := titleStyle.Render("OMO-Profiler")
 	subtitle := subtitleStyle.Render("Profile manager for oh-my-opencode")
 
 	var profileStatus string
@@ -236,7 +237,7 @@ func (d Dashboard) View() string {
 
 	statsLine := subtitleStyle.Render(fmt.Sprintf("%d profiles available", d.profileCount))
 
-	header := lipgloss.JoinVertical(lipgloss.Left,
+	header := strings.Join([]string{
 		"",
 		title,
 		subtitle,
@@ -244,9 +245,9 @@ func (d Dashboard) View() string {
 		profileStatus,
 		statsLine,
 		"",
-	)
+	}, "\n")
 
-	return header + d.viewport.View()
+	return header + d.renderMenuContent()
 }
 
 func (d Dashboard) renderMenuContent() string {
@@ -264,7 +265,7 @@ func (d Dashboard) renderMenuContent() string {
 		lines = append(lines, line)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return strings.Join(lines, "\n")
 }
 
 func (d Dashboard) Refresh() tea.Cmd {

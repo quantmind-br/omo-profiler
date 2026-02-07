@@ -310,8 +310,8 @@ func TestDashboardView(t *testing.T) {
 	}
 
 	// Check for title
-	if !contains(view, "omo-profiler") {
-		t.Error("expected 'omo-profiler' in view")
+	if !contains(view, "OMO-Profiler") {
+		t.Error("expected 'OMO-Profiler' in view")
 	}
 
 	// Check for subtitle
