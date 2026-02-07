@@ -22,14 +22,6 @@ type Config struct {
 	BackgroundTask          *BackgroundTaskConfig          `json:"background_task,omitempty"`
 	Notification            *NotificationConfig            `json:"notification,omitempty"`
 	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
-	NewTaskSystemEnabled    *bool                          `json:"new_task_system_enabled,omitempty"`
-	DisabledTools           []string                       `json:"disabled_tools,omitempty"`
-	Babysitting             *BabysittingConfig             `json:"babysitting,omitempty"`
-	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
-	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
-	Websearch               *WebsearchConfig               `json:"websearch,omitempty"`
-	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
-	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
 }
 
 type AgentConfig struct {
@@ -184,38 +176,3 @@ type CommentCheckerConfig struct {
 	CustomPrompt string `json:"custom_prompt,omitempty"`
 }
 
-// BabysittingConfig
-type BabysittingConfig struct {
-	TimeoutMs *float64 `json:"timeout_ms,omitempty"`
-}
-
-// BrowserAutomationEngineConfig
-type BrowserAutomationEngineConfig struct {
-	Provider string `json:"provider,omitempty"`
-}
-
-// TmuxConfig
-type TmuxConfig struct {
-	Enabled           *bool    `json:"enabled,omitempty"`
-	Layout            string   `json:"layout,omitempty"`
-	MainPaneSize      *float64 `json:"main_pane_size,omitempty"`
-	MainPaneMinWidth  *float64 `json:"main_pane_min_width,omitempty"`
-	AgentPaneMinWidth *float64 `json:"agent_pane_min_width,omitempty"`
-}
-
-// WebsearchConfig - websearch provider configuration
-type WebsearchConfig struct {
-	Provider string `json:"provider,omitempty"`
-}
-
-// SisyphusConfig (different from SisyphusAgentConfig!)
-type SisyphusConfig struct {
-	Tasks *SisyphusTasksConfig `json:"tasks,omitempty"`
-}
-
-// SisyphusTasksConfig
-type SisyphusTasksConfig struct {
-	StoragePath      string `json:"storage_path,omitempty"`
-	ClaudeCodeCompat *bool  `json:"claude_code_compat,omitempty"`
-	TaskListID       string `json:"task_list_id,omitempty"`
-}

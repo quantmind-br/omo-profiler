@@ -74,10 +74,9 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (10)
+// Disableable agents (9)
 var disableableAgents = []string{
 	"sisyphus",
-	"hephaestus",
 	"prometheus",
 	"oracle",
 	"librarian",
@@ -88,10 +87,9 @@ var disableableAgents = []string{
 	"atlas",
 }
 
-// Disableable skills (4)
+// Disableable skills (3)
 var disableableSkills = []string{
 	"playwright",
-	"agent-browser",
 	"frontend-ui-ux",
 	"git-master",
 }
@@ -103,8 +101,6 @@ var disableableCommands = []string{
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
-var baeProviderValues = []string{"", "playwright", "agent-browser", "dev-browser"}
-var websearchProviderValues = []string{"", "exa", "tavily"}
 
 // Sections in the other settings
 type otherSection int
@@ -124,11 +120,6 @@ const (
 	sectionGitMaster
 	sectionCommentChecker
 	sectionSkillsJson
-	sectionBrowserAutomationEngine
-	sectionTmux
-	sectionWebsearch
-	sectionSisyphus
-	sectionDefaultRunAgent
 )
 
 var otherSectionNames = []string{
@@ -146,11 +137,6 @@ var otherSectionNames = []string{
 	"Git Master",
 	"Comment Checker",
 	"Skills (JSON)",
-	"Browser Automation Engine",
-	"Tmux",
-	"Websearch",
-	"Sisyphus",
-	"Default Run Agent",
 }
 
 type wizardOtherKeyMap struct {
@@ -268,26 +254,6 @@ type WizardOther struct {
 
 	// Skills JSON
 	skillsEditor textarea.Model
-
-	// Browser Automation Engine
-	baeProviderIdx int
-
-	// Tmux
-	tmuxEnabled           bool
-	tmuxLayout            textinput.Model
-	tmuxMainPaneSize      textinput.Model
-	tmuxMainPaneMinWidth  textinput.Model
-	tmuxAgentPaneMinWidth textinput.Model
-
-	// Websearch
-	websearchProviderIdx int
-
-	// Sisyphus Tasks
-	sisTasksStoragePath      textinput.Model
-	sisTasksClaudeCodeCompat bool
-
-	// Default Run Agent
-	defaultRunAgent textinput.Model
 
 	// UI State
 	currentSection  otherSection
@@ -414,12 +380,6 @@ func NewWizardOther() WizardOther {
 		dcpPurgeErrorsTurns:    dcpPurgeErrorsTurns,
 		ccPluginsOverride:      ccPluginsOverride,
 		skillsEditor:           skillsEditor,
-		tmuxLayout:             tmuxLayout,
-		tmuxMainPaneSize:       tmuxSize,
-		tmuxMainPaneMinWidth:   tmuxMinWidth,
-		tmuxAgentPaneMinWidth:  tmuxAgentWidth,
-		sisTasksStoragePath:    sisTasksStoragePath,
-		defaultRunAgent:        defaultRunAgent,
 		sectionExpanded:        sectionExpanded,
 		keys:                   newWizardOtherKeyMap(),
 	}
@@ -445,7 +405,6 @@ func (w *WizardOther) SetSize(width, height int) {
 		return
 	}
 
-	med := layout.MediumFieldWidth(width)
 	wide := layout.WideFieldWidth(width, 10)
 	w.disabledMcps.Width = wide
 	w.rlDefaultMaxIterations.Width = layout.FixedSmallWidth()
@@ -460,12 +419,6 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.dcpPurgeErrorsTurns.Width = layout.FixedSmallWidth()
 	w.ccPluginsOverride.Width = wide
 	w.skillsEditor.SetWidth(wide)
-	w.tmuxLayout.Width = med
-	w.tmuxMainPaneSize.Width = layout.FixedSmallWidth()
-	w.tmuxMainPaneMinWidth.Width = layout.FixedSmallWidth()
-	w.tmuxAgentPaneMinWidth.Width = layout.FixedSmallWidth()
-	w.sisTasksStoragePath.Width = wide
-	w.defaultRunAgent.Width = med
 	w.viewport.SetContent(w.renderContent())
 }
 
@@ -501,10 +454,6 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		w.autoUpdate = *cfg.AutoUpdate
 	}
 
-	// Default run agent
-	if cfg.DefaultRunAgent != "" {
-		w.defaultRunAgent.SetValue(cfg.DefaultRunAgent)
-	}
 
 	// Experimental
 	if cfg.Experimental != nil {
@@ -676,58 +625,6 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 	}
 
-	// Browser Automation Engine
-	if cfg.BrowserAutomationEngine != nil {
-		if cfg.BrowserAutomationEngine.Provider != "" {
-			for i, v := range baeProviderValues {
-				if v == cfg.BrowserAutomationEngine.Provider {
-					w.baeProviderIdx = i
-					break
-				}
-			}
-		}
-	}
-
-	// Tmux
-	if cfg.Tmux != nil {
-		if cfg.Tmux.Enabled != nil {
-			w.tmuxEnabled = *cfg.Tmux.Enabled
-		}
-		if cfg.Tmux.Layout != "" {
-			w.tmuxLayout.SetValue(cfg.Tmux.Layout)
-		}
-		if cfg.Tmux.MainPaneSize != nil {
-			w.tmuxMainPaneSize.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.MainPaneSize))
-		}
-		if cfg.Tmux.MainPaneMinWidth != nil {
-			w.tmuxMainPaneMinWidth.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.MainPaneMinWidth))
-		}
-		if cfg.Tmux.AgentPaneMinWidth != nil {
-			w.tmuxAgentPaneMinWidth.SetValue(fmt.Sprintf("%.0f", *cfg.Tmux.AgentPaneMinWidth))
-		}
-	}
-
-	// Websearch
-	if cfg.Websearch != nil {
-		if cfg.Websearch.Provider != "" {
-			for i, v := range websearchProviderValues {
-				if v == cfg.Websearch.Provider {
-					w.websearchProviderIdx = i
-					break
-				}
-			}
-		}
-	}
-
-	// Sisyphus
-	if cfg.Sisyphus != nil && cfg.Sisyphus.Tasks != nil {
-		if cfg.Sisyphus.Tasks.StoragePath != "" {
-			w.sisTasksStoragePath.SetValue(cfg.Sisyphus.Tasks.StoragePath)
-		}
-		if cfg.Sisyphus.Tasks.ClaudeCodeCompat != nil {
-			w.sisTasksClaudeCodeCompat = *cfg.Sisyphus.Tasks.ClaudeCodeCompat
-		}
-	}
 }
 
 func (w *WizardOther) Apply(cfg *config.Config) {
@@ -786,10 +683,6 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.AutoUpdate = &w.autoUpdate
 	}
 
-	// Default run agent
-	if v := w.defaultRunAgent.Value(); v != "" {
-		cfg.DefaultRunAgent = v
-	}
 
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
@@ -1007,62 +900,6 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.Skills = nil
 	}
 
-	// Browser Automation Engine
-	if w.baeProviderIdx > 0 {
-		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
-			Provider: baeProviderValues[w.baeProviderIdx],
-		}
-	}
-
-	// Tmux
-	tmuxHasData := w.tmuxEnabled || w.tmuxLayout.Value() != "" ||
-		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" ||
-		w.tmuxAgentPaneMinWidth.Value() != ""
-	if tmuxHasData {
-		cfg.Tmux = &config.TmuxConfig{}
-		if w.tmuxEnabled {
-			cfg.Tmux.Enabled = &w.tmuxEnabled
-		}
-		if v := w.tmuxLayout.Value(); v != "" {
-			cfg.Tmux.Layout = v
-		}
-		if v := w.tmuxMainPaneSize.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				cfg.Tmux.MainPaneSize = &f
-			}
-		}
-		if v := w.tmuxMainPaneMinWidth.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				cfg.Tmux.MainPaneMinWidth = &f
-			}
-		}
-		if v := w.tmuxAgentPaneMinWidth.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				cfg.Tmux.AgentPaneMinWidth = &f
-			}
-		}
-	}
-
-	// Websearch
-	if w.websearchProviderIdx > 0 {
-		cfg.Websearch = &config.WebsearchConfig{
-			Provider: websearchProviderValues[w.websearchProviderIdx],
-		}
-	}
-
-	// Sisyphus
-	sisHasData := w.sisTasksStoragePath.Value() != "" || w.sisTasksClaudeCodeCompat
-	if sisHasData {
-		cfg.Sisyphus = &config.SisyphusConfig{
-			Tasks: &config.SisyphusTasksConfig{},
-		}
-		if v := w.sisTasksStoragePath.Value(); v != "" {
-			cfg.Sisyphus.Tasks.StoragePath = v
-		}
-		if w.sisTasksClaudeCodeCompat {
-			cfg.Sisyphus.Tasks.ClaudeCodeCompat = &w.sisTasksClaudeCodeCompat
-		}
-	}
 }
 
 func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
@@ -1317,25 +1154,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionDefaultRunAgent {
-				switch msg.String() {
-				case "esc":
-					w.defaultRunAgent.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.defaultRunAgent.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.defaultRunAgent.Focus()
-					w.defaultRunAgent, cmd = w.defaultRunAgent.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionRalphLoop && w.subCursor == 1 {
 				switch msg.String() {
 				case "esc":
@@ -1513,129 +1331,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					return w, cmd
 				}
 			}
-			if w.currentSection == sectionTmux && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxLayout.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxLayout.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxLayout.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxLayout.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.tmuxLayout.Focus()
-					w.tmuxLayout, cmd = w.tmuxLayout.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionTmux && w.subCursor == 2 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxMainPaneSize.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxMainPaneSize.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxMainPaneSize.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxMainPaneSize.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.tmuxMainPaneSize.Focus()
-					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionTmux && w.subCursor == 3 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxMainPaneMinWidth.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.tmuxMainPaneMinWidth.Focus()
-					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionTmux && w.subCursor == 4 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxAgentPaneMinWidth.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.tmuxAgentPaneMinWidth.Focus()
-					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
-					return w, cmd
-				}
-			}
 
 			switch msg.String() {
 
@@ -1792,25 +1487,6 @@ func (w *WizardOther) toggleSubItem() {
 			w.gmCommitFooter = !w.gmCommitFooter
 		case 1:
 			w.gmIncludeCoAuthoredBy = !w.gmIncludeCoAuthoredBy
-		}
-	case sectionBrowserAutomationEngine:
-		if w.subCursor == 0 {
-			w.baeProviderIdx = (w.baeProviderIdx + 1) % len(baeProviderValues)
-		}
-	case sectionTmux:
-		if w.subCursor == 0 {
-			w.tmuxEnabled = !w.tmuxEnabled
-		}
-	case sectionWebsearch:
-		if w.subCursor == 0 {
-			w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviderValues)
-		}
-	case sectionSisyphus:
-		switch w.subCursor {
-		case 0:
-			// storage_path - handled in Update
-		case 1:
-			w.sisTasksClaudeCodeCompat = !w.sisTasksClaudeCodeCompat
 		}
 	}
 }
@@ -2069,69 +1745,6 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionSkillsJson:
 		lines = append(lines, indent+w.skillsEditor.View())
-
-	case sectionBrowserAutomationEngine:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		providerVal := ""
-		if w.baeProviderIdx > 0 {
-			providerVal = baeProviderValues[w.baeProviderIdx]
-		}
-		lines = append(lines, indent+cursor+style.Render("provider: ")+providerVal)
-
-	case sectionTmux:
-		lines = append(lines, renderCheckbox(0, "enabled", w.tmuxEnabled))
-		lines = append(lines, indent+"  layout: "+w.tmuxLayout.View())
-		lines = append(lines, indent+"  main_pane_size: "+w.tmuxMainPaneSize.View())
-		lines = append(lines, indent+"  main_pane_min_width: "+w.tmuxMainPaneMinWidth.View())
-		lines = append(lines, indent+"  agent_pane_min_width: "+w.tmuxAgentPaneMinWidth.View())
-
-	case sectionWebsearch:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		providerVal := ""
-		if w.websearchProviderIdx > 0 {
-			providerVal = websearchProviderValues[w.websearchProviderIdx]
-		}
-		lines = append(lines, indent+cursor+style.Render("provider: ")+providerVal)
-
-	case sectionSisyphus:
-		lines = append(lines, indent+"  "+dimStyle.Render("─── Tasks ───"))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("storage_path: ")+w.sisTasksStoragePath.View())
-
-		lines = append(lines, renderCheckbox(1, "claude_code_compat", w.sisTasksClaudeCodeCompat))
-
-	case sectionDefaultRunAgent:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("agent: ")+w.defaultRunAgent.View())
 	}
 
 	lines = append(lines, "")
