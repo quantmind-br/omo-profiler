@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -11,9 +12,29 @@ import (
 
 // Profile represents a saved configuration profile
 type Profile struct {
-	Name   string
-	Config config.Config
-	Path   string
+	Name                string
+	Config              config.Config
+	Path                string
+	HasLegacyFields     bool   `json:"-"`
+	LegacyFieldsWarning string `json:"-"`
+}
+
+// detectLegacyFields checks if the JSON data contains unknown fields
+// that are not part of the config.Config struct. Returns true and an
+// error message if unknown fields are detected.
+func detectLegacyFields(data []byte) (bool, string) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+
+	var cfg config.Config
+	if err := dec.Decode(&cfg); err != nil {
+		errStr := err.Error()
+		if strings.Contains(errStr, "unknown field") {
+			return true, errStr
+		}
+		return false, ""
+	}
+	return false, ""
 }
 
 // Load loads a profile by name from the profiles directory
@@ -29,10 +50,14 @@ func Load(name string) (*Profile, error) {
 		return nil, err
 	}
 
+	hasLegacy, warning := detectLegacyFields(data)
+
 	return &Profile{
-		Name:   name,
-		Config: cfg,
-		Path:   path,
+		Name:                name,
+		Config:              cfg,
+		Path:                path,
+		HasLegacyFields:     hasLegacy,
+		LegacyFieldsWarning: warning,
 	}, nil
 }
 

@@ -197,3 +197,69 @@ func TestExists(t *testing.T) {
 		t.Error("Expected profile to not exist")
 	}
 }
+
+func TestLoadWithLegacyFields(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	jsonWithLegacy := `{
+		"disabled_mcps": ["test-mcp"],
+		"unknownLegacyField": "some value",
+		"anotherUnknown": 123
+	}`
+
+	profilePath := filepath.Join(config.ProfilesDir(), "legacy-profile.json")
+	if err := os.WriteFile(profilePath, []byte(jsonWithLegacy), 0644); err != nil {
+		t.Fatalf("Failed to create test profile: %v", err)
+	}
+
+	p, err := Load("legacy-profile")
+	if err != nil {
+		t.Fatalf("Load should succeed even with legacy fields: %v", err)
+	}
+
+	if !p.HasLegacyFields {
+		t.Error("Expected HasLegacyFields to be true")
+	}
+
+	if p.LegacyFieldsWarning == "" {
+		t.Error("Expected LegacyFieldsWarning to contain a message")
+	}
+
+	if len(p.Config.DisabledMCPs) != 1 || p.Config.DisabledMCPs[0] != "test-mcp" {
+		t.Error("Known fields should still be loaded correctly")
+	}
+}
+
+func TestLoadWithoutLegacyFields(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	validJSON := `{"disabled_mcps": ["valid-mcp"]}`
+
+	profilePath := filepath.Join(config.ProfilesDir(), "valid-profile.json")
+	if err := os.WriteFile(profilePath, []byte(validJSON), 0644); err != nil {
+		t.Fatalf("Failed to create test profile: %v", err)
+	}
+
+	p, err := Load("valid-profile")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if p.HasLegacyFields {
+		t.Error("Expected HasLegacyFields to be false for valid profile")
+	}
+
+	if p.LegacyFieldsWarning != "" {
+		t.Errorf("Expected empty LegacyFieldsWarning, got: %s", p.LegacyFieldsWarning)
+	}
+}
