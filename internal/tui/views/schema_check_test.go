@@ -72,8 +72,8 @@ func TestSchemaCheck_Update_ResultMsg_Different(t *testing.T) {
 
 	updated, _ := sc.Update(msg)
 
-	if updated.state != stateSchemaCheckResult {
-		t.Errorf("expected stateSchemaCheckResult, got %v", updated.state)
+	if updated.state != stateSchemaCheckSavePath {
+		t.Errorf("expected stateSchemaCheckSavePath, got %v", updated.state)
 	}
 
 	if updated.result.Identical {
