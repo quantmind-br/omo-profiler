@@ -78,7 +78,7 @@ func fetchSchemaCompareCmd() tea.Msg {
 	return schemaCheckResultMsg{result: result, err: err}
 }
 
-func (s SchemaCheck) SetSize(w, h int) {
+func (s *SchemaCheck) SetSize(w, h int) {
 	s.width = w
 	s.height = h
 }

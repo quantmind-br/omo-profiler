@@ -44,5 +44,5 @@ var SchemaCheckCmd = &cobra.Command{
 
 func init() {
 	SchemaCheckCmd.Flags().StringVarP(&schemaCheckOutput, "output", "o", "", "Directory to save diff file (required)")
-	SchemaCheckCmd.MarkFlagRequired("output")
+	_ = SchemaCheckCmd.MarkFlagRequired("output")
 }

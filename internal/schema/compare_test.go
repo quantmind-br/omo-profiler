@@ -16,7 +16,7 @@ func TestFetchUpstreamSchema_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"type": "object", "properties": {}}`))
+		_, _ = w.Write([]byte(`{"type": "object", "properties": {}}`))
 	}))
 	defer server.Close()
 
@@ -45,7 +45,7 @@ func TestFetchUpstreamSchema_Timeout(t *testing.T) {
 	// Mock server that delays response beyond timeout
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
 
@@ -116,7 +116,7 @@ func TestCompareSchemas_Identical(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(embedded)
+		_, _ = w.Write(embedded)
 	}))
 	defer server.Close()
 
@@ -145,7 +145,7 @@ func TestCompareSchemas_Different(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(differentSchema))
+		_, _ = w.Write([]byte(differentSchema))
 	}))
 	defer server.Close()
 
