@@ -474,6 +474,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateTemplateSelect:
 		a.templateSelect, cmd = a.templateSelect.Update(msg)
 		cmds = append(cmds, cmd)
+
+	case stateSchemaCheck:
+		a.schemaCheck, cmd = a.schemaCheck.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return a, tea.Batch(cmds...)

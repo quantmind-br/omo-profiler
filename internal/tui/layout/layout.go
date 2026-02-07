@@ -3,8 +3,8 @@ package layout
 import "github.com/mattn/go-runewidth"
 
 const (
-	MinTerminalWidth  = 80
-	MinTerminalHeight = 24
+	MinTerminalWidth  = 60
+	MinTerminalHeight = 25
 	MaxFieldWidth     = 120
 )
 
