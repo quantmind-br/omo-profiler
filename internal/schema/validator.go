@@ -34,6 +34,11 @@ type Validator struct {
 	schema *gojsonschema.Schema
 }
 
+// GetEmbeddedSchema returns the raw embedded JSON schema bytes.
+func GetEmbeddedSchema() []byte {
+	return schemaJSON
+}
+
 // GetValidator returns the singleton validator instance.
 // The schema is parsed only once on first call.
 func GetValidator() (*Validator, error) {
