@@ -664,6 +664,8 @@ func (a App) View() string {
 			content = a.modelImport.View()
 		case stateTemplateSelect:
 			content = a.templateSelect.View()
+		case stateSchemaCheck:
+			content = a.schemaCheck.View()
 		default:
 			content = "Unknown state"
 		}
