@@ -74,9 +74,10 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (9)
+// Disableable agents (10) - matches schema disabled_agents enum
 var disableableAgents = []string{
 	"sisyphus",
+	"hephaestus",
 	"prometheus",
 	"oracle",
 	"librarian",
@@ -87,9 +88,10 @@ var disableableAgents = []string{
 	"atlas",
 }
 
-// Disableable skills (3)
+// Disableable skills (4) - matches schema disabled_skills enum
 var disableableSkills = []string{
 	"playwright",
+	"agent-browser",
 	"frontend-ui-ux",
 	"git-master",
 }
@@ -454,7 +456,6 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		w.autoUpdate = *cfg.AutoUpdate
 	}
 
-
 	// Experimental
 	if cfg.Experimental != nil {
 		if cfg.Experimental.AggressiveTruncation != nil {
@@ -682,7 +683,6 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	if w.autoUpdate {
 		cfg.AutoUpdate = &w.autoUpdate
 	}
-
 
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
