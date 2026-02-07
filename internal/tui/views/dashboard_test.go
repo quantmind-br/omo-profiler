@@ -468,6 +468,7 @@ func TestMenuItems(t *testing.T) {
 		"Manage Models",
 		"Import Profile",
 		"Export Profile",
+		"Check Schema Updates",
 	}
 
 	if len(menuItems) != len(expectedItems) {

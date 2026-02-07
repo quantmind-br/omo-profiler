@@ -30,6 +30,7 @@ const (
 	menuModels
 	menuImport
 	menuExport
+	menuSchemaCheck
 )
 
 var menuItems = []string{
@@ -41,6 +42,7 @@ var menuItems = []string{
 	"Manage Models",
 	"Import Profile",
 	"Export Profile",
+	"Check Schema Updates",
 }
 
 type Dashboard struct {
@@ -210,6 +212,8 @@ func (d Dashboard) handleSelect() tea.Cmd {
 			return NavToImportMsg{}
 		case menuExport:
 			return NavToExportMsg{}
+		case menuSchemaCheck:
+			return NavToSchemaCheckMsg{}
 		}
 		return nil
 	}
