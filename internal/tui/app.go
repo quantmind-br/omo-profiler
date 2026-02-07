@@ -31,6 +31,7 @@ const (
 	stateModels
 	stateModelImport
 	stateTemplateSelect
+	stateSchemaCheck
 )
 
 // Toast message types
@@ -104,6 +105,7 @@ type App struct {
 	importView     views.Import
 	exportView     views.Export
 	templateSelect views.TemplateSelect
+	schemaCheck    views.SchemaCheck
 }
 
 func NewApp() App {
@@ -332,6 +334,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case views.ModelRegistryBackMsg:
 		return a.navigateTo(stateDashboard)
 
+	case views.NavToSchemaCheckMsg:
+		a.schemaCheck = views.NewSchemaCheck()
+		a.schemaCheck.SetSize(a.width, a.height-3)
+		a.state = stateSchemaCheck
+		return a, a.schemaCheck.Init()
+
+	case views.SchemaCheckBackMsg:
+		return a.navigateTo(stateDashboard)
+
 	case views.NavToModelImportMsg:
 		a.modelImport = views.NewModelImport()
 		a.modelImport.SetSize(a.width, a.height-3)
@@ -501,6 +512,9 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 	case stateTemplateSelect:
 		a.templateSelect.SetSize(a.width, a.height-3)
 		cmd = a.templateSelect.Init()
+	case stateSchemaCheck:
+		a.schemaCheck.SetSize(a.width, a.height-3)
+		cmd = a.schemaCheck.Init()
 	}
 
 	return a, cmd
