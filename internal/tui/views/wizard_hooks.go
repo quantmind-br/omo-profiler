@@ -28,7 +28,6 @@ var (
 	wizHooksHelpStyle     = lipgloss.NewStyle().Foreground(wizHooksGray)
 )
 
-// All 36 hooks - must stay in sync with upstream schema order
 var allHooks = []string{
 	"todo-continuation-enforcer",
 	"context-window-monitor",
@@ -37,10 +36,12 @@ var allHooks = []string{
 	"comment-checker",
 	"grep-output-truncator",
 	"tool-output-truncator",
+	"question-label-truncator",
 	"directory-agents-injector",
 	"directory-readme-injector",
 	"empty-task-response-detector",
 	"think-mode",
+	"subagent-question-blocker",
 	"anthropic-context-window-limit-recovery",
 	"preemptive-compaction",
 	"rules-injector",
@@ -55,6 +56,7 @@ var allHooks = []string{
 	"ralph-loop",
 	"category-skill-reminder",
 	"compaction-context-injector",
+	"compaction-todo-preserver",
 	"claude-code-hooks",
 	"auto-slash-command",
 	"edit-error-recovery",
@@ -64,8 +66,12 @@ var allHooks = []string{
 	"start-work",
 	"atlas",
 	"unstable-agent-babysitter",
+	"task-reminder",
+	"task-resume-info",
 	"stop-continuation-guard",
 	"tasks-todowrite-disabler",
+	"write-existing-file-guard",
+	"anthropic-effort",
 }
 
 type wizardHooksKeyMap struct {

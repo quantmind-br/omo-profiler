@@ -118,6 +118,7 @@ const (
 	fieldPermEdit
 	fieldPermBash
 	fieldPermWebfetch
+	fieldPermTask
 	fieldPermDoomLoop
 	fieldPermExtDir
 )
@@ -149,6 +150,7 @@ type agentConfig struct {
 	permEditIdx     int
 	permBashIdx     int
 	permWebfetchIdx int
+	permTaskIdx     int
 	permDoomLoopIdx int
 	permExtDirIdx   int
 	originalBash    interface{} // Preserve bash object through edit cycle
@@ -425,6 +427,9 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 					if v == agentCfg.Permission.Webfetch {
 						ac.permWebfetchIdx = i
 					}
+					if v == agentCfg.Permission.Task {
+						ac.permTaskIdx = i
+					}
 					if v == agentCfg.Permission.DoomLoop {
 						ac.permDoomLoopIdx = i
 					}
@@ -534,7 +539,7 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 
 		// Permissions
 		if ac.permEditIdx > 0 || ac.permBashIdx > 0 || ac.originalBash != nil ||
-			ac.permWebfetchIdx > 0 || ac.permDoomLoopIdx > 0 || ac.permExtDirIdx > 0 {
+			ac.permWebfetchIdx > 0 || ac.permTaskIdx > 0 || ac.permDoomLoopIdx > 0 || ac.permExtDirIdx > 0 {
 			agentCfg.Permission = &config.PermissionConfig{}
 			if ac.permEditIdx > 0 {
 				agentCfg.Permission.Edit = permissionValues[ac.permEditIdx]
@@ -546,6 +551,9 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			}
 			if ac.permWebfetchIdx > 0 {
 				agentCfg.Permission.Webfetch = permissionValues[ac.permWebfetchIdx]
+			}
+			if ac.permTaskIdx > 0 {
+				agentCfg.Permission.Task = permissionValues[ac.permTaskIdx]
 			}
 			if ac.permDoomLoopIdx > 0 {
 				agentCfg.Permission.DoomLoop = permissionValues[ac.permDoomLoopIdx]
@@ -645,7 +653,7 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		baseLine++ // agent header line
 		ac := w.agents[allAgents[i]]
 		if ac.expanded && ac.enabled {
-			baseLine += 36 // expanded form ~36 lines (added 6 new fields)
+			baseLine += 37 // expanded form ~37 lines
 		}
 	}
 	baseLine++ // current agent header
@@ -675,8 +683,9 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		fieldPermEdit:        25,
 		fieldPermBash:        26,
 		fieldPermWebfetch:    27,
-		fieldPermDoomLoop:    28,
-		fieldPermExtDir:      29,
+		fieldPermTask:        28,
+		fieldPermDoomLoop:    29,
+		fieldPermExtDir:      30,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -815,6 +824,8 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					}
 				case fieldPermWebfetch:
 					ac.permWebfetchIdx = (ac.permWebfetchIdx + 1) % len(permissionValues)
+				case fieldPermTask:
+					ac.permTaskIdx = (ac.permTaskIdx + 1) % len(permissionValues)
 				case fieldPermDoomLoop:
 					ac.permDoomLoopIdx = (ac.permDoomLoopIdx + 1) % len(permissionValues)
 				case fieldPermExtDir:
@@ -1064,6 +1075,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, indent[:4]+bashCursor+bashStyle.Render(fmt.Sprintf("%-12s: ", "bash"))+bashValue+bashHint)
 
 	lines = append(lines, renderDropdown("webfetch", fieldPermWebfetch, permissionValues, ac.permWebfetchIdx))
+	lines = append(lines, renderDropdown("task", fieldPermTask, permissionValues, ac.permTaskIdx))
 	lines = append(lines, renderDropdown("doom_loop", fieldPermDoomLoop, permissionValues, ac.permDoomLoopIdx))
 	lines = append(lines, renderDropdown("external_dir", fieldPermExtDir, permissionValues, ac.permExtDirIdx))
 	lines = append(lines, "")

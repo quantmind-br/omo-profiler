@@ -30,6 +30,7 @@ type Config struct {
 	Websearch               *WebsearchConfig               `json:"websearch,omitempty"`
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
+	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
 type AgentConfig struct {
@@ -59,6 +60,7 @@ type PermissionConfig struct {
 	Edit              string      `json:"edit,omitempty"`
 	Bash              interface{} `json:"bash,omitempty"`
 	Webfetch          string      `json:"webfetch,omitempty"`
+	Task              string      `json:"task,omitempty"`
 	DoomLoop          string      `json:"doom_loop,omitempty"`
 	ExternalDirectory string      `json:"external_directory,omitempty"`
 }
@@ -112,6 +114,8 @@ type ExperimentalConfig struct {
 	PreemptiveCompaction   *bool                        `json:"preemptive_compaction,omitempty"`
 	TaskSystem             *bool                        `json:"task_system,omitempty"`
 	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
+	PluginLoadTimeoutMs    *int                         `json:"plugin_load_timeout_ms,omitempty"`
+	SafeHookCreation       *bool                        `json:"safe_hook_creation,omitempty"`
 }
 
 // DynamicContextPruningConfig
@@ -173,10 +177,10 @@ type NotificationConfig struct {
 	ForceEnable *bool `json:"force_enable,omitempty"`
 }
 
-// GitMasterConfig
+// GitMasterConfig - CommitFooter is interface{} to support both bool and string
 type GitMasterConfig struct {
-	CommitFooter        *bool `json:"commit_footer,omitempty"`
-	IncludeCoAuthoredBy *bool `json:"include_co_authored_by,omitempty"`
+	CommitFooter        interface{} `json:"commit_footer,omitempty"`
+	IncludeCoAuthoredBy *bool       `json:"include_co_authored_by,omitempty"`
 }
 
 // CommentCheckerConfig

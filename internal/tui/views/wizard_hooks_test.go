@@ -1,10 +1,11 @@
 package views
 
 import (
+	"fmt"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
@@ -401,8 +402,9 @@ func TestWizardHooksViewWithDisabledHooks(t *testing.T) {
 	view := wh.View()
 
 	// Should show disabled count
-	if !contains(view, "2/36") {
-		t.Error("expected '2/36 hooks disabled' in view")
+	expected := fmt.Sprintf("2/%d", len(allHooks))
+	if !contains(view, expected) {
+		t.Errorf("expected '%s hooks disabled' in view, got:\n%s", expected, view)
 	}
 }
 

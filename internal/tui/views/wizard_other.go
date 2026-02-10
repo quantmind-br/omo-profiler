@@ -74,7 +74,7 @@ func serializeMapStringInt(m map[string]int) string {
 	return strings.Join(pairs, ", ")
 }
 
-// Disableable agents (10) - matches schema disabled_agents enum
+// Disableable agents (9) - matches schema disabled_agents enum
 var disableableAgents = []string{
 	"sisyphus",
 	"hephaestus",
@@ -88,21 +88,30 @@ var disableableAgents = []string{
 	"atlas",
 }
 
-// Disableable skills (4) - matches schema disabled_skills enum
+// Disableable skills (3) - matches schema disabled_skills enum
 var disableableSkills = []string{
 	"playwright",
 	"agent-browser",
+	"dev-browser",
 	"frontend-ui-ux",
 	"git-master",
 }
 
-// Disableable commands (2)
+// Disableable commands
 var disableableCommands = []string{
 	"init-deep",
+	"ralph-loop",
+	"ulw-loop",
+	"cancel-ralph",
+	"refactor",
 	"start-work",
+	"stop-continuation",
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
+var browserProviders = []string{"", "playwright", "agent-browser", "dev-browser"}
+var tmuxLayouts = []string{"", "main-horizontal", "main-vertical", "tiled", "even-horizontal", "even-vertical"}
+var websearchProviders = []string{"", "exa", "tavily"}
 
 // Sections in the other settings
 type otherSection int
@@ -121,6 +130,13 @@ const (
 	sectionNotification
 	sectionGitMaster
 	sectionCommentChecker
+	sectionBabysitting
+	sectionBrowserAutomationEngine
+	sectionTmux
+	sectionWebsearch
+	sectionSisyphus
+	sectionNewTaskSystemEnabled
+	sectionDefaultRunAgent
 	sectionSkillsJson
 )
 
@@ -138,6 +154,13 @@ var otherSectionNames = []string{
 	"Notification",
 	"Git Master",
 	"Comment Checker",
+	"Babysitting",
+	"Browser Automation Engine",
+	"Tmux",
+	"Websearch",
+	"Sisyphus",
+	"New Task System Enabled",
+	"Default Run Agent",
 	"Skills (JSON)",
 }
 
@@ -206,6 +229,8 @@ type WizardOther struct {
 	expTruncateAllOutputs   bool
 	expPreemptiveCompaction bool
 	expTaskSystem           bool
+	expPluginLoadTimeoutMs  textinput.Model
+	expSafeHookCreation     bool
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -253,6 +278,33 @@ type WizardOther struct {
 
 	// Comment Checker
 	ccCustomPrompt textinput.Model
+
+	// Babysitting
+	babysittingTimeoutMs textinput.Model
+
+	// Browser Automation Engine
+	browserProviderIdx int
+
+	// Tmux
+	tmuxEnabled           bool
+	tmuxLayoutIdx         int
+	tmuxMainPaneSize      textinput.Model
+	tmuxMainPaneMinWidth  textinput.Model
+	tmuxAgentPaneMinWidth textinput.Model
+
+	// Websearch
+	websearchProviderIdx int
+
+	// Sisyphus
+	sisyphusTasksStoragePath      textinput.Model
+	sisyphusTasksTaskListID       textinput.Model
+	sisyphusTasksClaudeCodeCompat bool
+
+	// New Task System Enabled
+	newTaskSystemEnabled bool
+
+	// Default Run Agent
+	defaultRunAgent textinput.Model
 
 	// Skills JSON
 	skillsEditor textarea.Model
@@ -314,6 +366,10 @@ func NewWizardOther() WizardOther {
 	dcpPurgeErrorsTurns.Placeholder = "5"
 	dcpPurgeErrorsTurns.Width = 10
 
+	expPluginLoadTimeoutMs := textinput.New()
+	expPluginLoadTimeoutMs.Placeholder = "30000"
+	expPluginLoadTimeoutMs.Width = 10
+
 	ccPluginsOverride := textinput.New()
 	ccPluginsOverride.Placeholder = "serena:false, context7:true"
 	ccPluginsOverride.Width = 40
@@ -341,10 +397,6 @@ func NewWizardOther() WizardOther {
 	skillsEditor.SetWidth(60)
 	skillsEditor.SetHeight(8)
 
-	tmuxLayout := textinput.New()
-	tmuxLayout.Placeholder = "even-horizontal"
-	tmuxLayout.Width = 30
-
 	tmuxSize := textinput.New()
 	tmuxSize.Placeholder = "0.75"
 	tmuxSize.Width = 10
@@ -361,29 +413,46 @@ func NewWizardOther() WizardOther {
 	sisTasksStoragePath.Placeholder = ".sisyphus/tasks"
 	sisTasksStoragePath.Width = 40
 
+	sisTasksTaskListID := textinput.New()
+	sisTasksTaskListID.Placeholder = "default"
+	sisTasksTaskListID.Width = 30
+
+	babysittingTimeoutMs := textinput.New()
+	babysittingTimeoutMs.Placeholder = "60000"
+	babysittingTimeoutMs.Width = 10
+
 	defaultRunAgent := textinput.New()
 	defaultRunAgent.Placeholder = "build"
 	defaultRunAgent.Width = 30
 
 	return WizardOther{
-		disabledMcps:           disabledMcps,
-		disabledAgents:         disabledAgents,
-		disabledSkills:         disabledSkills,
-		disabledCommands:       disabledCommands,
-		rlDefaultMaxIterations: rlMaxIter,
-		rlStateDir:             rlStateDir,
-		btDefaultConcurrency:   btConcurrency,
-		btProviderConcurrency:  btProviderConcurrency,
-		btModelConcurrency:     btModelConcurrency,
-		btStaleTimeoutMs:       btStaleTimeoutMs,
-		ccCustomPrompt:         ccPrompt,
-		dcpTurnProtTurns:       dcpTurnProtTurns,
-		dcpProtectedTools:      dcpProtectedTools,
-		dcpPurgeErrorsTurns:    dcpPurgeErrorsTurns,
-		ccPluginsOverride:      ccPluginsOverride,
-		skillsEditor:           skillsEditor,
-		sectionExpanded:        sectionExpanded,
-		keys:                   newWizardOtherKeyMap(),
+		disabledMcps:             disabledMcps,
+		disabledAgents:           disabledAgents,
+		disabledSkills:           disabledSkills,
+		disabledCommands:         disabledCommands,
+		expPluginLoadTimeoutMs:   expPluginLoadTimeoutMs,
+		rlDefaultMaxIterations:   rlMaxIter,
+		rlStateDir:               rlStateDir,
+		btDefaultConcurrency:     btConcurrency,
+		btProviderConcurrency:    btProviderConcurrency,
+		btModelConcurrency:       btModelConcurrency,
+		btStaleTimeoutMs:         btStaleTimeoutMs,
+		ccCustomPrompt:           ccPrompt,
+		babysittingTimeoutMs:     babysittingTimeoutMs,
+		tmuxMainPaneSize:         tmuxSize,
+		tmuxMainPaneMinWidth:     tmuxMinWidth,
+		tmuxAgentPaneMinWidth:    tmuxAgentWidth,
+		sisyphusTasksStoragePath: sisTasksStoragePath,
+		sisyphusTasksTaskListID:  sisTasksTaskListID,
+		defaultRunAgent:          defaultRunAgent,
+		dcpTurnProtTurns:         dcpTurnProtTurns,
+		dcpProtectedTools:        dcpProtectedTools,
+		dcpPurgeErrorsTurns:      dcpPurgeErrorsTurns,
+		ccPluginsOverride:        ccPluginsOverride,
+		skillsEditor:             skillsEditor,
+		tmuxLayoutIdx:            4,
+		sectionExpanded:          sectionExpanded,
+		keys:                     newWizardOtherKeyMap(),
 	}
 }
 
@@ -419,7 +488,15 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.dcpTurnProtTurns.Width = layout.FixedSmallWidth()
 	w.dcpProtectedTools.Width = wide
 	w.dcpPurgeErrorsTurns.Width = layout.FixedSmallWidth()
+	w.expPluginLoadTimeoutMs.Width = layout.FixedSmallWidth()
 	w.ccPluginsOverride.Width = wide
+	w.babysittingTimeoutMs.Width = layout.FixedSmallWidth()
+	w.tmuxMainPaneSize.Width = layout.FixedSmallWidth()
+	w.tmuxMainPaneMinWidth.Width = layout.FixedSmallWidth()
+	w.tmuxAgentPaneMinWidth.Width = layout.FixedSmallWidth()
+	w.sisyphusTasksStoragePath.Width = wide
+	w.sisyphusTasksTaskListID.Width = wide
+	w.defaultRunAgent.Width = wide
 	w.skillsEditor.SetWidth(wide)
 	w.viewport.SetContent(w.renderContent())
 }
@@ -472,6 +549,12 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.Experimental.TaskSystem != nil {
 			w.expTaskSystem = *cfg.Experimental.TaskSystem
+		}
+		if cfg.Experimental.PluginLoadTimeoutMs != nil {
+			w.expPluginLoadTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.Experimental.PluginLoadTimeoutMs))
+		}
+		if cfg.Experimental.SafeHookCreation != nil {
+			w.expSafeHookCreation = *cfg.Experimental.SafeHookCreation
 		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
@@ -602,7 +685,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 	// Git Master
 	if cfg.GitMaster != nil {
 		if cfg.GitMaster.CommitFooter != nil {
-			w.gmCommitFooter = *cfg.GitMaster.CommitFooter
+			if v, ok := cfg.GitMaster.CommitFooter.(bool); ok {
+				w.gmCommitFooter = v
+			}
 		}
 		if cfg.GitMaster.IncludeCoAuthoredBy != nil {
 			w.gmIncludeCoAuthoredBy = *cfg.GitMaster.IncludeCoAuthoredBy
@@ -614,6 +699,78 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.CommentChecker.CustomPrompt != "" {
 			w.ccCustomPrompt.SetValue(cfg.CommentChecker.CustomPrompt)
 		}
+	}
+
+	// Babysitting
+	if cfg.Babysitting != nil && cfg.Babysitting.TimeoutMs != nil {
+		w.babysittingTimeoutMs.SetValue(fmt.Sprintf("%g", *cfg.Babysitting.TimeoutMs))
+	}
+
+	// Browser Automation Engine
+	if cfg.BrowserAutomationEngine != nil {
+		for i, v := range browserProviders {
+			if v == cfg.BrowserAutomationEngine.Provider {
+				w.browserProviderIdx = i
+				break
+			}
+		}
+	}
+
+	// Tmux
+	if cfg.Tmux != nil {
+		if cfg.Tmux.Enabled != nil {
+			w.tmuxEnabled = *cfg.Tmux.Enabled
+		}
+		if cfg.Tmux.Layout != "" {
+			for i, v := range tmuxLayouts {
+				if v == cfg.Tmux.Layout {
+					w.tmuxLayoutIdx = i
+					break
+				}
+			}
+		}
+		if cfg.Tmux.MainPaneSize != nil {
+			w.tmuxMainPaneSize.SetValue(fmt.Sprintf("%g", *cfg.Tmux.MainPaneSize))
+		}
+		if cfg.Tmux.MainPaneMinWidth != nil {
+			w.tmuxMainPaneMinWidth.SetValue(fmt.Sprintf("%g", *cfg.Tmux.MainPaneMinWidth))
+		}
+		if cfg.Tmux.AgentPaneMinWidth != nil {
+			w.tmuxAgentPaneMinWidth.SetValue(fmt.Sprintf("%g", *cfg.Tmux.AgentPaneMinWidth))
+		}
+	}
+
+	// Websearch
+	if cfg.Websearch != nil {
+		for i, v := range websearchProviders {
+			if v == cfg.Websearch.Provider {
+				w.websearchProviderIdx = i
+				break
+			}
+		}
+	}
+
+	// Sisyphus
+	if cfg.Sisyphus != nil && cfg.Sisyphus.Tasks != nil {
+		if cfg.Sisyphus.Tasks.StoragePath != "" {
+			w.sisyphusTasksStoragePath.SetValue(cfg.Sisyphus.Tasks.StoragePath)
+		}
+		if cfg.Sisyphus.Tasks.TaskListID != "" {
+			w.sisyphusTasksTaskListID.SetValue(cfg.Sisyphus.Tasks.TaskListID)
+		}
+		if cfg.Sisyphus.Tasks.ClaudeCodeCompat != nil {
+			w.sisyphusTasksClaudeCodeCompat = *cfg.Sisyphus.Tasks.ClaudeCodeCompat
+		}
+	}
+
+	// New Task System Enabled
+	if cfg.NewTaskSystemEnabled != nil {
+		w.newTaskSystemEnabled = *cfg.NewTaskSystemEnabled
+	}
+
+	// Default Run Agent
+	if cfg.DefaultRunAgent != "" {
+		w.defaultRunAgent.SetValue(cfg.DefaultRunAgent)
 	}
 
 	// Skills JSON
@@ -687,6 +844,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
 		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
+		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -708,6 +866,14 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.expTaskSystem {
 			cfg.Experimental.TaskSystem = &w.expTaskSystem
+		}
+		if v := w.expPluginLoadTimeoutMs.Value(); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i > 0 {
+				cfg.Experimental.PluginLoadTimeoutMs = &i
+			}
+		}
+		if w.expSafeHookCreation {
+			cfg.Experimental.SafeHookCreation = &w.expSafeHookCreation
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -879,7 +1045,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	if w.gmCommitFooter || w.gmIncludeCoAuthoredBy {
 		cfg.GitMaster = &config.GitMasterConfig{}
 		if w.gmCommitFooter {
-			cfg.GitMaster.CommitFooter = &w.gmCommitFooter
+			cfg.GitMaster.CommitFooter = w.gmCommitFooter
 		}
 		if w.gmIncludeCoAuthoredBy {
 			cfg.GitMaster.IncludeCoAuthoredBy = &w.gmIncludeCoAuthoredBy
@@ -892,6 +1058,79 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 			CustomPrompt: v,
 		}
 	}
+
+	// Babysitting
+	if v := w.babysittingTimeoutMs.Value(); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			cfg.Babysitting = &config.BabysittingConfig{TimeoutMs: &f}
+		}
+	}
+
+	// Browser Automation Engine
+	if w.browserProviderIdx > 0 {
+		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
+			Provider: browserProviders[w.browserProviderIdx],
+		}
+	}
+
+	// Tmux
+	tmuxHasData := w.tmuxEnabled || w.tmuxLayoutIdx > 0 ||
+		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" || w.tmuxAgentPaneMinWidth.Value() != ""
+	if tmuxHasData {
+		cfg.Tmux = &config.TmuxConfig{}
+		if w.tmuxEnabled {
+			cfg.Tmux.Enabled = &w.tmuxEnabled
+		}
+		if w.tmuxLayoutIdx > 0 {
+			cfg.Tmux.Layout = tmuxLayouts[w.tmuxLayoutIdx]
+		}
+		if v := w.tmuxMainPaneSize.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+				cfg.Tmux.MainPaneSize = &f
+			}
+		}
+		if v := w.tmuxMainPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+				cfg.Tmux.MainPaneMinWidth = &f
+			}
+		}
+		if v := w.tmuxAgentPaneMinWidth.Value(); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+				cfg.Tmux.AgentPaneMinWidth = &f
+			}
+		}
+	}
+
+	// Websearch
+	if w.websearchProviderIdx > 0 {
+		cfg.Websearch = &config.WebsearchConfig{
+			Provider: websearchProviders[w.websearchProviderIdx],
+		}
+	}
+
+	// Sisyphus
+	sisyphusHasData := w.sisyphusTasksStoragePath.Value() != "" ||
+		w.sisyphusTasksTaskListID.Value() != "" || w.sisyphusTasksClaudeCodeCompat
+	if sisyphusHasData {
+		cfg.Sisyphus = &config.SisyphusConfig{Tasks: &config.SisyphusTasksConfig{}}
+		if v := w.sisyphusTasksStoragePath.Value(); v != "" {
+			cfg.Sisyphus.Tasks.StoragePath = v
+		}
+		if v := w.sisyphusTasksTaskListID.Value(); v != "" {
+			cfg.Sisyphus.Tasks.TaskListID = v
+		}
+		if w.sisyphusTasksClaudeCodeCompat {
+			cfg.Sisyphus.Tasks.ClaudeCodeCompat = &w.sisyphusTasksClaudeCodeCompat
+		}
+	}
+
+	// New Task System Enabled
+	if w.newTaskSystemEnabled {
+		cfg.NewTaskSystemEnabled = &w.newTaskSystemEnabled
+	}
+
+	// Default Run Agent
+	cfg.DefaultRunAgent = strings.TrimSpace(w.defaultRunAgent.Value())
 
 	// Skills JSON
 	if v := w.skillsEditor.Value(); strings.TrimSpace(v) != "" {
@@ -1027,6 +1266,41 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					w.dcpNotificationIdx = (w.dcpNotificationIdx - 1 + len(dcpNotificationValues)) % len(dcpNotificationValues)
 					w.viewport.SetContent(w.renderContent())
 					return w, nil
+				}
+			}
+
+			if w.currentSection == sectionExperimental && w.subCursor == 18 {
+				switch msg.String() {
+				case "esc":
+					w.expPluginLoadTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.expPluginLoadTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.expPluginLoadTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.expPluginLoadTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.expPluginLoadTimeoutMs.Focus()
+					w.expPluginLoadTimeoutMs, cmd = w.expPluginLoadTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.expPluginLoadTimeoutMs.Focus()
+					w.expPluginLoadTimeoutMs, cmd = w.expPluginLoadTimeoutMs.Update(msg)
+					return w, cmd
 				}
 			}
 
@@ -1313,6 +1587,274 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionBabysitting {
+				switch msg.String() {
+				case "esc":
+					w.babysittingTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.babysittingTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.babysittingTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.babysittingTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.babysittingTimeoutMs.Focus()
+					w.babysittingTimeoutMs, cmd = w.babysittingTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.babysittingTimeoutMs.Focus()
+					w.babysittingTimeoutMs, cmd = w.babysittingTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBrowserAutomationEngine && w.subCursor == 0 {
+				switch msg.String() {
+				case "right", "l":
+					w.browserProviderIdx = (w.browserProviderIdx + 1) % len(browserProviders)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "left", "h":
+					w.browserProviderIdx = (w.browserProviderIdx - 1 + len(browserProviders)) % len(browserProviders)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 1 {
+				switch msg.String() {
+				case "right", "l":
+					w.tmuxLayoutIdx = (w.tmuxLayoutIdx + 1) % len(tmuxLayouts)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "left", "h":
+					w.tmuxLayoutIdx = (w.tmuxLayoutIdx - 1 + len(tmuxLayouts)) % len(tmuxLayouts)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 2 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxMainPaneSize.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxMainPaneSize.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxMainPaneSize.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxMainPaneSize.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.tmuxMainPaneSize.Focus()
+					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
+					return w, cmd
+				default:
+					w.tmuxMainPaneSize.Focus()
+					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 3 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxMainPaneMinWidth.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxMainPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.tmuxMainPaneMinWidth.Focus()
+					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
+					return w, cmd
+				default:
+					w.tmuxMainPaneMinWidth.Focus()
+					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 4 {
+				switch msg.String() {
+				case "esc":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.tmuxAgentPaneMinWidth.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.tmuxAgentPaneMinWidth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.tmuxAgentPaneMinWidth.Focus()
+					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
+					return w, cmd
+				default:
+					w.tmuxAgentPaneMinWidth.Focus()
+					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionWebsearch && w.subCursor == 0 {
+				switch msg.String() {
+				case "right", "l":
+					w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviders)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "left", "h":
+					w.websearchProviderIdx = (w.websearchProviderIdx - 1 + len(websearchProviders)) % len(websearchProviders)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				}
+			}
+
+			if w.currentSection == sectionSisyphus && w.subCursor == 0 {
+				switch msg.String() {
+				case "esc":
+					w.sisyphusTasksStoragePath.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.sisyphusTasksStoragePath.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.sisyphusTasksStoragePath.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.sisyphusTasksStoragePath.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.sisyphusTasksStoragePath.Focus()
+					w.sisyphusTasksStoragePath, cmd = w.sisyphusTasksStoragePath.Update(msg)
+					return w, cmd
+				default:
+					w.sisyphusTasksStoragePath.Focus()
+					w.sisyphusTasksStoragePath, cmd = w.sisyphusTasksStoragePath.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionSisyphus && w.subCursor == 1 {
+				switch msg.String() {
+				case "esc":
+					w.sisyphusTasksTaskListID.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.sisyphusTasksTaskListID.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.sisyphusTasksTaskListID.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.sisyphusTasksTaskListID.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.sisyphusTasksTaskListID.Focus()
+					w.sisyphusTasksTaskListID, cmd = w.sisyphusTasksTaskListID.Update(msg)
+					return w, cmd
+				default:
+					w.sisyphusTasksTaskListID.Focus()
+					w.sisyphusTasksTaskListID, cmd = w.sisyphusTasksTaskListID.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionDefaultRunAgent {
+				switch msg.String() {
+				case "esc":
+					w.defaultRunAgent.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.defaultRunAgent.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.defaultRunAgent.Focus()
+					w.defaultRunAgent, cmd = w.defaultRunAgent.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionSkillsJson {
 				switch msg.String() {
 				case "esc":
@@ -1396,6 +1938,8 @@ func (w *WizardOther) toggleSection() {
 	switch w.currentSection {
 	case sectionAutoUpdate:
 		w.autoUpdate = !w.autoUpdate
+	case sectionNewTaskSystemEnabled:
+		w.newTaskSystemEnabled = !w.newTaskSystemEnabled
 	}
 }
 
@@ -1444,6 +1988,10 @@ func (w *WizardOther) toggleSubItem() {
 			w.expPreemptiveCompaction = !w.expPreemptiveCompaction
 		case 17:
 			w.expTaskSystem = !w.expTaskSystem
+		case 18:
+			// plugin_load_timeout_ms textinput - handled in Update()
+		case 19:
+			w.expSafeHookCreation = !w.expSafeHookCreation
 		}
 	case sectionClaudeCode:
 		switch w.subCursor {
@@ -1488,6 +2036,25 @@ func (w *WizardOther) toggleSubItem() {
 		case 1:
 			w.gmIncludeCoAuthoredBy = !w.gmIncludeCoAuthoredBy
 		}
+	case sectionBrowserAutomationEngine:
+		if w.subCursor == 0 {
+			w.browserProviderIdx = (w.browserProviderIdx + 1) % len(browserProviders)
+		}
+	case sectionTmux:
+		switch w.subCursor {
+		case 0:
+			w.tmuxEnabled = !w.tmuxEnabled
+		case 1:
+			w.tmuxLayoutIdx = (w.tmuxLayoutIdx + 1) % len(tmuxLayouts)
+		}
+	case sectionWebsearch:
+		if w.subCursor == 0 {
+			w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviders)
+		}
+	case sectionSisyphus:
+		if w.subCursor == 2 {
+			w.sisyphusTasksClaudeCodeCompat = !w.sisyphusTasksClaudeCodeCompat
+		}
 	}
 }
 
@@ -1514,9 +2081,15 @@ func (w WizardOther) renderContent() string {
 		}
 
 		// Simple sections without expansion
-		if section == sectionAutoUpdate {
+		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled {
 			checkbox := "[ ]"
-			if w.autoUpdate {
+			checked := false
+			if section == sectionAutoUpdate {
+				checked = w.autoUpdate
+			} else if section == sectionNewTaskSystemEnabled {
+				checked = w.newTaskSystemEnabled
+			}
+			if checked {
 				checkbox = enabledStyle.Render("[✓]")
 			}
 			line := fmt.Sprintf("%s%s %s", cursor, checkbox, labelStyle.Render(name))
@@ -1645,6 +2218,18 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderCheckbox(16, "preemptive_compaction", w.expPreemptiveCompaction))
 		lines = append(lines, renderCheckbox(17, "task_system", w.expTaskSystem))
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 18 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 18 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("plugin_load_timeout_ms: ")+w.expPluginLoadTimeoutMs.View())
+
+		lines = append(lines, renderCheckbox(19, "safe_hook_creation", w.expSafeHookCreation))
+
 	case sectionClaudeCode:
 		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
 		lines = append(lines, renderCheckbox(1, "commands", w.ccCommands))
@@ -1742,6 +2327,108 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionCommentChecker:
 		lines = append(lines, indent+"  custom_prompt: "+w.ccCustomPrompt.View())
+
+	case sectionBabysitting:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("timeout_ms: ")+w.babysittingTimeoutMs.View())
+
+	case sectionBrowserAutomationEngine:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("provider: ")+browserProviders[w.browserProviderIdx])
+
+	case sectionTmux:
+		lines = append(lines, renderCheckbox(0, "enabled", w.tmuxEnabled))
+
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("layout: ")+tmuxLayouts[w.tmuxLayoutIdx])
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("main_pane_size: ")+w.tmuxMainPaneSize.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("main_pane_min_width: ")+w.tmuxMainPaneMinWidth.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("agent_pane_min_width: ")+w.tmuxAgentPaneMinWidth.View())
+
+	case sectionWebsearch:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("provider: ")+websearchProviders[w.websearchProviderIdx])
+
+	case sectionSisyphus:
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("tasks.storage_path: ")+w.sisyphusTasksStoragePath.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("tasks.task_list_id: ")+w.sisyphusTasksTaskListID.View())
+
+		lines = append(lines, renderCheckbox(2, "tasks.claude_code_compat", w.sisyphusTasksClaudeCodeCompat))
+
+	case sectionDefaultRunAgent:
+		lines = append(lines, indent+"  value: "+w.defaultRunAgent.View())
 
 	case sectionSkillsJson:
 		lines = append(lines, indent+w.skillsEditor.View())
