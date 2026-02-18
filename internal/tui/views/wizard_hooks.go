@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -41,7 +42,6 @@ var allHooks = []string{
 	"directory-readme-injector",
 	"empty-task-response-detector",
 	"think-mode",
-	"subagent-question-blocker",
 	"anthropic-context-window-limit-recovery",
 	"preemptive-compaction",
 	"rules-injector",
@@ -53,6 +53,7 @@ var allHooks = []string{
 	"non-interactive-env",
 	"interactive-bash-session",
 	"thinking-block-validator",
+	"ultrawork-model-override",
 	"ralph-loop",
 	"category-skill-reminder",
 	"compaction-context-injector",
@@ -60,9 +61,11 @@ var allHooks = []string{
 	"claude-code-hooks",
 	"auto-slash-command",
 	"edit-error-recovery",
+	"json-error-recovery",
 	"delegate-task-retry",
 	"prometheus-md-only",
 	"sisyphus-junior-notepad",
+	"no-sisyphus-gpt",
 	"start-work",
 	"atlas",
 	"unstable-agent-babysitter",
@@ -72,6 +75,7 @@ var allHooks = []string{
 	"tasks-todowrite-disabler",
 	"write-existing-file-guard",
 	"anthropic-effort",
+	"hashline-read-enhancer",
 }
 
 type wizardHooksKeyMap struct {
@@ -147,12 +151,16 @@ func (w WizardHooks) Init() tea.Cmd {
 func (w *WizardHooks) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	overhead := 4
+	if layout.IsShort(height) {
+		overhead = 2
+	}
 	if !w.ready {
-		w.viewport = viewport.New(width, height-4)
+		w.viewport = viewport.New(width, height-overhead)
 		w.ready = true
 	} else {
 		w.viewport.Width = width
-		w.viewport.Height = height - 4
+		w.viewport.Height = height - overhead
 	}
 	w.viewport.SetContent(w.renderContent())
 }
@@ -270,18 +278,27 @@ func (w WizardHooks) View() string {
 	titleStyle := wizHooksTitleStyle
 	helpStyle := wizHooksHelpStyle
 
-	title := titleStyle.Render("Configure Hooks")
-	desc := helpStyle.Render("Space to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")
-
 	disabledCount := 0
 	for _, d := range w.disabled {
 		if d {
 			disabledCount++
 		}
 	}
-	stats := helpStyle.Render(fmt.Sprintf("%d/%d hooks disabled", disabledCount, len(allHooks)))
 
 	content := w.viewport.View()
+
+	if layout.IsShort(w.height) {
+		title := titleStyle.Render("Hooks")
+		stats := helpStyle.Render(fmt.Sprintf(" (%d/%d disabled)", disabledCount, len(allHooks)))
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title+stats,
+			content,
+		)
+	}
+
+	title := titleStyle.Render("Configure Hooks")
+	desc := helpStyle.Render("Space to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")
+	stats := helpStyle.Render(fmt.Sprintf("%d/%d hooks disabled", disabledCount, len(allHooks)))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,

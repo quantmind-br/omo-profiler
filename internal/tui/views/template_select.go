@@ -5,6 +5,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 // NavToWizardFromTemplateMsg is emitted when user selects a template
@@ -100,13 +101,23 @@ func (t TemplateSelect) Update(msg tea.Msg) (TemplateSelect, tea.Cmd) {
 // View renders the template selection view
 func (t TemplateSelect) View() string {
 	if len(t.profiles) == 0 {
-		return lipgloss.JoinVertical(lipgloss.Left,
+		lines := []string{
 			titleStyle.Render("Create from Template"),
 			"",
 			normalStyle.Render("No profiles available to use as template."),
 			"",
 			normalStyle.Render("Press esc to go back."),
-		)
+		}
+		if layout.IsShort(t.height) {
+			compact := make([]string, 0, len(lines))
+			for _, line := range lines {
+				if line != "" {
+					compact = append(compact, line)
+				}
+			}
+			lines = compact
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
 	var lines []string
@@ -130,6 +141,15 @@ func (t TemplateSelect) View() string {
 
 	lines = append(lines, "")
 	lines = append(lines, normalStyle.Render("↑/↓ navigate • enter select • esc cancel"))
+	if layout.IsShort(t.height) {
+		compact := make([]string, 0, len(lines))
+		for _, line := range lines {
+			if line != "" {
+				compact = append(compact, line)
+			}
+		}
+		lines = compact
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

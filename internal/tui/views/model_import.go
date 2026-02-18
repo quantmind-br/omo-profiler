@@ -69,22 +69,23 @@ func newModelImportKeyMap() modelImportKeyMap {
 }
 
 type ModelImport struct {
-	state            modelImportState
-	response         *models.ModelsDevResponse
-	providers        []models.ProviderWithCount
-	selectedProvider string
-	providerModels   []models.ModelsDevModel
-	selectedModels   map[string]bool
-	cursor           int
-	offset           int
-	providerOffset   int
-	width            int
-	height           int
-	spinner          spinner.Model
-	searchInput      textinput.Model
-	errorMsg         string
-	registry         *models.ModelsRegistry
-	keys             modelImportKeyMap
+	state               modelImportState
+	response            *models.ModelsDevResponse
+	providers           []models.ProviderWithCount
+	selectedProvider    string
+	providerModels      []models.ModelsDevModel
+	selectedModels      map[string]bool
+	cursor              int
+	offset              int
+	providerOffset      int
+	width               int
+	height              int
+	spinner             spinner.Model
+	searchInput         textinput.Model
+	providerSearchInput textinput.Model
+	errorMsg            string
+	registry            *models.ModelsRegistry
+	keys                modelImportKeyMap
 }
 
 func NewModelImport() ModelImport {
@@ -96,15 +97,20 @@ func NewModelImport() ModelImport {
 	searchInput.Placeholder = "Search models..."
 	searchInput.Width = 40
 
+	providerSearchInput := textinput.New()
+	providerSearchInput.Placeholder = "Search providers..."
+	providerSearchInput.Width = 40
+
 	registry, _ := models.Load()
 
 	return ModelImport{
-		state:          stateImportLoading,
-		selectedModels: make(map[string]bool),
-		spinner:        s,
-		searchInput:    searchInput,
-		registry:       registry,
-		keys:           newModelImportKeyMap(),
+		state:               stateImportLoading,
+		selectedModels:      make(map[string]bool),
+		spinner:             s,
+		searchInput:         searchInput,
+		providerSearchInput: providerSearchInput,
+		registry:            registry,
+		keys:                newModelImportKeyMap(),
 	}
 }
 
@@ -163,7 +169,32 @@ func (m ModelImport) Update(msg tea.Msg) (ModelImport, tea.Cmd) {
 }
 
 func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cmd) {
-	visibleHeight := m.height - 8
+	if m.providerSearchInput.Focused() {
+		switch msg.String() {
+		case "esc":
+			m.providerSearchInput.Blur()
+			m.providerSearchInput.SetValue("")
+			m.cursor = 0
+			m.providerOffset = 0
+			return m, nil
+		case "enter":
+			m.providerSearchInput.Blur()
+			return m, nil
+		default:
+			oldValue := m.providerSearchInput.Value()
+			var cmd tea.Cmd
+			m.providerSearchInput, cmd = m.providerSearchInput.Update(msg)
+			if m.providerSearchInput.Value() != oldValue {
+				m.cursor = 0
+				m.providerOffset = 0
+			}
+			return m, cmd
+		}
+	}
+
+	filteredProviders := m.getFilteredProviders()
+
+	visibleHeight := m.height - 10
 	if visibleHeight < 5 {
 		visibleHeight = 5
 	}
@@ -177,27 +208,32 @@ func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cm
 			}
 		}
 	case key.Matches(msg, m.keys.Down):
-		if m.cursor < len(m.providers)-1 {
+		if m.cursor < len(filteredProviders)-1 {
 			m.cursor++
 			if m.cursor >= m.providerOffset+visibleHeight {
 				m.providerOffset = m.cursor - visibleHeight + 1
 			}
 		}
 	case key.Matches(msg, m.keys.Enter):
-		if len(m.providers) > 0 && m.cursor < len(m.providers) {
-			m.selectedProvider = m.providers[m.cursor].ID
+		if len(filteredProviders) > 0 && m.cursor < len(filteredProviders) {
+			m.selectedProvider = filteredProviders[m.cursor].ID
 			m.providerModels = m.response.GetProviderModels(m.selectedProvider)
 			m.selectedModels = make(map[string]bool)
 			m.cursor = 0
 			m.offset = 0
 			m.searchInput.SetValue("")
 			m.searchInput.Focus()
+			m.providerSearchInput.Blur()
+			m.providerSearchInput.SetValue("")
 			m.state = stateImportModelList
 		}
 	case key.Matches(msg, m.keys.Esc):
 		return m, func() tea.Msg {
 			return ModelImportBackMsg{}
 		}
+	case msg.String() == "/":
+		m.providerSearchInput.Focus()
+		return m, nil
 	}
 	return m, nil
 }
@@ -306,6 +342,29 @@ func (m ModelImport) getFilteredModels() []models.ModelsDevModel {
 	return filtered
 }
 
+func (m ModelImport) getFilteredProviders() []models.ProviderWithCount {
+	searchTerm := strings.TrimSpace(m.providerSearchInput.Value())
+	if searchTerm == "" {
+		return m.providers
+	}
+
+	searchStrings := make([]string, len(m.providers))
+	for i, provider := range m.providers {
+		searchStrings[i] = fmt.Sprintf("%s %s", provider.Name, provider.ID)
+	}
+
+	matches := fuzzy.Find(searchTerm, searchStrings)
+	if len(matches) == 0 {
+		return []models.ProviderWithCount{}
+	}
+
+	filtered := make([]models.ProviderWithCount, len(matches))
+	for i, match := range matches {
+		filtered[i] = m.providers[match.Index]
+	}
+	return filtered
+}
+
 func (m ModelImport) importSelectedModels() tea.Cmd {
 	return func() tea.Msg {
 		imported := 0
@@ -361,6 +420,12 @@ func (m ModelImport) View() string {
 }
 
 func (m ModelImport) renderLoading() string {
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render("Import from models.dev"),
+			m.spinner.View()+" Loading providers...",
+		)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		titleStyle.Render("Import from models.dev"),
@@ -372,7 +437,14 @@ func (m ModelImport) renderLoading() string {
 func (m ModelImport) renderProviderList() string {
 	title := titleStyle.Render("Import from models.dev")
 
-	visibleHeight := m.height - 8
+	searchLine := "Search: " + m.providerSearchInput.View()
+
+	filteredProviders := m.getFilteredProviders()
+
+	visibleHeight := m.height - 10
+	if layout.IsShort(m.height) {
+		visibleHeight = m.height - 6
+	}
 	if visibleHeight < 5 {
 		visibleHeight = 5
 	}
@@ -381,19 +453,19 @@ func (m ModelImport) renderProviderList() string {
 	var lines []string
 
 	hasMoreAbove := m.providerOffset > 0
-	hasMoreBelow := m.providerOffset+visibleHeight < len(m.providers)
+	hasMoreBelow := m.providerOffset+visibleHeight < len(filteredProviders)
 
 	if hasMoreAbove {
 		lines = append(lines, scrollIndicatorStyle.Render("  ↑ more above"))
 	}
 
 	endIdx := m.providerOffset + visibleHeight
-	if endIdx > len(m.providers) {
-		endIdx = len(m.providers)
+	if endIdx > len(filteredProviders) {
+		endIdx = len(filteredProviders)
 	}
 
 	for i := m.providerOffset; i < endIdx; i++ {
-		provider := m.providers[i]
+		provider := filteredProviders[i]
 		cursor := "  "
 		itemStyle := normalStyle
 
@@ -414,12 +486,27 @@ func (m ModelImport) renderProviderList() string {
 		lines = append(lines, scrollIndicatorStyle.Render("  ↓ more below"))
 	}
 
+	if len(filteredProviders) == 0 {
+		lines = append(lines, grayStyle.Render("  No providers match the search."))
+	}
+
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	help := grayStyle.Render("[↑↓] navigate  [enter] select  [esc] back")
+	help := grayStyle.Render("[↑↓] navigate  [/] search  [enter] select  [esc] back")
+
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			searchLine,
+			content,
+			help,
+		)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
+		"",
+		searchLine,
 		"",
 		content,
 		"",
@@ -444,6 +531,9 @@ func (m ModelImport) renderModelList() string {
 
 	var lines []string
 	visibleHeight := m.height - 10
+	if layout.IsShort(m.height) {
+		visibleHeight = m.height - 6
+	}
 	if visibleHeight < 5 {
 		visibleHeight = 5
 	}
@@ -507,6 +597,15 @@ func (m ModelImport) renderModelList() string {
 
 	help := grayStyle.Render(fmt.Sprintf("%d selected  [space] toggle  [enter] import  [esc] back", selectedCount))
 
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			searchLine,
+			content,
+			help,
+		)
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
@@ -524,6 +623,14 @@ func (m ModelImport) renderError() string {
 	errorText := errorStyle.Render(fmt.Sprintf("Error: %s", m.errorMsg))
 	help := grayStyle.Render("[r] retry  [esc] back")
 
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			errorText,
+			help,
+		)
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
@@ -538,9 +645,10 @@ func (m *ModelImport) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 	m.searchInput.Width = layout.MediumFieldWidth(width)
+	m.providerSearchInput.Width = layout.MediumFieldWidth(width)
 }
 
 // IsEditing returns true when text input is active (search field)
 func (m ModelImport) IsEditing() bool {
-	return m.searchInput.Focused()
+	return m.searchInput.Focused() || m.providerSearchInput.Focused()
 }

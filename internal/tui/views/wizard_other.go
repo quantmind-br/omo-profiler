@@ -231,6 +231,7 @@ type WizardOther struct {
 	expTaskSystem           bool
 	expPluginLoadTimeoutMs  textinput.Model
 	expSafeHookCreation     bool
+	expHashlineEdit         bool
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -463,12 +464,16 @@ func (w WizardOther) Init() tea.Cmd {
 func (w *WizardOther) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	overhead := 4
+	if layout.IsShort(height) {
+		overhead = 3
+	}
 	if !w.ready {
-		w.viewport = viewport.New(width, height-4)
+		w.viewport = viewport.New(width, height-overhead)
 		w.ready = true
 	} else {
 		w.viewport.Width = width
-		w.viewport.Height = height - 4
+		w.viewport.Height = height - overhead
 	}
 
 	// Guard against uninitialized struct (e.g. before navigation)
@@ -555,6 +560,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.Experimental.SafeHookCreation != nil {
 			w.expSafeHookCreation = *cfg.Experimental.SafeHookCreation
+		}
+		if cfg.Experimental.HashlineEdit != nil {
+			w.expHashlineEdit = *cfg.Experimental.HashlineEdit
 		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
@@ -844,7 +852,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
 		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
-		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation ||
+		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -874,6 +882,9 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.expSafeHookCreation {
 			cfg.Experimental.SafeHookCreation = &w.expSafeHookCreation
+		}
+		if w.expHashlineEdit {
+			cfg.Experimental.HashlineEdit = &w.expHashlineEdit
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -1992,6 +2003,8 @@ func (w *WizardOther) toggleSubItem() {
 			// plugin_load_timeout_ms textinput - handled in Update()
 		case 19:
 			w.expSafeHookCreation = !w.expSafeHookCreation
+		case 20:
+			w.expHashlineEdit = !w.expHashlineEdit
 		}
 	case sectionClaudeCode:
 		switch w.subCursor {
@@ -2229,6 +2242,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, indent+cursor+style.Render("plugin_load_timeout_ms: ")+w.expPluginLoadTimeoutMs.View())
 
 		lines = append(lines, renderCheckbox(19, "safe_hook_creation", w.expSafeHookCreation))
+		lines = append(lines, renderCheckbox(20, "hashline_edit", w.expHashlineEdit))
 
 	case sectionClaudeCode:
 		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
@@ -2450,6 +2464,14 @@ func (w WizardOther) View() string {
 	}
 
 	content := w.viewport.View()
+
+	if layout.IsShort(w.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			desc,
+			content,
+		)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,

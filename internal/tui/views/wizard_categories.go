@@ -43,6 +43,7 @@ const (
 	catFieldVariant
 	catFieldDescription
 	catFieldIsUnstable
+	catFieldDisable
 	catFieldTemperature
 	catFieldTopP
 	catFieldMaxTokens
@@ -61,6 +62,7 @@ type categoryConfig struct {
 	modelDisplay       string
 	description        textinput.Model
 	isUnstable         bool
+	disable            bool
 	variant            textinput.Model
 	temperature        textinput.Model
 	topP               textinput.Model
@@ -235,12 +237,16 @@ func (w WizardCategories) Init() tea.Cmd {
 func (w *WizardCategories) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	overhead := 4
+	if layout.IsShort(height) {
+		overhead = 3
+	}
 	if !w.ready {
-		w.viewport = viewport.New(width, height-4)
+		w.viewport = viewport.New(width, height-overhead)
 		w.ready = true
 	} else {
 		w.viewport.Width = width
-		w.viewport.Height = height - 4
+		w.viewport.Height = height - overhead
 	}
 
 	// Guard against uninitialized struct (e.g. before navigation)
@@ -282,6 +288,9 @@ func (w *WizardCategories) SetConfig(cfg *config.Config) {
 		}
 		if catCfg.IsUnstableAgent != nil {
 			cc.isUnstable = *catCfg.IsUnstableAgent
+		}
+		if catCfg.Disable != nil {
+			cc.disable = *catCfg.Disable
 		}
 		if catCfg.Variant != "" {
 			cc.variant.SetValue(catCfg.Variant)
@@ -356,6 +365,9 @@ func (w *WizardCategories) Apply(cfg *config.Config) {
 		}
 		if cc.isUnstable {
 			catCfg.IsUnstableAgent = &cc.isUnstable
+		}
+		if cc.disable {
+			catCfg.Disable = &cc.disable
 		}
 		if v := cc.variant.Value(); v != "" {
 			catCfg.Variant = v
@@ -448,7 +460,7 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 	for i := 0; i < w.cursor; i++ {
 		baseLine++ // category header
 		if w.categories[i].expanded {
-			baseLine += 20 // expanded form ~20 lines
+			baseLine += 21 // expanded form ~21 lines
 		}
 	}
 	baseLine++ // current category header
@@ -460,15 +472,16 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 		catFieldVariant:         2,
 		catFieldDescription:     3,
 		catFieldIsUnstable:      4,
-		catFieldTemperature:     5,
-		catFieldTopP:            6,
-		catFieldMaxTokens:       7,
-		catFieldThinkingType:    10, // after empty line + thinking label
-		catFieldThinkingBudget:  11,
-		catFieldReasoningEffort: 13,
-		catFieldTextVerbosity:   14,
-		catFieldTools:           16,
-		catFieldPromptAppend:    17,
+		catFieldDisable:         5,
+		catFieldTemperature:     6,
+		catFieldTopP:            7,
+		catFieldMaxTokens:       8,
+		catFieldThinkingType:    11, // after empty line + thinking label
+		catFieldThinkingBudget:  12,
+		catFieldReasoningEffort: 14,
+		catFieldTextVerbosity:   15,
+		catFieldTools:           17,
+		catFieldPromptAppend:    18,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -594,6 +607,10 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					}
 					if w.focusedField == catFieldIsUnstable {
 						cc.isUnstable = !cc.isUnstable
+						return w, nil
+					}
+					if w.focusedField == catFieldDisable {
+						cc.disable = !cc.disable
 						return w, nil
 					}
 					// Cycle through options for dropdown fields
@@ -773,13 +790,18 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	var lines []string
 
 	indent := "      "
+	labelFmt := "%-16s: "
+	if layout.IsCompact(w.width) {
+		indent = "    "
+		labelFmt = "%-8s: "
+	}
 
 	renderField := func(label string, field categoryFormField, value string) string {
 		style := wizCatDimStyle
 		if w.inForm && w.focusedField == field {
 			style = wizCatSelectedStyle
 		}
-		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + value
+		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + value
 	}
 
 	renderDropdown := func(label string, field categoryFormField, options []string, idx int) string {
@@ -791,7 +813,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + val + " [Enter]"
+		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + val + " [Enter]"
 	}
 
 	renderBool := func(label string, field categoryFormField, val bool) string {
@@ -803,7 +825,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		if val {
 			checkbox = "[✓]"
 		}
-		return indent + style.Render(fmt.Sprintf("%-16s: ", label)) + checkbox + " [Enter]"
+		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + checkbox + " [Enter]"
 	}
 
 	lines = append(lines, "")
@@ -816,6 +838,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, renderField("variant", catFieldVariant, cc.variant.View()))
 	lines = append(lines, renderField("description", catFieldDescription, cc.description.View()))
 	lines = append(lines, renderBool("is_unstable", catFieldIsUnstable, cc.isUnstable))
+	lines = append(lines, renderBool("disable", catFieldDisable, cc.disable))
 	lines = append(lines, renderField("temperature", catFieldTemperature, cc.temperature.View()))
 	lines = append(lines, renderField("top_p", catFieldTopP, cc.topP.View()))
 	lines = append(lines, renderField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
@@ -853,6 +876,14 @@ func (w WizardCategories) View() string {
 	}
 
 	content := w.viewport.View()
+
+	if layout.IsShort(w.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			desc,
+			content,
+		)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,

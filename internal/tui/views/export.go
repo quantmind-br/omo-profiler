@@ -155,6 +155,15 @@ func (e Export) View() string {
 	}
 
 	content = append(content, "", help)
+	if layout.IsShort(e.height) {
+		compact := make([]string, 0, len(content))
+		for _, line := range content {
+			if line != "" {
+				compact = append(compact, line)
+			}
+		}
+		content = compact
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }

@@ -2,44 +2,58 @@
 
 ## OVERVIEW
 
-Built with **Bubble Tea** using **Model-View-Update (MVU)** pattern. Root `App` model (`app.go`) acts as state container, router, and composition layer for all sub-views.
+Bubble Tea MVU application. Root `App` model (`app.go`, 840 lines) acts as state container, router, and composition layer for all sub-views.
+
+## FILES
+
+| File | Lines | Role |
+|------|-------|------|
+| `app.go` | 840 | Root model: state machine, message router, global overlays |
+| `app_test.go` | — | State transitions, message routing, toast system tests |
+| `tui.go` | ~20 | `Run()` entry point: `NewApp()` → `tea.NewProgram()` |
+| `styles.go` | — | **Shared palette**: `Purple`, `Magenta`, `Cyan`, `Green`, `Red`, `Yellow`, `Gray`, `White` + component styles |
+| `layout/layout.go` | — | `MinTerminalWidth/Height`, `MaxFieldWidth`, responsive width helpers |
 
 ## STATE MACHINE
 
-Application state centralized in `App` struct and `appState` enum:
-- **State Enum**: `stateDashboard`, `stateList`, `stateWizard`, etc.
-- **Transitions**: Controlled via `navigateTo(state)` which:
-  1. Updates `App.state`
-  2. Re-initializes target view model
-  3. Returns view's `Init()` command
+10 states via `appState` enum:
 
-## GLOBAL COMPONENTS
+```
+stateDashboard → stateList → stateWizard → stateDiff
+                            → stateImport → stateExport
+                            → stateModels → stateModelImport
+                            → stateTemplateSelect → stateSchemaCheck
+```
 
-Global UI elements overlay active view in `App.View()`:
+Transitions via `navigateTo(state)`: updates state → re-initializes target view → returns `Init()` cmd.
 
-1. **Toast System**:
-   - Triggered via `showToast(text, type, duration)` cmd
-   - Renders at bottom of viewport
-   - Auto-clears via `tea.Tick` command
+## GLOBAL OVERLAYS
 
-2. **Help Bubble**:
-   - Managed globally by `help.Model`
-   - Context-aware: `renderShortHelp()` vs `renderFullHelp()` based on `App.state`
+Rendered in `App.View()` over active view content:
 
-3. **Loading Spinner**:
-   - Activated by setting `App.loading = true`
-   - Replaces content with spinner overlay during async operations
+1. **Toast**: `showToast(text, type, duration)` → auto-clears via `tea.Tick` + `clearToastMsg`
+2. **Help**: Context-aware `renderShortHelp()` / `renderFullHelp()` per state
+3. **Spinner**: `App.loading = true` replaces content with loading overlay
+4. **Min-Size Guard**: `belowMinSize` blocks rendering if terminal too small
 
-## NAVIGATION FLOW
+## NAVIGATION PROTOCOL
 
-Navigation is **message-driven** to decouple views from router:
-1. **View** emits `NavTo*Msg` (e.g., `NavToWizardMsg`)
-2. **App.Update** intercepts message
-3. **App** calls `navigateTo(newState)`
-4. **App** updates `activeView` field
+Views are decoupled from routing:
+1. View emits `NavTo*Msg` (e.g., `NavToWizardMsg`, `NavToDiffMsg`)
+2. `App.Update` intercepts → calls `navigateTo(newState)`
+3. Views re-created on every navigation (no persisted state)
+
+## ASYNC OPERATIONS
+
+Business logic wrapped in `tea.Cmd` factory methods on `App`:
+- `doSwitchProfile` → `switchProfileDoneMsg{name, err}`
+- `doDeleteProfile` → `deleteProfileDoneMsg{name, err}`
+- `doImportProfile` → `importProfileDoneMsg{profileName, hadCollision, err}`
+- `doExportProfile` → `exportProfileDoneMsg{path, err}`
 
 ## ANTI-PATTERNS
 
-- **NO Direct State Mutation**: Sub-views must NEVER modify `App` state; always return `Msg`
-- **NO Blocking Operations**: File I/O must happen in `tea.Cmd`, never in `Update()`
-- **NO Persisted View State**: Views are re-created on navigation; don't rely on state persistence
+- **Direct State Mutation**: Views must NEVER modify `App` fields; always emit `tea.Msg`
+- **Blocking in Update**: File I/O must happen in `tea.Cmd`, never in `Update()` or `View()`
+- **Persisted View State**: Views are re-created on navigation; don't rely on state persistence
+- **Raw Styles in Views**: Import colors/styles from `styles.go`; never define hex colors locally

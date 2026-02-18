@@ -23,10 +23,11 @@ func TestLayoutMediumFieldWidth(t *testing.T) {
 		{"very wide 200", 200, 80},   // 200 * 0.4 = 80
 		{"ultra wide 300", 300, 120}, // 300 * 0.4 = 120, capped at MaxFieldWidth
 		{"very large 500", 500, 120}, // 500 * 0.4 = 200, capped at 120
-		{"narrow 50", 50, 20},        // 50 * 0.4 = 20, minimum
-		{"too narrow 40", 40, 20},    // 40 * 0.4 = 16, clamped to 20
-		{"zero width", 0, 20},        // 0 * 0.4 = 0, clamped to 20
-		{"negative width", -10, 20},  // negative clamped to 20
+		{"narrow 50", 50, 20},        // 50 * 0.4 = 20
+		{"narrow 40", 40, 16},        // 40 * 0.4 = 16
+		{"very narrow 20", 20, 10},   // 20 * 0.4 = 8, clamped to 10
+		{"zero width", 0, 10},        // 0 * 0.4 = 0, clamped to 10
+		{"negative width", -10, 10},  // negative clamped to 10
 	}
 
 	for _, tt := range tests {
@@ -50,12 +51,13 @@ func TestLayoutWideFieldWidth(t *testing.T) {
 		{"wide 120 with padding 10", 120, 10, 110},       // 120 - 10 = 110
 		{"very wide 200 with padding 10", 200, 10, 120},  // 200 - 10 = 190, capped at 120
 		{"ultra wide 300 with padding 10", 300, 10, 120}, // capped at MaxFieldWidth
-		{"narrow 30 with padding 10", 30, 10, 20},        // 30 - 10 = 20, minimum
-		{"too narrow 25 with padding 10", 25, 10, 20},    // 25 - 10 = 15, clamped to 20
-		{"zero width", 0, 10, 20},                        // 0 - 10 = -10, clamped to 20
-		{"negative width", -10, 10, 20},                  // clamped to 20
+		{"narrow 30 with padding 10", 30, 10, 20},        // 30 - 10 = 20
+		{"narrow 25 with padding 10", 25, 10, 15},        // 25 - 10 = 15
+		{"very narrow 15 with padding 10", 15, 10, 10},   // 15 - 10 = 5, clamped to 10
+		{"zero width", 0, 10, 10},                        // 0 - 10 = -10, clamped to 10
+		{"negative width", -10, 10, 10},                  // clamped to 10
 		{"zero padding", 100, 0, 100},                    // 100 - 0 = 100
-		{"large padding", 50, 40, 20},                    // 50 - 40 = 10, clamped to 20
+		{"large padding", 50, 40, 10},                    // 50 - 40 = 10
 	}
 
 	for _, tt := range tests {
@@ -109,12 +111,12 @@ func TestLayoutIsBelowMinimumSize(t *testing.T) {
 		height int
 		want   bool
 	}{
-		{"below width 59x25", 59, 25, true},
-		{"below height 60x24", 60, 24, true},
-		{"at minimum 60x25", 60, 25, false},
-		{"above minimum 61x26", 61, 26, false},
-		{"both below 70x20", 70, 20, true},
-		{"width zero", 0, 24, true},
+		{"below width 39x12", 39, 12, true},
+		{"below height 40x11", 40, 11, true},
+		{"at minimum 40x12", 40, 12, false},
+		{"above minimum 41x13", 41, 13, false},
+		{"old minimum still passes 60x25", 60, 25, false},
+		{"width zero", 0, 12, true},
 		{"height zero", 80, 0, true},
 		{"both zero", 0, 0, true},
 		{"large terminal", 200, 50, false},
@@ -131,26 +133,50 @@ func TestLayoutIsBelowMinimumSize(t *testing.T) {
 }
 
 func TestLayoutRenderMinimumSizeWarning(t *testing.T) {
-	result := RenderMinimumSizeWarning(60, 15)
+	result := RenderMinimumSizeWarning(35, 10)
 
-	// Verify non-empty
 	if result == "" {
 		t.Error("RenderMinimumSizeWarning() returned empty string")
 	}
 
-	// Verify contains minimum size info
-	if !strings.Contains(result, "60") {
-		t.Errorf("RenderMinimumSizeWarning() should contain '60' (min width), got: %q", result)
+	if !strings.Contains(result, "40") {
+		t.Errorf("RenderMinimumSizeWarning() should contain '40' (min width), got: %q", result)
 	}
-	if !strings.Contains(result, "25") {
-		t.Errorf("RenderMinimumSizeWarning() should contain '25' (min height), got: %q", result)
+	if !strings.Contains(result, "12") {
+		t.Errorf("RenderMinimumSizeWarning() should contain '12' (min height), got: %q", result)
 	}
 
-	// Verify contains current size
-	if !strings.Contains(result, "60") {
-		t.Errorf("RenderMinimumSizeWarning() should contain '60' (current width), got: %q", result)
+	if !strings.Contains(result, "35") {
+		t.Errorf("RenderMinimumSizeWarning() should contain '35' (current width), got: %q", result)
 	}
-	if !strings.Contains(result, "15") {
-		t.Errorf("RenderMinimumSizeWarning() should contain '15' (current height), got: %q", result)
+	if !strings.Contains(result, "10") {
+		t.Errorf("RenderMinimumSizeWarning() should contain '10' (current height), got: %q", result)
+	}
+}
+
+func TestLayoutIsCompact(t *testing.T) {
+	if !IsCompact(40) {
+		t.Error("IsCompact(40) should be true")
+	}
+	if IsCompact(60) {
+		t.Error("IsCompact(60) should be false")
+	}
+}
+
+func TestLayoutIsShort(t *testing.T) {
+	if !IsShort(12) {
+		t.Error("IsShort(12) should be true")
+	}
+	if IsShort(20) {
+		t.Error("IsShort(20) should be false")
+	}
+}
+
+func TestLayoutHelpBarHeight(t *testing.T) {
+	if got := HelpBarHeight(12); got != 1 {
+		t.Errorf("HelpBarHeight(12) = %d, want 1", got)
+	}
+	if got := HelpBarHeight(16); got != 2 {
+		t.Errorf("HelpBarHeight(16) = %d, want 2", got)
 	}
 }

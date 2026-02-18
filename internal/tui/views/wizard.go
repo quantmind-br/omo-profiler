@@ -9,6 +9,7 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/schema"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 // Wizard message types
@@ -155,7 +156,17 @@ func (w *Wizard) SetSize(width, height int) {
 	w.width = width
 	w.height = height
 	// Reserve space for header/footer
-	contentHeight := height - 6
+	headerLines := 4
+	if layout.IsCompact(width) {
+		headerLines = 3
+	}
+	if layout.IsShort(height) {
+		headerLines--
+		if headerLines < 1 {
+			headerLines = 1
+		}
+	}
+	contentHeight := height - headerLines
 	w.nameStep.SetSize(width, contentHeight)
 	w.categoriesStep.SetSize(width, contentHeight)
 	w.agentsStep.SetSize(width, contentHeight)
@@ -368,14 +379,39 @@ func (w Wizard) View() string {
 		content = w.reviewStep.View()
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		content,
-	)
+	if layout.IsShort(w.height) {
+		return lipgloss.JoinVertical(lipgloss.Left, header, content)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", content)
 }
 
 func (w Wizard) renderHeader() string {
+	title := titleStyle.Render("Create Profile")
+	if w.editMode {
+		title = titleStyle.Render("Edit Profile")
+	}
+
+	if layout.IsCompact(w.width) {
+		progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
+		var dots string
+		for i := StepName; i <= StepReview; i++ {
+			if i < w.step {
+				dots += successStyle.Render("●")
+			} else if i == w.step {
+				dots += progressStyle.Render("●")
+			} else {
+				dots += dimStyle.Render("○")
+			}
+		}
+		dots += " " + progressStyle.Render(stepNames[w.step])
+		if layout.IsShort(w.height) {
+			return dots
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, title, dots)
+	}
+
 	// Progress bar
 	progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
@@ -400,11 +436,6 @@ func (w Wizard) renderHeader() string {
 		steps[4], dimStyle.Render(" → "),
 		steps[5],
 	)
-
-	title := titleStyle.Render("Create Profile")
-	if w.editMode {
-		title = titleStyle.Render("Edit Profile")
-	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, title, progress)
 }

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json",
   "disabled_mcps": ["context7"],
   "disabled_agents": ["oracle", "librarian"],
   "disabled_skills": ["playwright"],
@@ -34,7 +34,11 @@
       "thinking": {"type": "enabled", "budgetTokens": 4096},
       "reasoningEffort": "medium",
       "textVerbosity": "low",
-      "providerOptions": {"custom_option": true}
+      "providerOptions": {"custom_option": true},
+      "ultrawork": {
+        "model": "claude-sonnet-4-20250514",
+        "variant": "fast"
+      }
     },
     "plan": {
       "model": "o3",
@@ -99,6 +103,7 @@
     "aggressive_truncation": true,
     "auto_resume": false,
     "truncate_all_tool_outputs": false,
+    "hashline_edit": true,
     "dynamic_context_pruning": {
       "enabled": true,
       "notification": "detailed",

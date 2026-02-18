@@ -128,6 +128,9 @@ func (w WizardName) Update(msg tea.Msg) (WizardName, tea.Cmd) {
 func (w WizardName) View() string {
 	label := wizNameLabelStyle.Render("Profile Name")
 	desc := wizNameDescStyle.Render("Enter a name for your profile (letters, numbers, hyphens, underscores only)")
+	if layout.IsCompact(w.width) {
+		desc = wizNameDescStyle.Render("Name: a-z, 0-9, hyphens, underscores")
+	}
 
 	input := w.input.View()
 
@@ -140,13 +143,11 @@ func (w WizardName) View() string {
 		status = wizNameValidStyle.Render("✓ Valid name")
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		label,
-		desc,
-		"",
-		input,
-		status,
-	)
+	if layout.IsShort(w.height) {
+		return lipgloss.JoinVertical(lipgloss.Left, label, desc, input, status)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, label, desc, "", input, status)
 }
 
 // IsComplete returns true if the name is valid

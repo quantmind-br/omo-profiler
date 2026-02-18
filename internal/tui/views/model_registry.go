@@ -296,6 +296,9 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 
 		filteredModels := m.getFilteredModels()
 		visibleHeight := m.height - 10
+		if layout.IsShort(m.height) {
+			visibleHeight = m.height - 6
+		}
 		if visibleHeight < 5 {
 			visibleHeight = 5
 		}
@@ -495,6 +498,15 @@ func (m ModelRegistry) renderList() string {
 
 	help := grayStyle.Render("[/] search  [n] new  [i] import  [e] edit  [d] delete  [esc] back")
 
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			searchLine,
+			content,
+			help,
+		)
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		title,
@@ -511,6 +523,9 @@ func (m ModelRegistry) renderModelsList(filteredModels []models.RegisteredModel)
 	var lines []string
 
 	visibleHeight := m.height - 10
+	if layout.IsShort(m.height) {
+		visibleHeight = m.height - 6
+	}
 	if visibleHeight < 5 {
 		visibleHeight = 5
 	}
@@ -568,15 +583,26 @@ func (m ModelRegistry) renderForm() string {
 		title = titleStyle.Render("Add New Model")
 	}
 
-	formLines := []string{
-		"",
-		title,
-		"",
-		fmt.Sprintf("Display Name: %s", m.displayNameInput.View()),
-		fmt.Sprintf("Model ID:     %s", m.modelIdInput.View()),
-		fmt.Sprintf("Provider:     %s", m.providerInput.View()),
-		"",
-		grayStyle.Render("[Enter] save  [Esc] cancel"),
+	var formLines []string
+	if layout.IsShort(m.height) {
+		formLines = []string{
+			title,
+			fmt.Sprintf("Display Name: %s", m.displayNameInput.View()),
+			fmt.Sprintf("Model ID:     %s", m.modelIdInput.View()),
+			fmt.Sprintf("Provider:     %s", m.providerInput.View()),
+			grayStyle.Render("[Enter] save  [Esc] cancel"),
+		}
+	} else {
+		formLines = []string{
+			"",
+			title,
+			"",
+			fmt.Sprintf("Display Name: %s", m.displayNameInput.View()),
+			fmt.Sprintf("Model ID:     %s", m.modelIdInput.View()),
+			fmt.Sprintf("Provider:     %s", m.providerInput.View()),
+			"",
+			grayStyle.Render("[Enter] save  [Esc] cancel"),
+		}
 	}
 
 	if m.errorMsg != "" {
@@ -605,6 +631,10 @@ func (m ModelRegistry) renderDeleteConfirm() string {
 		Padding(0, 1)
 
 	confirmText := confirmStyle.Render(fmt.Sprintf("Delete '%s'? (y/n)", targetName))
+
+	if layout.IsShort(m.height) {
+		return lipgloss.JoinVertical(lipgloss.Left, content, confirmText)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, content, "", confirmText)
 }

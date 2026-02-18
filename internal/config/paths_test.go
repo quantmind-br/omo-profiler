@@ -127,7 +127,7 @@ func TestEnsureDirs(t *testing.T) {
 }
 
 func TestDefaultSchema(t *testing.T) {
-	expected := "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json"
+	expected := "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json"
 	if DefaultSchema != expected {
 		t.Errorf("DefaultSchema = %s, want %s", DefaultSchema, expected)
 	}

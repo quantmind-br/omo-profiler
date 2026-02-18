@@ -1,28 +1,42 @@
 # MODELS KNOWLEDGE BASE
 
 ## OVERVIEW
-Registry of LLM models with local persistence and models.dev API integration for discovery and capability tracking.
 
-## STRUCTURE
-- `models.go`: Local registry CRUD, JSON persistence, and provider-based grouping.
-- `modelsdev.go`: models.dev API client, response mapping, and capability formatting.
+LLM model registry with local JSON persistence and models.dev API integration for external model discovery.
 
-## RESPONSIBILITIES
-- **Local Persistence**: Manages `models.json` via `config.ModelsFile()`; handles backups if JSON is corrupted.
-- **Model CRUD**: Thread-safe-ish (local) operations with validation for unique `ModelID`.
-- **UI Presentation**: Groups and sorts models by provider (case-insensitive, empty last) for Bubble Tea lists.
-- **Discovery**: Fetches external model registry from `https://models.dev/api.json`.
-- **Capability Metadata**: Tracks context windows, output limits, and features (reasoning, tools, vision).
+## FILES
+
+| File | Role |
+|------|------|
+| `models.go` | `ModelsRegistry` CRUD, `Load`/`Save`, provider-based grouping |
+| `modelsdev.go` | `FetchModelsDevRegistry` API client, `ModelsDevResponse` mapping, capability formatting |
+| `models_test.go` | Registry operations, persistence, provider grouping tests |
 
 ## KEY TYPES
-- `RegisteredModel`: The internal representation used by profiles. `ModelID` is the primary key.
-- `ModelsRegistry`: Root container. `Load()` returns a registry with disk-syncing capabilities.
-- `ProviderGroup`: Flattened structure for TUI menus (Provider name + sorted slice of models).
-- `ModelsDevResponse`: Map-based API response from models.dev.
-- `ModelsDevModel`: Rich metadata for external models (Limits, Family, Capabilities).
+
+| Type | Role |
+|------|------|
+| `RegisteredModel` | Internal model record: `DisplayName`, `ModelID` (primary key), `Provider` |
+| `ModelsRegistry` | Root container with `Load()`, `Save()`, `Add()`, `Update()`, `Delete()`, `List()`, `ListByProvider()` |
+| `ProviderGroup` | Flattened structure for TUI: provider name + sorted model slice |
+| `ModelsDevResponse` | Map-based API response from `https://models.dev/api.json` |
+| `ModelsDevModel` | Rich external metadata: limits, family, capabilities (reasoning, tools, vision) |
+
+## PERSISTENCE
+
+- Storage: `config.ModelsFile()` → `~/.config/opencode/models.json`
+- Corruption recovery: auto-backup to `.bak` on JSON parse failure
+- Thread safety: basic mutex protection on registry operations
+
+## API CLIENT
+
+`FetchModelsDevRegistry()` → HTTP GET `https://models.dev/api.json` → returns `ModelsDevResponse`
+- `ListProviders()` → sorted `ProviderWithCount` slice
+- `GetProviderModels(provider)` → filtered model list
+- `ToRegisteredModel()` → converts external model to local `RegisteredModel`
 
 ## ANTI-PATTERNS
-- **Upstream Divergence**: Don't change `RegisteredModel` tags; they must remain compatible with `models.json`.
-- **Manual Persistence**: Never call `os.WriteFile` for models; use `registry.Save()`.
-- **Direct Slice Access**: Use `List()` to get a copy of models to prevent unintended side effects.
-- **Ignore Errors**: Corruption in `models.json` must be handled (automatic backup to `.bak` is expected).
+
+- **Upstream Divergence**: Don't change `RegisteredModel` JSON tags; must remain compatible with `models.json`
+- **Manual Persistence**: Never `os.WriteFile` for models; use `registry.Save()`
+- **Direct Slice Access**: Use `List()` to get a copy; prevents unintended side effects

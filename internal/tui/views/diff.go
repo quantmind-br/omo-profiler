@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/diff"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -44,6 +45,7 @@ type Diff struct {
 	width         int
 	height        int
 	ready         bool
+	stacked       bool
 	leftViewport  viewport.Model
 	rightViewport viewport.Model
 
@@ -239,11 +241,27 @@ func (d *Diff) initViewports() {
 		return
 	}
 
-	paneWidth := (d.width - 3) / 2
-	paneHeight := d.height - 8
+	d.stacked = d.width < 50
+
+	overhead := 8
+	if layout.IsShort(d.height) {
+		overhead = 4
+	}
+
+	var paneWidth, paneHeight int
+	if d.stacked {
+		paneWidth = d.width - 2
+		paneHeight = (d.height - overhead) / 2
+	} else {
+		paneWidth = (d.width - 3) / 2
+		paneHeight = d.height - overhead
+	}
 
 	if paneHeight < 1 {
 		paneHeight = 1
+	}
+	if paneWidth < 1 {
+		paneWidth = 1
 	}
 
 	if !d.ready {
@@ -317,32 +335,55 @@ func (d Diff) View() string {
 	leftSelector := d.renderSelector(d.leftProfile, d.selectingLeft, d.leftIdx, d.focused == focusLeft)
 	rightSelector := d.renderSelector(d.rightProfile, d.selectingRight, d.rightIdx, d.focused == focusRight)
 
-	selectors := lipgloss.JoinHorizontal(lipgloss.Top, leftSelector, " ", rightSelector)
+	var selectors string
+	if d.stacked {
+		selectors = lipgloss.JoinVertical(lipgloss.Left, leftSelector, rightSelector)
+	} else {
+		selectors = lipgloss.JoinHorizontal(lipgloss.Top, leftSelector, " ", rightSelector)
+	}
 
 	var content string
 	if d.ready && d.diffResult != nil {
-		paneWidth := (d.width - 3) / 2
-
-		leftBorder := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(d.borderColor(focusLeft)).
-			Width(paneWidth)
-
-		rightBorder := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(d.borderColor(focusRight)).
-			Width(paneWidth)
-
-		leftPane := leftBorder.Render(d.leftViewport.View())
-		rightPane := rightBorder.Render(d.rightViewport.View())
-
-		content = lipgloss.JoinHorizontal(lipgloss.Top, leftPane, " ", rightPane)
+		if d.stacked {
+			paneWidth := d.width - 2
+			leftBorder := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(d.borderColor(focusLeft)).
+				Width(paneWidth)
+			rightBorder := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(d.borderColor(focusRight)).
+				Width(paneWidth)
+			leftPane := leftBorder.Render(d.leftViewport.View())
+			rightPane := rightBorder.Render(d.rightViewport.View())
+			content = lipgloss.JoinVertical(lipgloss.Left, leftPane, rightPane)
+		} else {
+			paneWidth := (d.width - 3) / 2
+			leftBorder := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(d.borderColor(focusLeft)).
+				Width(paneWidth)
+			rightBorder := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(d.borderColor(focusRight)).
+				Width(paneWidth)
+			leftPane := leftBorder.Render(d.leftViewport.View())
+			rightPane := rightBorder.Render(d.rightViewport.View())
+			content = lipgloss.JoinHorizontal(lipgloss.Top, leftPane, " ", rightPane)
+		}
 	} else if d.diffResult == nil && d.leftProfile != "" && d.rightProfile != "" {
 		content = diffSubtitleStyle.Render("Computing diff...")
 	} else {
 		content = diffSubtitleStyle.Render("Select profiles to compare")
 	}
 
+	if layout.IsShort(d.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			selectors,
+			content,
+		)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,
 		"",
@@ -360,9 +401,14 @@ func (d Diff) borderColor(pane focusedPane) lipgloss.Color {
 }
 
 func (d Diff) renderSelector(selected string, isSelecting bool, idx int, isFocused bool) string {
-	paneWidth := (d.width - 3) / 2
-	if paneWidth < 20 {
-		paneWidth = 20
+	var paneWidth int
+	if d.stacked {
+		paneWidth = d.width - 2
+	} else {
+		paneWidth = (d.width - 3) / 2
+	}
+	if paneWidth < 10 {
+		paneWidth = 10
 	}
 
 	var content string

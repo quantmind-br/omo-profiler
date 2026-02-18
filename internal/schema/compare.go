@@ -13,7 +13,7 @@ import (
 	"github.com/diogenes/omo-profiler/internal/diff"
 )
 
-var UpstreamSchemaURL = "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json"
+var UpstreamSchemaURL = "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json"
 
 type CompareResult struct {
 	Identical bool

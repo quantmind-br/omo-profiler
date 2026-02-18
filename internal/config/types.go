@@ -50,6 +50,7 @@ type AgentConfig struct {
 	Permission      *PermissionConfig      `json:"permission,omitempty"`
 	MaxTokens       *float64               `json:"maxTokens,omitempty"`
 	Thinking        *ThinkingConfig        `json:"thinking,omitempty"`
+	Ultrawork       *UltraworkConfig       `json:"ultrawork,omitempty"`
 	ReasoningEffort string                 `json:"reasoningEffort,omitempty"`
 	TextVerbosity   string                 `json:"textVerbosity,omitempty"`
 	ProviderOptions map[string]interface{} `json:"providerOptions,omitempty"`
@@ -79,12 +80,19 @@ type CategoryConfig struct {
 	Tools           map[string]bool `json:"tools,omitempty"`
 	PromptAppend    string          `json:"prompt_append,omitempty"`
 	IsUnstableAgent *bool           `json:"is_unstable_agent,omitempty"`
+	Disable         *bool           `json:"disable,omitempty"`
 }
 
 // ThinkingConfig
 type ThinkingConfig struct {
 	Type         string   `json:"type"`
 	BudgetTokens *float64 `json:"budgetTokens,omitempty"`
+}
+
+// UltraworkConfig
+type UltraworkConfig struct {
+	Model   string `json:"model,omitempty"`
+	Variant string `json:"variant,omitempty"`
 }
 
 // ClaudeCodeConfig
@@ -116,6 +124,7 @@ type ExperimentalConfig struct {
 	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
 	PluginLoadTimeoutMs    *int                         `json:"plugin_load_timeout_ms,omitempty"`
 	SafeHookCreation       *bool                        `json:"safe_hook_creation,omitempty"`
+	HashlineEdit           *bool                        `json:"hashline_edit,omitempty"`
 }
 
 // DynamicContextPruningConfig

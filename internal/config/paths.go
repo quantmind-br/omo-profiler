@@ -46,4 +46,4 @@ func EnsureDirs() error {
 }
 
 // DefaultSchema is the schema URL to add when creating new profiles
-const DefaultSchema = "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json"
+const DefaultSchema = "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json"

@@ -12,23 +12,61 @@ func TestFixedSmallWidth(t *testing.T) {
 	}
 }
 
-func TestMediumFieldWidth(t *testing.T) {
+func TestIsCompact(t *testing.T) {
 	tests := []struct {
-		name string
-		in   int
-		want int
+		name  string
+		width int
+		want  bool
 	}{
-		{name: "80 columns", in: 80, want: 32},
-		{name: "120 columns", in: 120, want: 48},
-		{name: "200 columns", in: 200, want: 80},
-		{name: "300 columns capped", in: 300, want: 120},
-		{name: "narrow clamped", in: 40, want: 20},
+		{name: "compact at 40", width: 40, want: true},
+		{name: "compact at 59", width: 59, want: true},
+		{name: "not compact at 60", width: 60, want: false},
+		{name: "not compact at 80", width: 80, want: false},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MediumFieldWidth(tt.in); got != tt.want {
-				t.Fatalf("MediumFieldWidth(%d) = %d, want %d", tt.in, got, tt.want)
+			if got := IsCompact(tt.width); got != tt.want {
+				t.Fatalf("IsCompact(%d) = %v, want %v", tt.width, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsShort(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		want   bool
+	}{
+		{name: "short at 12", height: 12, want: true},
+		{name: "short at 19", height: 19, want: true},
+		{name: "not short at 20", height: 20, want: false},
+		{name: "not short at 25", height: 25, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsShort(tt.height); got != tt.want {
+				t.Fatalf("IsShort(%d) = %v, want %v", tt.height, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelpBarHeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		want   int
+	}{
+		{name: "tiny returns 1", height: 12, want: 1},
+		{name: "at 15 returns 1", height: 15, want: 1},
+		{name: "at 16 returns 2", height: 16, want: 2},
+		{name: "normal returns 2", height: 25, want: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HelpBarHeight(tt.height); got != tt.want {
+				t.Fatalf("HelpBarHeight(%d) = %d, want %d", tt.height, got, tt.want)
 			}
 		})
 	}
@@ -44,7 +82,8 @@ func TestWideFieldWidth(t *testing.T) {
 		{name: "standard width", available: 80, padding: 10, want: 70},
 		{name: "larger width", available: 120, padding: 10, want: 110},
 		{name: "capped at max", available: 200, padding: 10, want: 120},
-		{name: "clamped minimum", available: 25, padding: 10, want: 20},
+		{name: "clamped minimum", available: 25, padding: 10, want: 15},
+		{name: "very narrow clamped", available: 15, padding: 10, want: 10},
 	}
 
 	for _, tt := range tests {
@@ -103,9 +142,9 @@ func TestIsBelowMinimumSize(t *testing.T) {
 		height int
 		want   bool
 	}{
-		{name: "exact minimum", width: 60, height: 25, want: false},
-		{name: "below width", width: 59, height: 25, want: true},
-		{name: "below height", width: 60, height: 24, want: true},
+		{name: "exact minimum", width: 40, height: 12, want: false},
+		{name: "below width", width: 39, height: 12, want: true},
+		{name: "below height", width: 40, height: 11, want: true},
 		{name: "above minimum", width: 120, height: 40, want: false},
 	}
 

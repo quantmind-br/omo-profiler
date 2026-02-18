@@ -16,6 +16,7 @@ import (
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/schema"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 	"github.com/diogenes/omo-profiler/internal/tui/views"
 )
 
@@ -185,16 +186,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.belowMinSize = IsBelowMinimumSize(a.width, a.height)
 
 		// Propagate to all views
-		a.dashboard.SetSize(msg.Width, msg.Height-3)
-		a.list.SetSize(msg.Width, msg.Height-3)
-		a.wizard.SetSize(msg.Width, msg.Height-3)
-		a.templateSelect.SetSize(msg.Width, msg.Height-3)
-		a.diff.SetSize(msg.Width, msg.Height-3)
-		a.modelRegistry.SetSize(msg.Width, msg.Height-3)
-		a.modelImport.SetSize(msg.Width, msg.Height-3)
-		a.importView.SetSize(msg.Width, msg.Height-3)
-		a.exportView.SetSize(msg.Width, msg.Height-3)
-		a.schemaCheck.SetSize(msg.Width, msg.Height-3)
+		a.dashboard.SetSize(msg.Width, a.contentHeight())
+		a.list.SetSize(msg.Width, a.contentHeight())
+		a.wizard.SetSize(msg.Width, a.contentHeight())
+		a.templateSelect.SetSize(msg.Width, a.contentHeight())
+		a.diff.SetSize(msg.Width, a.contentHeight())
+		a.modelRegistry.SetSize(msg.Width, a.contentHeight())
+		a.modelImport.SetSize(msg.Width, a.contentHeight())
+		a.importView.SetSize(msg.Width, a.contentHeight())
+		a.exportView.SetSize(msg.Width, a.contentHeight())
+		a.schemaCheck.SetSize(msg.Width, a.contentHeight())
 
 	case spinner.TickMsg:
 		if a.loading {
@@ -218,12 +219,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Navigation messages from Dashboard
 	case views.NavToListMsg:
 		a.list = views.NewList()
-		a.list.SetSize(a.width, a.height-3)
+		a.list.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateList)
 
 	case views.NavToWizardMsg:
 		a.wizard = views.NewWizard()
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
 	case views.NavToEditorMsg:
@@ -237,7 +238,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("Failed to load profile: "+err.Error(), toastError, 3*time.Second)
 		}
 		a.wizard = views.NewWizardForEdit(p)
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
 	case views.NavToDiffMsg:
@@ -246,7 +247,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToImportMsg:
 		a.importView = views.NewImport()
-		a.importView.SetSize(a.width, a.height-3)
+		a.importView.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateImport)
 
 	case views.NavToExportMsg:
@@ -255,12 +256,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("No active profile to export", toastError, 3*time.Second)
 		}
 		a.exportView = views.NewExport(active.ProfileName)
-		a.exportView.SetSize(a.width, a.height-3)
+		a.exportView.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateExport)
 
 	case views.NavToTemplateSelectMsg:
 		a.templateSelect = views.NewTemplateSelect()
-		a.templateSelect.SetSize(a.width, a.height-3)
+		a.templateSelect.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateTemplateSelect)
 
 	case views.NavToWizardFromTemplateMsg:
@@ -269,7 +270,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast(err.Error(), toastError, 3*time.Second)
 		}
 		a.wizard = wizard
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
 	case views.TemplateSelectCancelMsg:
@@ -329,7 +330,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToModelsMsg:
 		a.modelRegistry = views.NewModelRegistry()
-		a.modelRegistry.SetSize(a.width, a.height-3)
+		a.modelRegistry.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateModels)
 
 	case views.ModelRegistryBackMsg:
@@ -337,7 +338,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToSchemaCheckMsg:
 		a.schemaCheck = views.NewSchemaCheck()
-		a.schemaCheck.SetSize(a.width, a.height-3)
+		a.schemaCheck.SetSize(a.width, a.contentHeight())
 		a.state = stateSchemaCheck
 		return a, a.schemaCheck.Init()
 
@@ -346,12 +347,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToModelImportMsg:
 		a.modelImport = views.NewModelImport()
-		a.modelImport.SetSize(a.width, a.height-3)
+		a.modelImport.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateModelImport)
 
 	case views.ModelImportBackMsg:
 		a.modelRegistry = views.NewModelRegistry()
-		a.modelRegistry.SetSize(a.width, a.height-3)
+		a.modelRegistry.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateModels)
 
 	case views.ModelImportDoneMsg:
@@ -363,7 +364,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds := []tea.Cmd{a.showToast(toastText, toastSuccess, 3*time.Second)}
 		a.modelRegistry = views.NewModelRegistry()
-		a.modelRegistry.SetSize(a.width, a.height-3)
+		a.modelRegistry.SetSize(a.width, a.contentHeight())
 		a.state = stateModels
 		cmds = append(cmds, a.modelRegistry.Init())
 		return a, tea.Batch(cmds...)
@@ -374,7 +375,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavigateToWizardMsg:
 		a.wizard = views.NewWizard()
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
 	case views.SwitchProfileMsg:
@@ -391,7 +392,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, a.showToast("Switched to: "+msg.name, toastSuccess, 3*time.Second))
 		a.dashboard = views.NewDashboard()
-		a.dashboard.SetSize(a.width, a.height-3)
+		a.dashboard.SetSize(a.width, a.contentHeight())
 		cmds = append(cmds, a.dashboard.Init())
 		a.state = stateDashboard
 		return a, tea.Batch(cmds...)
@@ -402,7 +403,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("Failed to load profile: "+err.Error(), toastError, 3*time.Second)
 		}
 		a.wizard = views.NewWizardForEdit(p)
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
 	case views.DeleteProfileMsg:
@@ -420,7 +421,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, a.showToast("Deleted: "+msg.name, toastSuccess, 3*time.Second))
 		// Refresh list
 		a.list = views.NewList()
-		a.list.SetSize(a.width, a.height-3)
+		a.list.SetSize(a.width, a.contentHeight())
 		cmds = append(cmds, a.list.Init())
 		return a, tea.Batch(cmds...)
 
@@ -428,7 +429,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case views.WizardSaveMsg:
 		cmds = append(cmds, a.showToast("Profile saved!", toastSuccess, 3*time.Second))
 		a.dashboard = views.NewDashboard()
-		a.dashboard.SetSize(a.width, a.height-3)
+		a.dashboard.SetSize(a.width, a.contentHeight())
 		cmds = append(cmds, a.dashboard.Init())
 		a.state = stateDashboard
 		return a, tea.Batch(cmds...)
@@ -491,34 +492,34 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 	switch state {
 	case stateDashboard:
 		a.dashboard = views.NewDashboard()
-		a.dashboard.SetSize(a.width, a.height-3)
+		a.dashboard.SetSize(a.width, a.contentHeight())
 		cmd = a.dashboard.Init()
 	case stateList:
-		a.list.SetSize(a.width, a.height-3)
+		a.list.SetSize(a.width, a.contentHeight())
 		cmd = a.list.Init()
 	case stateWizard:
-		a.wizard.SetSize(a.width, a.height-3)
+		a.wizard.SetSize(a.width, a.contentHeight())
 		cmd = a.wizard.Init()
 	case stateDiff:
-		a.diff.SetSize(a.width, a.height-3)
+		a.diff.SetSize(a.width, a.contentHeight())
 		cmd = a.diff.Init()
 	case stateModels:
-		a.modelRegistry.SetSize(a.width, a.height-3)
+		a.modelRegistry.SetSize(a.width, a.contentHeight())
 		cmd = a.modelRegistry.Init()
 	case stateModelImport:
-		a.modelImport.SetSize(a.width, a.height-3)
+		a.modelImport.SetSize(a.width, a.contentHeight())
 		cmd = a.modelImport.Init()
 	case stateImport:
-		a.importView.SetSize(a.width, a.height-3)
+		a.importView.SetSize(a.width, a.contentHeight())
 		cmd = a.importView.Init()
 	case stateExport:
-		a.exportView.SetSize(a.width, a.height-3)
+		a.exportView.SetSize(a.width, a.contentHeight())
 		cmd = a.exportView.Init()
 	case stateTemplateSelect:
-		a.templateSelect.SetSize(a.width, a.height-3)
+		a.templateSelect.SetSize(a.width, a.contentHeight())
 		cmd = a.templateSelect.Init()
 	case stateSchemaCheck:
-		a.schemaCheck.SetSize(a.width, a.height-3)
+		a.schemaCheck.SetSize(a.width, a.contentHeight())
 		cmd = a.schemaCheck.Init()
 	}
 
@@ -624,6 +625,10 @@ func (a App) showToast(text string, typ toastType, duration time.Duration) tea.C
 	}
 }
 
+func (a App) contentHeight() int {
+	return a.height - layout.HelpBarHeight(a.height)
+}
+
 func (a App) View() string {
 	if !a.ready {
 		return "Initializing..."
@@ -639,7 +644,7 @@ func (a App) View() string {
 	if a.loading {
 		content = lipgloss.Place(
 			a.width,
-			a.height-3,
+			a.contentHeight(),
 			lipgloss.Center,
 			lipgloss.Center,
 			a.spinner.View()+" Loading...",
@@ -686,12 +691,16 @@ func (a App) View() string {
 		toastView = style.Render(a.toast)
 	}
 
+	showHelpBar := toastView == "" || a.height >= 16
+
 	// Help view
 	var helpView string
-	if a.showHelp {
-		helpView = a.renderFullHelp()
-	} else {
-		helpView = a.renderShortHelp()
+	if showHelpBar {
+		if a.showHelp {
+			helpView = a.renderFullHelp()
+		} else {
+			helpView = a.renderShortHelp()
+		}
 	}
 
 	// Build final layout
@@ -702,7 +711,9 @@ func (a App) View() string {
 		parts = append(parts, toastView)
 	}
 
-	parts = append(parts, helpView)
+	if showHelpBar {
+		parts = append(parts, helpView)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
@@ -737,21 +748,40 @@ func (a App) renderShortHelp() string {
 		hints = []string{"? help", "q quit"}
 	}
 
-	return HelpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, joinWithSeparator(hints, " • ")...))
+	if a.width < 45 && len(hints) > 3 {
+		hints = hints[:3]
+	}
+
+	separator := " • "
+	if a.width < 60 {
+		separator = " · "
+	}
+
+	rendered := HelpStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, joinWithSeparator(hints, separator)...))
+	if lipgloss.Width(rendered) > a.width {
+		rendered = layout.TruncateWithEllipsis(rendered, a.width)
+	}
+
+	return rendered
 }
 
 func (a App) renderFullHelp() string {
 	var lines []string
+	short := layout.IsShort(a.height)
 
 	lines = append(lines, TitleStyle.Render("Keyboard Shortcuts"))
-	lines = append(lines, "")
+	if !short {
+		lines = append(lines, "")
+	}
 
-	// Global keys
-	lines = append(lines, AccentStyle.Render("Global:"))
-	lines = append(lines, HelpStyle.Render("  q/ctrl+c   Quit application"))
-	lines = append(lines, HelpStyle.Render("  ?          Toggle help"))
-	lines = append(lines, HelpStyle.Render("  esc        Back/Cancel"))
-	lines = append(lines, "")
+	if !short {
+		// Global keys
+		lines = append(lines, AccentStyle.Render("Global:"))
+		lines = append(lines, HelpStyle.Render("  q/ctrl+c   Quit application"))
+		lines = append(lines, HelpStyle.Render("  ?          Toggle help"))
+		lines = append(lines, HelpStyle.Render("  esc        Back/Cancel"))
+		lines = append(lines, "")
+	}
 
 	// Context-specific keys
 	switch a.state {
@@ -814,8 +844,10 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  esc        Cancel"))
 	}
 
-	lines = append(lines, "")
-	lines = append(lines, HelpStyle.Render("Press ? to close help"))
+	if !short {
+		lines = append(lines, "")
+		lines = append(lines, HelpStyle.Render("Press ? to close help"))
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

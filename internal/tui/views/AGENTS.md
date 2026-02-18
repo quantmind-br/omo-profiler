@@ -2,46 +2,73 @@
 
 ## OVERVIEW
 
-16 files implementing Bubble Tea views. Dominated by Profile Wizard logic. `Wizard` acts as parent component orchestrating 6 sequential configuration steps.
+18 view files implementing Bubble Tea sub-views. Dominated by the 6-step Profile Wizard. `Wizard` (`wizard.go`) orchestrates sequential configuration steps.
 
-## WIZARD FLOW
+## FILE MAP
 
-State machine driven by `wizard.go` `Update` loop:
+| File | Lines | Role |
+|------|-------|------|
+| `wizard.go` | — | Orchestrator: step transitions, `NewWizard`/`NewWizardForEdit`/`NewWizardFromTemplate` |
+| `step.go` | — | `WizardStep` interface definition |
+| `wizard_name.go` | — | Step 1: Profile naming + validation |
+| `wizard_categories.go` | 980 | Step 2: Category CRUD with dynamic form injection |
+| `wizard_agents.go` | 1230 | Step 3: Agent config forms with nested viewport scrolling |
+| `wizard_hooks.go` | — | Step 4: Event trigger configuration |
+| `wizard_other.go` | 2460 | Step 5: Catch-all settings (50+ fields, 21 collapsible sections) |
+| `wizard_review.go` | — | Step 6: JSON validation + persistence |
+| `dashboard.go` | — | Main menu with active profile overview |
+| `list.go` | — | Profile list with filtering, switch/edit/delete actions |
+| `diff.go` | — | Side-by-side profile comparison with dual viewports |
+| `import.go` | — | File-based profile import |
+| `export.go` | — | Profile export to file |
+| `model_selector.go` | 528 | Reusable searchable model dropdown (fuzzy, skip headers) |
+| `model_registry.go` | 625 | Local model CRUD with in-place form swapping |
+| `model_import.go` | 546 | Async models.dev fetcher with fuzzy filtering + multi-select |
+| `template_select.go` | — | Profile template picker for wizard initialization |
+| `schema_check.go` | — | Upstream schema diff viewer with save-to-file |
 
-1. **Name** (`StepName`): Profile naming & validation
-2. **Categories** (`StepCategories`): Model groupings
-3. **Agents** (`StepAgents`): Complex form (~1000 lines) for agent config
-4. **Hooks** (`StepHooks`): Event triggers
-5. **Other** (`StepOther`): Misc settings
-6. **Review** (`StepReview`): Final JSON validation & persistence
+## WIZARD STEP INTERFACE
 
-## KEY COMPONENTS
+Explicit (`WizardStep` in `step.go`):
+- `Init() tea.Cmd`
+- `SetSize(w, h int)`
+- `View() string`
 
-### Wizard State Machine
-- **Orchestrator**: `Wizard` struct holds `config.Config` and manages transitions
-- **Data Flow**: Steps read config via `SetConfig()`, mutate local state, write back via `Apply()` on exit
-- **Implicit Interface**: All steps implement:
-  - `SetConfig(*config.Config)`: Load state
-  - `Apply(*config.Config)`: Save state
-  - `SetSize(w, h)`: Responsive layout
-  - `Init() tea.Cmd`: Lifecycle hook
+Implicit (called by `Wizard` orchestrator):
+- `SetConfig(*config.Config)` — load state from config before step activates
+- `Apply(*config.Config)` — write local state back to config on step exit
 
-### Views
-- **List**: Dashboard with filtering/actions (`list.go`)
-- **Diff**: Side-by-side profile comparison (`diff.go`)
+## WIZARD DATA FLOW
+
+```
+Wizard holds config.Config
+  → Step activates: Wizard calls step.SetConfig(&config)
+  → User edits form fields (local state only)
+  → Step exits: Wizard calls step.Apply(&config)
+  → Next step activates with updated config
+```
 
 ## MESSAGE PROTOCOL
 
 | Message | Trigger | Action |
 |---------|---------|--------|
-| `WizardNextMsg` | `Enter`/`Tab` | Call `Apply()`, increment step, `Init()` next |
-| `WizardBackMsg` | `Esc`/`Shift+Tab` | Decrement step, `Init()` prev |
-| `WizardSaveMsg` | Review Step | Persist profile to disk, return to Dashboard |
-| `WizardCancelMsg` | `Ctrl+C` | Discard changes, return to Dashboard |
+| `WizardNextMsg` | Enter/Tab | `Apply()` current → increment step → `Init()` next |
+| `WizardBackMsg` | Esc/Shift+Tab | Decrement step → `Init()` prev |
+| `WizardSaveMsg` | Review confirm | Persist profile to disk → return to Dashboard |
+| `WizardCancelMsg` | Ctrl+C | Discard → Dashboard |
+| `NavTo*Msg` | Menu selection | Emitted by dashboard/list → intercepted by `App` |
+
+## COMPLEXITY HOTSPOTS
+
+- **wizard_other.go** (2460L): Manual focus management across 21 sections. Every upstream `Config` field change requires boilerplate in both `SetConfig` and `Apply`.
+- **wizard_agents.go** (1230L): Nested "form-in-list" pattern with manual scroll offset calculations (`getLineForField`).
+- **wizard_categories.go** (980L): Dynamic form list — user can add/delete categories, requiring viewport rebuild.
+- **model_selector.go**: Reused by both agents and categories steps. Heterogeneous list with non-selectable headers (`findNextSelectable`).
 
 ## ANTI-PATTERNS
 
 - **Direct Config Mutation**: Steps must NOT modify `config.Config` directly; use `Apply()` only
-- **Blocking Operations**: Disk I/O (Save/Load) should be wrapped in `tea.Cmd`
+- **Blocking Operations**: Disk I/O must be wrapped in `tea.Cmd`
 - **Hardcoded Dimensions**: Always use `SetSize()` provided by parent
-- **Incomplete Features**: `wizard_hooks.go` has known TODOs ("todo-continuation-enforcer")
+- **Local Style Definitions**: Import from `internal/tui/styles.go`; don't redeclare hex colors
+- **Duplicated Model Logic**: `wizard_agents.go` and `wizard_categories.go` share custom-model-save logic that should be abstracted

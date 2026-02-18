@@ -569,6 +569,129 @@ func TestTaskSystemOmitempty(t *testing.T) {
 	}
 }
 
+func TestUltraworkConfigRoundTrip(t *testing.T) {
+	jsonData := `{
+		"agents": {
+			"build": {
+				"model": "claude-sonnet",
+				"ultrawork": {"model": "claude-sonnet-4-20250514", "variant": "fast"}
+			}
+		}
+	}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	build := cfg.Agents["build"]
+	if build == nil {
+		t.Fatal("build agent is nil")
+	}
+	if build.Ultrawork == nil {
+		t.Fatal("ultrawork is nil")
+	}
+	if build.Ultrawork.Model != "claude-sonnet-4-20250514" {
+		t.Errorf("expected ultrawork.model=claude-sonnet-4-20250514, got %s", build.Ultrawork.Model)
+	}
+	if build.Ultrawork.Variant != "fast" {
+		t.Errorf("expected ultrawork.variant=fast, got %s", build.Ultrawork.Variant)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"ultrawork"`) {
+		t.Errorf("ultrawork not preserved: %s", marshaled)
+	}
+	if !strings.Contains(string(marshaled), `"model":"claude-sonnet-4-20250514"`) {
+		t.Errorf("ultrawork.model not preserved: %s", marshaled)
+	}
+}
+
+func TestUltraworkConfigOmitempty(t *testing.T) {
+	cfg := Config{
+		Agents: map[string]*AgentConfig{
+			"build": {Model: "test"},
+		},
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	if strings.Contains(string(marshaled), "ultrawork") {
+		t.Errorf("nil ultrawork should be omitted: %s", marshaled)
+	}
+}
+
+func TestHashlineEditRoundTrip(t *testing.T) {
+	jsonData := `{"experimental": {"hashline_edit": true}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.HashlineEdit == nil || !*cfg.Experimental.HashlineEdit {
+		t.Errorf("expected hashline_edit=true, got %v", cfg.Experimental.HashlineEdit)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"hashline_edit":true`) {
+		t.Errorf("hashline_edit not preserved: %s", marshaled)
+	}
+}
+
+func TestHashlineEditFalse(t *testing.T) {
+	jsonData := `{"experimental": {"hashline_edit": false}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.HashlineEdit == nil || *cfg.Experimental.HashlineEdit {
+		t.Errorf("expected hashline_edit=false, got %v", cfg.Experimental.HashlineEdit)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"hashline_edit":false`) {
+		t.Errorf("hashline_edit=false not preserved: %s", marshaled)
+	}
+}
+
+func TestHashlineEditOmitempty(t *testing.T) {
+	cfg := Config{
+		Experimental: &ExperimentalConfig{
+			HashlineEdit: nil,
+		},
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	if strings.Contains(string(marshaled), "hashline_edit") {
+		t.Errorf("nil hashline_edit should be omitted: %s", marshaled)
+	}
+}
+
 func TestTaskListIDOmitempty(t *testing.T) {
 	// Test that empty TaskListID is omitted from JSON
 	jsonData := `{"sisyphus": {"tasks": {"storage_path": ".sisyphus/tasks"}}}`

@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 type SwitchProfileMsg struct{ Name string }
@@ -159,7 +160,11 @@ func (l *List) LoadProfiles() error {
 func (l *List) SetSize(width, height int) {
 	l.width = width
 	l.height = height
-	l.list.SetSize(width, height-4)
+	overhead := 4
+	if layout.IsShort(height) {
+		overhead = 2
+	}
+	l.list.SetSize(width, height-overhead)
 }
 
 func (l List) Update(msg tea.Msg) (List, tea.Cmd) {

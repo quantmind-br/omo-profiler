@@ -112,6 +112,8 @@ const (
 	fieldMaxTokens
 	fieldThinkingType
 	fieldThinkingBudget
+	fieldUltraworkModel
+	fieldUltraworkVariant
 	fieldReasoningEffort
 	fieldTextVerbosity
 	fieldProviderOptions
@@ -143,6 +145,8 @@ type agentConfig struct {
 	maxTokens              textinput.Model
 	thinkingTypeIdx        int
 	thinkingBudget         textinput.Model
+	ultraworkModel         textinput.Model
+	ultraworkVariant       textinput.Model
 	reasoningEffortIdx     int
 	textVerbosityIdx       int
 	providerOptionsDisplay string
@@ -217,6 +221,14 @@ func newAgentConfig() agentConfig {
 	thinkingBudget.Placeholder = "e.g. 10000"
 	thinkingBudget.CharLimit = 10
 
+	ultraworkModel := textinput.New()
+	ultraworkModel.Placeholder = "model ID"
+	ultraworkModel.Width = 30
+
+	ultraworkVariant := textinput.New()
+	ultraworkVariant.Placeholder = "variant (optional)"
+	ultraworkVariant.Width = 30
+
 	saveDisplayNameInput := textinput.New()
 	saveDisplayNameInput.Placeholder = "Display name"
 	saveDisplayNameInput.Width = 30
@@ -238,6 +250,8 @@ func newAgentConfig() agentConfig {
 		color:                color,
 		maxTokens:            maxTokens,
 		thinkingBudget:       thinkingBudget,
+		ultraworkModel:       ultraworkModel,
+		ultraworkVariant:     ultraworkVariant,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -334,12 +348,16 @@ func (w WizardAgents) Init() tea.Cmd {
 func (w *WizardAgents) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	overhead := 4
+	if layout.IsShort(height) {
+		overhead = 3
+	}
 	if !w.ready {
-		w.viewport = viewport.New(width, height-4)
+		w.viewport = viewport.New(width, height-overhead)
 		w.ready = true
 	} else {
 		w.viewport.Width = width
-		w.viewport.Height = height - 4
+		w.viewport.Height = height - overhead
 	}
 
 	// Guard against uninitialized struct (e.g. before navigation)
@@ -355,6 +373,8 @@ func (w *WizardAgents) SetSize(width, height int) {
 		ac.description.Width = layout.WideFieldWidth(width, 10)
 		ac.prompt.SetWidth(layout.WideFieldWidth(width, 10))
 		ac.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
+		ac.ultraworkModel.Width = layout.MediumFieldWidth(width)
+		ac.ultraworkVariant.Width = layout.MediumFieldWidth(width)
 		ac.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		ac.saveProviderInput.Width = layout.MediumFieldWidth(width)
 		ac.modelSelector.SetSize(width, height)
@@ -451,6 +471,13 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 				if agentCfg.Thinking.BudgetTokens != nil {
 					ac.thinkingBudget.SetValue(fmt.Sprintf("%.0f", *agentCfg.Thinking.BudgetTokens))
 				}
+			}
+			if agentCfg.Ultrawork != nil {
+				ac.ultraworkModel.SetValue(agentCfg.Ultrawork.Model)
+				ac.ultraworkVariant.SetValue(agentCfg.Ultrawork.Variant)
+			} else {
+				ac.ultraworkModel.SetValue("")
+				ac.ultraworkVariant.SetValue("")
 			}
 			for i, e := range effortLevels {
 				if e == agentCfg.ReasoningEffort {
@@ -589,6 +616,15 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			agentCfg.Thinking = nil
 		}
 
+		if m := ac.ultraworkModel.Value(); m != "" {
+			agentCfg.Ultrawork = &config.UltraworkConfig{
+				Model:   m,
+				Variant: ac.ultraworkVariant.Value(),
+			}
+		} else {
+			agentCfg.Ultrawork = nil
+		}
+
 		agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
 		agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
 
@@ -614,6 +650,8 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	ac.color.Blur()
 	ac.maxTokens.Blur()
 	ac.thinkingBudget.Blur()
+	ac.ultraworkModel.Blur()
+	ac.ultraworkVariant.Blur()
 
 	switch w.focusedField {
 	case fieldModel:
@@ -642,6 +680,10 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 		ac.maxTokens.Focus()
 	case fieldThinkingBudget:
 		ac.thinkingBudget.Focus()
+	case fieldUltraworkModel:
+		ac.ultraworkModel.Focus()
+	case fieldUltraworkVariant:
+		ac.ultraworkVariant.Focus()
 	}
 }
 
@@ -653,7 +695,7 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		baseLine++ // agent header line
 		ac := w.agents[allAgents[i]]
 		if ac.expanded && ac.enabled {
-			baseLine += 37 // expanded form ~37 lines
+			baseLine += 39 // expanded form ~39 lines
 		}
 	}
 	baseLine++ // current agent header
@@ -661,31 +703,33 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 
 	// Field offsets within the form
 	fieldOffsets := map[agentFormField]int{
-		fieldModel:           0,
-		fieldVariant:         1,
-		fieldCategory:        2,
-		fieldTemperature:     3,
-		fieldTopP:            4,
-		fieldSkills:          5,
-		fieldTools:           6,
-		fieldPrompt:          7,
-		fieldPromptAppend:    10,
-		fieldDisable:         13,
-		fieldDescription:     14,
-		fieldMode:            15,
-		fieldColor:           16,
-		fieldMaxTokens:       17,
-		fieldThinkingType:    18,
-		fieldThinkingBudget:  19,
-		fieldReasoningEffort: 20,
-		fieldTextVerbosity:   21,
-		fieldProviderOptions: 22,
-		fieldPermEdit:        25,
-		fieldPermBash:        26,
-		fieldPermWebfetch:    27,
-		fieldPermTask:        28,
-		fieldPermDoomLoop:    29,
-		fieldPermExtDir:      30,
+		fieldModel:            0,
+		fieldVariant:          1,
+		fieldCategory:         2,
+		fieldTemperature:      3,
+		fieldTopP:             4,
+		fieldSkills:           5,
+		fieldTools:            6,
+		fieldPrompt:           7,
+		fieldPromptAppend:     10,
+		fieldDisable:          13,
+		fieldDescription:      14,
+		fieldMode:             15,
+		fieldColor:            16,
+		fieldMaxTokens:        17,
+		fieldThinkingType:     18,
+		fieldThinkingBudget:   19,
+		fieldUltraworkModel:   20,
+		fieldUltraworkVariant: 21,
+		fieldReasoningEffort:  22,
+		fieldTextVerbosity:    23,
+		fieldProviderOptions:  24,
+		fieldPermEdit:         27,
+		fieldPermBash:         28,
+		fieldPermWebfetch:     29,
+		fieldPermTask:         30,
+		fieldPermDoomLoop:     31,
+		fieldPermExtDir:       32,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -872,6 +916,12 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			case fieldThinkingBudget:
 				ac.thinkingBudget, cmd = ac.thinkingBudget.Update(msg)
 				cmds = append(cmds, cmd)
+			case fieldUltraworkModel:
+				ac.ultraworkModel, cmd = ac.ultraworkModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldUltraworkVariant:
+				ac.ultraworkVariant, cmd = ac.ultraworkVariant.Update(msg)
+				cmds = append(cmds, cmd)
 			}
 
 			w.viewport.SetContent(w.renderContent())
@@ -980,6 +1030,11 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	var lines []string
 
 	indent := "      "
+	labelFmt := "%-12s: "
+	if layout.IsCompact(w.width) {
+		indent = "    "
+		labelFmt = "%-8s: "
+	}
 
 	// Only show focus styling if this is the active agent being edited
 	isActiveAgent := name == allAgents[w.cursor]
@@ -991,7 +1046,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 			style = wizAgentSelectedStyle
 			cursor = wizAgentCursorStyle.Render("> ")
 		}
-		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + value
+		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + value
 	}
 
 	renderDropdown := func(label string, field agentFormField, options []string, idx int) string {
@@ -1005,7 +1060,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + val + " [←/→]"
+		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + val + " [←/→]"
 	}
 
 	renderBool := func(label string, field agentFormField, val bool) string {
@@ -1019,7 +1074,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 		if val {
 			checkbox = "[✓]"
 		}
-		return indent[:4] + cursor + style.Render(fmt.Sprintf("%-12s: ", label)) + checkbox + " [←/→]"
+		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + checkbox + " [←/→]"
 	}
 
 	lines = append(lines, "")
@@ -1043,6 +1098,8 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("maxTokens", fieldMaxTokens, ac.maxTokens.View()))
 	lines = append(lines, renderDropdown("thinking", fieldThinkingType, thinkingTypes, ac.thinkingTypeIdx))
 	lines = append(lines, renderField("thinkBudget", fieldThinkingBudget, ac.thinkingBudget.View()))
+	lines = append(lines, renderField("ultraModel", fieldUltraworkModel, ac.ultraworkModel.View()))
+	lines = append(lines, renderField("ultraVariant", fieldUltraworkVariant, ac.ultraworkVariant.View()))
 	lines = append(lines, renderDropdown("reasoning", fieldReasoningEffort, effortLevels, ac.reasoningEffortIdx))
 	lines = append(lines, renderDropdown("verbosity", fieldTextVerbosity, verbosityLevels, ac.textVerbosityIdx))
 	lines = append(lines, renderField("providerOpts", fieldProviderOptions, ac.providerOptionsDisplay+" (read-only)"))
@@ -1072,7 +1129,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	if _, isObject := ac.originalBash.(map[string]interface{}); isObject {
 		bashHint = " (read-only)"
 	}
-	lines = append(lines, indent[:4]+bashCursor+bashStyle.Render(fmt.Sprintf("%-12s: ", "bash"))+bashValue+bashHint)
+	lines = append(lines, indent[:len(indent)-2]+bashCursor+bashStyle.Render(fmt.Sprintf(labelFmt, "bash"))+bashValue+bashHint)
 
 	lines = append(lines, renderDropdown("webfetch", fieldPermWebfetch, permissionValues, ac.permWebfetchIdx))
 	lines = append(lines, renderDropdown("task", fieldPermTask, permissionValues, ac.permTaskIdx))
@@ -1192,6 +1249,14 @@ func (w WizardAgents) View() string {
 	}
 
 	content := w.viewport.View()
+
+	if layout.IsShort(w.height) {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			desc,
+			content,
+		)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,

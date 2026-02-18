@@ -241,15 +241,24 @@ func (d Dashboard) View() string {
 
 	statsLine := subtitleStyle.Render(fmt.Sprintf("%d profiles available", d.profileCount))
 
-	header := strings.Join([]string{
-		"",
-		title,
-		subtitle,
-		"",
-		profileStatus,
-		statsLine,
-		"",
-	}, "\n")
+	var header string
+	if layout.IsShort(d.height) {
+		header = strings.Join([]string{
+			titleStyle.Render("OMO-Profiler") + " " + subtitleStyle.Render("Profile Manager"),
+			profileStatus,
+			statsLine,
+		}, "\n")
+	} else {
+		header = strings.Join([]string{
+			"",
+			title,
+			subtitle,
+			"",
+			profileStatus,
+			statsLine,
+			"",
+		}, "\n")
+	}
 
 	return header + d.renderMenuContent()
 }
@@ -281,6 +290,9 @@ func (d *Dashboard) SetSize(width, height int) {
 	d.height = height
 	// Header: empty line + title + subtitle + empty line + profileStatus + statsLine + empty line = 7 lines
 	headerHeight := 7
+	if layout.IsShort(height) {
+		headerHeight = 3
+	}
 	if !d.ready {
 		d.viewport = viewport.New(width, height-headerHeight)
 		d.ready = true

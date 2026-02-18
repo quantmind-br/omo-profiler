@@ -259,6 +259,9 @@ func (s SchemaCheck) View() string {
 		content = errorStyle.Render(fmt.Sprintf("\n Error: %s", s.errorMsg))
 		content += "\n\n [r] retry  [esc] back"
 	}
+	if layout.IsShort(s.height) {
+		content = strings.TrimLeft(content, "\n")
+	}
 
 	title := titleStyle.Render("Schema Update Check")
 	return lipgloss.JoinVertical(lipgloss.Left,

@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/schema"
+	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
 var (
@@ -93,12 +94,16 @@ func (w WizardReview) Init() tea.Cmd {
 func (w *WizardReview) SetSize(width, height int) {
 	w.width = width
 	w.height = height
+	overhead := 8
+	if layout.IsShort(height) {
+		overhead = 4
+	}
 	if !w.ready {
-		w.viewport = viewport.New(width, height-8)
+		w.viewport = viewport.New(width, height-overhead)
 		w.ready = true
 	} else {
 		w.viewport.Width = width
-		w.viewport.Height = height - 8
+		w.viewport.Height = height - overhead
 	}
 }
 
@@ -196,6 +201,17 @@ func (w WizardReview) View() string {
 		help = wizReviewHelpStyle.Render("Enter to save • Shift+Tab to go back • ↑/↓ to scroll")
 	} else {
 		help = wizReviewHelpStyle.Render("Fix errors before saving • Shift+Tab to go back")
+	}
+
+	if layout.IsShort(w.height) {
+		titleLine := wizReviewTitleStyle.Render("Review: ") + wizReviewTitleStyle.Render(w.profileName)
+		w.viewport.SetContent(wizReviewCodeStyle.Render(w.jsonPreview))
+		return lipgloss.JoinVertical(lipgloss.Left,
+			titleLine,
+			validationStatus,
+			w.viewport.View(),
+			help,
+		)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,

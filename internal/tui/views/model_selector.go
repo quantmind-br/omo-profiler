@@ -414,7 +414,9 @@ func (m ModelSelector) renderList() string {
 
 	var headerLines []string
 	headerLines = append(headerLines, titleStyle.Render("Select Model"))
-	headerLines = append(headerLines, "")
+	if !layout.IsShort(m.height) {
+		headerLines = append(headerLines, "")
+	}
 
 	if m.loadError != nil {
 		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F38BA8"))
@@ -454,7 +456,11 @@ func (m ModelSelector) renderList() string {
 		}
 
 		if item.isSeparator {
-			listLines = append(listLines, dimStyle.Render("───────────────────────"))
+			sepWidth := m.width - 4
+			if sepWidth < 10 {
+				sepWidth = 10
+			}
+			listLines = append(listLines, dimStyle.Render(strings.Repeat("─", sepWidth)))
 			continue
 		}
 
@@ -486,7 +492,9 @@ func (m ModelSelector) renderList() string {
 	}
 
 	var footerLines []string
-	footerLines = append(footerLines, "")
+	if !layout.IsShort(m.height) {
+		footerLines = append(footerLines, "")
+	}
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 	footerLines = append(footerLines, helpStyle.Render("[/] search  [↑↓] navigate  [Enter] select  [Esc] cancel"))
 
@@ -504,10 +512,14 @@ func (m ModelSelector) renderCustomMode() string {
 
 	var lines []string
 	lines = append(lines, titleStyle.Render("Enter Custom Model"))
-	lines = append(lines, "")
+	if !layout.IsShort(m.height) {
+		lines = append(lines, "")
+	}
 	lines = append(lines, labelStyle.Render("Model ID:"))
 	lines = append(lines, m.customInput.View())
-	lines = append(lines, "")
+	if !layout.IsShort(m.height) {
+		lines = append(lines, "")
+	}
 	lines = append(lines, helpStyle.Render("[Enter] confirm  [Esc] cancel"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)

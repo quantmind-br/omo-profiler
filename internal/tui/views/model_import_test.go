@@ -3,8 +3,8 @@ package views
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/models"
 )
 
@@ -37,6 +37,18 @@ func TestNewModelImport(t *testing.T) {
 
 	if mi.registry == nil {
 		t.Error("expected registry to be loaded")
+	}
+
+	if mi.providerSearchInput.Focused() {
+		t.Error("expected provider search input to not be focused initially")
+	}
+
+	if mi.providerSearchInput.Value() != "" {
+		t.Errorf("expected empty provider search input value, got %q", mi.providerSearchInput.Value())
+	}
+
+	if mi.providerSearchInput.Placeholder != "Search providers..." {
+		t.Errorf("expected provider search placeholder 'Search providers...', got %q", mi.providerSearchInput.Placeholder)
 	}
 
 	// Check key bindings
@@ -105,6 +117,12 @@ func TestModelImportIsEditing(t *testing.T) {
 	mi.searchInput.Focus()
 	if !mi.IsEditing() {
 		t.Error("expected IsEditing to be true when search is focused")
+	}
+
+	mi.searchInput.Blur()
+	mi.providerSearchInput.Focus()
+	if !mi.IsEditing() {
+		t.Error("expected IsEditing to be true when provider search is focused")
 	}
 }
 
@@ -277,6 +295,143 @@ func TestModelImportHandleProviderListKeysEnter(t *testing.T) {
 
 	if !updated.searchInput.Focused() {
 		t.Error("expected search input to be focused after selecting provider")
+	}
+
+	if updated.providerSearchInput.Focused() {
+		t.Error("expected provider search input to be blurred after selecting provider")
+	}
+
+	if updated.providerSearchInput.Value() != "" {
+		t.Errorf("expected provider search input to be cleared after selecting provider, got %q", updated.providerSearchInput.Value())
+	}
+}
+
+func TestModelImportHandleProviderListKeysSearchSlash(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.providerSearchInput.Blur()
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")}
+	updated, cmd := mi.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command for '/' key")
+	}
+
+	if !updated.providerSearchInput.Focused() {
+		t.Error("expected provider search input to be focused after '/' key")
+	}
+}
+
+func TestModelImportHandleProviderSearchEsc(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.providerSearchInput.Focus()
+	mi.providerSearchInput.SetValue("test")
+	mi.cursor = 5
+	mi.providerOffset = 2
+
+	msg := tea.KeyMsg{Type: tea.KeyEsc}
+	updated, cmd := mi.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command for Esc in provider search mode")
+	}
+
+	if updated.providerSearchInput.Focused() {
+		t.Error("expected provider search input to be blurred after Esc")
+	}
+
+	if updated.providerSearchInput.Value() != "" {
+		t.Errorf("expected provider search value to be cleared, got %q", updated.providerSearchInput.Value())
+	}
+
+	if updated.cursor != 0 {
+		t.Errorf("expected cursor to be reset to 0, got %d", updated.cursor)
+	}
+
+	if updated.providerOffset != 0 {
+		t.Errorf("expected providerOffset to be reset to 0, got %d", updated.providerOffset)
+	}
+}
+
+func TestModelImportHandleProviderSearchEnter(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.providerSearchInput.Focus()
+	mi.providerSearchInput.SetValue("anth")
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	updated, cmd := mi.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command for Enter in provider search mode")
+	}
+
+	if updated.providerSearchInput.Focused() {
+		t.Error("expected provider search input to be blurred after Enter")
+	}
+
+	if updated.providerSearchInput.Value() != "anth" {
+		t.Errorf("expected provider search value to be preserved, got %q", updated.providerSearchInput.Value())
+	}
+}
+
+func TestModelImportHandleProviderSearchFiltering(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.providerSearchInput.Focus()
+	mi.cursor = 3
+	mi.providerOffset = 2
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")}
+	updated, _ := mi.Update(msg)
+
+	if updated.cursor != 0 {
+		t.Errorf("expected cursor to be reset to 0, got %d", updated.cursor)
+	}
+
+	if updated.providerOffset != 0 {
+		t.Errorf("expected providerOffset to be reset to 0, got %d", updated.providerOffset)
+	}
+}
+
+func TestModelImportHandleProviderListEnterClearsProviderSearch(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.response = &models.ModelsDevResponse{
+		"anthropic": {
+			ID:   "anthropic",
+			Name: "Anthropic",
+			Models: map[string]models.ModelsDevModel{
+				"claude-3": {ID: "claude-3", Name: "Claude 3"},
+			},
+		},
+	}
+	mi.providers = []models.ProviderWithCount{
+		{ID: "anthropic", Name: "Anthropic", ModelCount: 1},
+	}
+	mi.cursor = 0
+	mi.providerSearchInput.SetValue("anth")
+	mi.providerSearchInput.Blur()
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	updated, cmd := mi.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command for Enter key")
+	}
+
+	if updated.state != stateImportModelList {
+		t.Errorf("expected stateImportModelList, got %v", updated.state)
+	}
+
+	if updated.providerSearchInput.Value() != "" {
+		t.Errorf("expected provider search input to be cleared after selecting provider, got %q", updated.providerSearchInput.Value())
+	}
+
+	if updated.providerSearchInput.Focused() {
+		t.Error("expected provider search input to be blurred after selecting provider")
 	}
 }
 
@@ -528,6 +683,55 @@ func TestModelImportGetFilteredModelsNoSearch(t *testing.T) {
 	}
 }
 
+func TestModelImportGetFilteredProvidersNoSearch(t *testing.T) {
+	mi := NewModelImport()
+	mi.providers = []models.ProviderWithCount{
+		{ID: "anthropic", Name: "Anthropic", ModelCount: 5},
+		{ID: "openai", Name: "OpenAI", ModelCount: 3},
+	}
+	mi.providerSearchInput.SetValue("")
+
+	filtered := mi.getFilteredProviders()
+
+	if len(filtered) != 2 {
+		t.Errorf("expected 2 providers, got %d", len(filtered))
+	}
+}
+
+func TestModelImportGetFilteredProvidersWithSearch(t *testing.T) {
+	mi := NewModelImport()
+	mi.providers = []models.ProviderWithCount{
+		{ID: "anthropic", Name: "Anthropic", ModelCount: 5},
+		{ID: "openai", Name: "OpenAI", ModelCount: 3},
+	}
+	mi.providerSearchInput.SetValue("anth")
+
+	filtered := mi.getFilteredProviders()
+
+	if len(filtered) != 1 {
+		t.Errorf("expected 1 provider, got %d", len(filtered))
+	}
+
+	if filtered[0].ID != "anthropic" {
+		t.Errorf("expected anthropic, got %q", filtered[0].ID)
+	}
+}
+
+func TestModelImportGetFilteredProvidersNoMatch(t *testing.T) {
+	mi := NewModelImport()
+	mi.providers = []models.ProviderWithCount{
+		{ID: "anthropic", Name: "Anthropic", ModelCount: 5},
+		{ID: "openai", Name: "OpenAI", ModelCount: 3},
+	}
+	mi.providerSearchInput.SetValue("nonexistent")
+
+	filtered := mi.getFilteredProviders()
+
+	if len(filtered) != 0 {
+		t.Errorf("expected 0 providers, got %d", len(filtered))
+	}
+}
+
 func TestModelImportGetFilteredModelsWithSearch(t *testing.T) {
 	mi := NewModelImport()
 	mi.providerModels = []models.ModelsDevModel{
@@ -613,6 +817,45 @@ func TestModelImportViewProviderList(t *testing.T) {
 
 	if !contains(view, "[↑↓] navigate") {
 		t.Error("expected navigation help in view")
+	}
+
+	if !contains(view, "[/] search") {
+		t.Error("expected search help in view")
+	}
+
+	if !contains(view, "Search") {
+		t.Error("expected search line in view")
+	}
+}
+
+func TestModelImportViewProviderListNoMatch(t *testing.T) {
+	mi := NewModelImport()
+	mi.state = stateImportProviderList
+	mi.width = 80
+	mi.height = 24
+	mi.providers = []models.ProviderWithCount{
+		{ID: "anthropic", Name: "Anthropic", ModelCount: 5},
+	}
+	mi.providerSearchInput.SetValue("nonexistent")
+
+	view := mi.View()
+
+	if !contains(view, "No providers match the search.") {
+		t.Error("expected no-match provider search message in view")
+	}
+}
+
+func TestModelImportIsEditingProviderSearch(t *testing.T) {
+	mi := NewModelImport()
+
+	mi.providerSearchInput.Focus()
+	if !mi.IsEditing() {
+		t.Error("expected IsEditing to be true when provider search is focused")
+	}
+
+	mi.providerSearchInput.Blur()
+	if mi.IsEditing() {
+		t.Error("expected IsEditing to be false when provider search is blurred")
 	}
 }
 

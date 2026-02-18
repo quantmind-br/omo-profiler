@@ -27,16 +27,27 @@ func IsBelowMinimumSize(width, height int) bool {
 	return layout.IsBelowMinimumSize(width, height)
 }
 
+func IsCompact(width int) bool {
+	return layout.IsCompact(width)
+}
+
+func IsShort(height int) bool {
+	return layout.IsShort(height)
+}
+
+func HelpBarHeight(height int) int {
+	return layout.HelpBarHeight(height)
+}
+
 func RenderMinimumSizeWarning(width, height int) string {
-	title := lipgloss.NewStyle().Bold(true).Foreground(Yellow).Render("⚠  Terminal Too Small")
+	title := lipgloss.NewStyle().Bold(true).Foreground(Yellow).Render("⚠ Too Small")
 	body := fmt.Sprintf(
-		"Minimum required: %dx%d\nCurrent size:     %dx%d",
+		"Need: %dx%d  Now: %dx%d",
 		layout.MinTerminalWidth, layout.MinTerminalHeight, width, height,
 	)
 	dim := lipgloss.NewStyle().Foreground(Gray)
-	instruction := dim.Render("Please resize your terminal window.")
-	quit := dim.Render("Press q or Ctrl+C to quit.")
+	quit := dim.Render("Resize or q to quit")
 
-	content := lipgloss.JoinVertical(lipgloss.Center, title, "", body, "", instruction, quit)
+	content := lipgloss.JoinVertical(lipgloss.Center, title, body, quit)
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
