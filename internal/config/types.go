@@ -10,6 +10,7 @@ type Config struct {
 	DisabledSkills          []string                       `json:"disabled_skills,omitempty"`
 	DisabledHooks           []string                       `json:"disabled_hooks,omitempty"`
 	DisabledCommands        []string                       `json:"disabled_commands,omitempty"`
+	HashlineEdit            *bool                          `json:"hashline_edit,omitempty"`
 	Agents                  map[string]*AgentConfig        `json:"agents,omitempty"`
 	Categories              map[string]*CategoryConfig     `json:"categories,omitempty"`
 	ClaudeCode              *ClaudeCodeConfig              `json:"claude_code,omitempty"`
@@ -19,6 +20,7 @@ type Config struct {
 	AutoUpdate              *bool                          `json:"auto_update,omitempty"`
 	Skills                  json.RawMessage                `json:"skills,omitempty"`
 	RalphLoop               *RalphLoopConfig               `json:"ralph_loop,omitempty"`
+	RuntimeFallback         json.RawMessage                `json:"runtime_fallback,omitempty"`
 	BackgroundTask          *BackgroundTaskConfig          `json:"background_task,omitempty"`
 	Notification            *NotificationConfig            `json:"notification,omitempty"`
 	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
@@ -35,6 +37,7 @@ type Config struct {
 
 type AgentConfig struct {
 	Model           string                 `json:"model,omitempty"`
+	FallbackModels  interface{}            `json:"fallback_models,omitempty"`
 	Variant         string                 `json:"variant,omitempty"`
 	Category        string                 `json:"category,omitempty"`
 	Skills          []string               `json:"skills,omitempty"`
@@ -50,10 +53,10 @@ type AgentConfig struct {
 	Permission      *PermissionConfig      `json:"permission,omitempty"`
 	MaxTokens       *float64               `json:"maxTokens,omitempty"`
 	Thinking        *ThinkingConfig        `json:"thinking,omitempty"`
-	Ultrawork       *UltraworkConfig       `json:"ultrawork,omitempty"`
 	ReasoningEffort string                 `json:"reasoningEffort,omitempty"`
 	TextVerbosity   string                 `json:"textVerbosity,omitempty"`
 	ProviderOptions map[string]interface{} `json:"providerOptions,omitempty"`
+	Ultrawork       *UltraworkConfig       `json:"ultrawork,omitempty"`
 }
 
 // PermissionConfig - bash is interface{} to preserve string OR object
@@ -68,9 +71,10 @@ type PermissionConfig struct {
 
 // CategoryConfig
 type CategoryConfig struct {
-	Model           string          `json:"model,omitempty"`
-	Variant         string          `json:"variant,omitempty"`
 	Description     string          `json:"description,omitempty"`
+	Model           string          `json:"model,omitempty"`
+	FallbackModels  interface{}     `json:"fallback_models,omitempty"`
+	Variant         string          `json:"variant,omitempty"`
 	Temperature     *float64        `json:"temperature,omitempty"`
 	TopP            *float64        `json:"top_p,omitempty"`
 	MaxTokens       *float64        `json:"maxTokens,omitempty"`
@@ -118,13 +122,15 @@ type SisyphusAgentConfig struct {
 type ExperimentalConfig struct {
 	AggressiveTruncation   *bool                        `json:"aggressive_truncation,omitempty"`
 	AutoResume             *bool                        `json:"auto_resume,omitempty"`
-	TruncateAllToolOutputs *bool                        `json:"truncate_all_tool_outputs,omitempty"`
 	PreemptiveCompaction   *bool                        `json:"preemptive_compaction,omitempty"`
-	TaskSystem             *bool                        `json:"task_system,omitempty"`
+	TruncateAllToolOutputs *bool                        `json:"truncate_all_tool_outputs,omitempty"`
 	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
+	TaskSystem             *bool                        `json:"task_system,omitempty"`
 	PluginLoadTimeoutMs    *int                         `json:"plugin_load_timeout_ms,omitempty"`
 	SafeHookCreation       *bool                        `json:"safe_hook_creation,omitempty"`
+	DisableOmoEnv          *bool                        `json:"disable_omo_env,omitempty"`
 	HashlineEdit           *bool                        `json:"hashline_edit,omitempty"`
+	ModelFallbackTitle     *bool                        `json:"model_fallback_title,omitempty"`
 }
 
 // DynamicContextPruningConfig
@@ -171,14 +177,16 @@ type RalphLoopConfig struct {
 	Enabled              *bool  `json:"enabled,omitempty"`
 	DefaultMaxIterations *int   `json:"default_max_iterations,omitempty"`
 	StateDir             string `json:"state_dir,omitempty"`
+	DefaultStrategy      string `json:"default_strategy,omitempty"`
 }
 
 // BackgroundTaskConfig
 type BackgroundTaskConfig struct {
-	DefaultConcurrency  *int           `json:"defaultConcurrency,omitempty"`
-	ProviderConcurrency map[string]int `json:"providerConcurrency,omitempty"`
-	ModelConcurrency    map[string]int `json:"modelConcurrency,omitempty"`
-	StaleTimeoutMs      *int           `json:"staleTimeoutMs,omitempty"`
+	DefaultConcurrency        *int           `json:"defaultConcurrency,omitempty"`
+	ProviderConcurrency       map[string]int `json:"providerConcurrency,omitempty"`
+	ModelConcurrency          map[string]int `json:"modelConcurrency,omitempty"`
+	StaleTimeoutMs            *int           `json:"staleTimeoutMs,omitempty"`
+	MessageStalenessTimeoutMs *int           `json:"messageStalenessTimeoutMs,omitempty"`
 }
 
 // NotificationConfig

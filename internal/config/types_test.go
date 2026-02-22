@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -710,4 +713,393 @@ func TestTaskListIDOmitempty(t *testing.T) {
 	if strings.Contains(string(marshaled), "task_list_id") {
 		t.Errorf("empty task_list_id should be omitted: %s", marshaled)
 	}
+}
+
+func TestTopLevelHashlineEditRoundTrip(t *testing.T) {
+	jsonData := `{"hashline_edit": true}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.HashlineEdit == nil || !*cfg.HashlineEdit {
+		t.Errorf("expected hashline_edit=true, got %v", cfg.HashlineEdit)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"hashline_edit":true`) {
+		t.Errorf("hashline_edit not preserved: %s", marshaled)
+	}
+}
+
+func TestRuntimeFallbackBoolRoundTrip(t *testing.T) {
+	jsonData := `{"runtime_fallback": true}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.RuntimeFallback == nil {
+		t.Fatal("runtime_fallback is nil")
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"runtime_fallback":true`) {
+		t.Errorf("runtime_fallback bool not preserved: %s", marshaled)
+	}
+}
+
+func TestRuntimeFallbackObjectRoundTrip(t *testing.T) {
+	jsonData := `{"runtime_fallback": {"enabled": true, "max_fallback_attempts": 3}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.RuntimeFallback == nil {
+		t.Fatal("runtime_fallback is nil")
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"enabled":true`) {
+		t.Errorf("runtime_fallback object not preserved: %s", marshaled)
+	}
+	if !strings.Contains(string(marshaled), `"max_fallback_attempts":3`) {
+		t.Errorf("runtime_fallback max_fallback_attempts not preserved: %s", marshaled)
+	}
+}
+
+func TestFallbackModelsStringRoundTrip(t *testing.T) {
+	jsonData := `{"agents": {"build": {"fallback_models": "gpt-4o-mini"}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	build := cfg.Agents["build"]
+	if build == nil {
+		t.Fatal("build agent is nil")
+	}
+	if build.FallbackModels == nil {
+		t.Fatal("fallback_models is nil")
+	}
+	if s, ok := build.FallbackModels.(string); !ok || s != "gpt-4o-mini" {
+		t.Errorf("expected fallback_models=gpt-4o-mini, got %v", build.FallbackModels)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"fallback_models":"gpt-4o-mini"`) {
+		t.Errorf("fallback_models string not preserved: %s", marshaled)
+	}
+}
+
+func TestFallbackModelsArrayRoundTrip(t *testing.T) {
+	jsonData := `{"agents": {"build": {"fallback_models": ["claude-haiku", "gpt-4o"]}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	build := cfg.Agents["build"]
+	if build == nil {
+		t.Fatal("build agent is nil")
+	}
+	if build.FallbackModels == nil {
+		t.Fatal("fallback_models is nil")
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"fallback_models":["claude-haiku","gpt-4o"]`) {
+		t.Errorf("fallback_models array not preserved: %s", marshaled)
+	}
+}
+
+func TestCategoryFallbackModelsRoundTrip(t *testing.T) {
+	jsonData := `{"categories": {"quick": {"model": "claude-haiku", "fallback_models": ["gpt-4o-mini"]}}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	quick := cfg.Categories["quick"]
+	if quick == nil {
+		t.Fatal("quick category is nil")
+	}
+	if quick.FallbackModels == nil {
+		t.Fatal("fallback_models is nil")
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"fallback_models"`) {
+		t.Errorf("fallback_models not preserved: %s", marshaled)
+	}
+}
+
+func TestDisableOmoEnvRoundTrip(t *testing.T) {
+	jsonData := `{"experimental": {"disable_omo_env": true}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.DisableOmoEnv == nil || !*cfg.Experimental.DisableOmoEnv {
+		t.Errorf("expected disable_omo_env=true, got %v", cfg.Experimental.DisableOmoEnv)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"disable_omo_env":true`) {
+		t.Errorf("disable_omo_env not preserved: %s", marshaled)
+	}
+}
+
+func TestModelFallbackTitleRoundTrip(t *testing.T) {
+	jsonData := `{"experimental": {"model_fallback_title": false}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Experimental == nil {
+		t.Fatal("experimental is nil")
+	}
+	if cfg.Experimental.ModelFallbackTitle == nil || *cfg.Experimental.ModelFallbackTitle {
+		t.Errorf("expected model_fallback_title=false, got %v", cfg.Experimental.ModelFallbackTitle)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"model_fallback_title":false`) {
+		t.Errorf("model_fallback_title not preserved: %s", marshaled)
+	}
+}
+
+func TestDefaultStrategyRoundTrip(t *testing.T) {
+	jsonData := `{"ralph_loop": {"default_strategy": "continue"}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.RalphLoop == nil {
+		t.Fatal("ralph_loop is nil")
+	}
+	if cfg.RalphLoop.DefaultStrategy != "continue" {
+		t.Errorf("expected default_strategy=continue, got %s", cfg.RalphLoop.DefaultStrategy)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"default_strategy":"continue"`) {
+		t.Errorf("default_strategy not preserved: %s", marshaled)
+	}
+}
+
+func TestMessageStalenessTimeoutMsRoundTrip(t *testing.T) {
+	jsonData := `{"background_task": {"messageStalenessTimeoutMs": 120000}}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.BackgroundTask == nil {
+		t.Fatal("background_task is nil")
+	}
+	if cfg.BackgroundTask.MessageStalenessTimeoutMs == nil || *cfg.BackgroundTask.MessageStalenessTimeoutMs != 120000 {
+		t.Errorf("expected messageStalenessTimeoutMs=120000, got %v", cfg.BackgroundTask.MessageStalenessTimeoutMs)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(marshaled), `"messageStalenessTimeoutMs":120000`) {
+		t.Errorf("messageStalenessTimeoutMs not preserved: %s", marshaled)
+	}
+}
+
+func TestDisabledToolsRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"disabled_tools": ["mcp_bash", "webfetch"]}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.DisabledTools)
+	assert.Equal(t, []string{"mcp_bash", "webfetch"}, cfg.DisabledTools)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"disabled_tools":["mcp_bash","webfetch"]`)
+}
+
+func TestMigrationsRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"_migrations": ["v1_to_v2", "v2_to_v3"]}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Migrations)
+	assert.Equal(t, []string{"v1_to_v2", "v2_to_v3"}, cfg.Migrations)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"_migrations":["v1_to_v2","v2_to_v3"]`)
+}
+
+func TestDefaultRunAgentRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"default_run_agent": "build"}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "build", cfg.DefaultRunAgent)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"default_run_agent":"build"`)
+}
+
+func TestNewTaskSystemEnabledRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"new_task_system_enabled": true}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.NewTaskSystemEnabled)
+	assert.True(t, *cfg.NewTaskSystemEnabled)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"new_task_system_enabled":true`)
+}
+
+func TestStaleTimeoutMsRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"background_task": {"staleTimeoutMs": 300000}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BackgroundTask)
+	require.NotNil(t, cfg.BackgroundTask.StaleTimeoutMs)
+	assert.Equal(t, 300000, *cfg.BackgroundTask.StaleTimeoutMs)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"staleTimeoutMs":300000`)
+}
+
+func TestBrowserAutomationEngineProviderRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"browser_automation_engine": {"provider": "playwright"}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BrowserAutomationEngine)
+	assert.Equal(t, "playwright", cfg.BrowserAutomationEngine.Provider)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"browser_automation_engine":{"provider":"playwright"}`)
+}
+
+func TestWebsearchProviderRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"websearch": {"provider": "perplexity"}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Websearch)
+	assert.Equal(t, "perplexity", cfg.Websearch.Provider)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"websearch":{"provider":"perplexity"}`)
+}
+
+func TestTmuxRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"tmux": {"enabled": true, "layout": "main-vertical", "main_pane_size": 60, "main_pane_min_width": 80, "agent_pane_min_width": 40}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Tmux)
+	require.NotNil(t, cfg.Tmux.Enabled)
+	assert.True(t, *cfg.Tmux.Enabled)
+	assert.Equal(t, "main-vertical", cfg.Tmux.Layout)
+	require.NotNil(t, cfg.Tmux.MainPaneSize)
+	require.NotNil(t, cfg.Tmux.MainPaneMinWidth)
+	require.NotNil(t, cfg.Tmux.AgentPaneMinWidth)
+	assert.Equal(t, 60.0, *cfg.Tmux.MainPaneSize)
+	assert.Equal(t, 80.0, *cfg.Tmux.MainPaneMinWidth)
+	assert.Equal(t, 40.0, *cfg.Tmux.AgentPaneMinWidth)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"tmux"`)
+	assert.Contains(t, string(marshaled), `"enabled":true`)
+	assert.Contains(t, string(marshaled), `"layout":"main-vertical"`)
+	assert.Contains(t, string(marshaled), `"main_pane_size":60`)
+	assert.Contains(t, string(marshaled), `"main_pane_min_width":80`)
+	assert.Contains(t, string(marshaled), `"agent_pane_min_width":40`)
 }

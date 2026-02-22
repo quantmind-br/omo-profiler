@@ -5,9 +5,15 @@
   "disabled_skills": ["playwright"],
   "disabled_hooks": ["auto-update-checker", "startup-toast"],
   "disabled_commands": ["init-deep"],
+  "disabled_tools": ["mcp_bash"],
+  "_migrations": ["v1_to_v2"],
+  "hashline_edit": true,
+  "new_task_system_enabled": true,
+  "default_run_agent": "build",
   "agents": {
     "build": {
       "model": "claude-sonnet-4-20250514",
+      "fallback_models": ["claude-haiku", "gpt-4o"],
       "variant": "fast",
       "category": "general",
       "skills": ["git-master"],
@@ -42,6 +48,7 @@
     },
     "plan": {
       "model": "o3",
+      "fallback_models": "gpt-4o-mini",
       "category": "planning",
       "permission": {
         "bash": {
@@ -55,6 +62,7 @@
   "categories": {
     "general": {
       "model": "claude-sonnet-4-20250514",
+      "fallback_models": ["claude-haiku"],
       "variant": "balanced",
       "temperature": 0.5,
       "top_p": 0.95,
@@ -104,6 +112,8 @@
     "auto_resume": false,
     "truncate_all_tool_outputs": false,
     "hashline_edit": true,
+    "disable_omo_env": true,
+    "model_fallback_title": false,
     "dynamic_context_pruning": {
       "enabled": true,
       "notification": "detailed",
@@ -132,7 +142,13 @@
   "ralph_loop": {
     "enabled": true,
     "default_max_iterations": 50,
-    "state_dir": "/tmp/ralph"
+    "state_dir": "/tmp/ralph",
+    "default_strategy": "continue"
+  },
+  "runtime_fallback": {
+    "enabled": true,
+    "max_fallback_attempts": 3,
+    "cooldown_seconds": 30
   },
   "background_task": {
     "defaultConcurrency": 4,
@@ -142,7 +158,22 @@
     },
     "modelConcurrency": {
       "claude-sonnet-4": 2
-    }
+    },
+    "staleTimeoutMs": 300000,
+    "messageStalenessTimeoutMs": 120000
+  },
+  "browser_automation_engine": {
+    "provider": "playwright"
+  },
+  "websearch": {
+    "provider": "perplexity"
+  },
+  "tmux": {
+    "enabled": true,
+    "layout": "main-vertical",
+    "main_pane_size": 60,
+    "main_pane_min_width": 80,
+    "agent_pane_min_width": 40
   },
   "notification": {
     "force_enable": true

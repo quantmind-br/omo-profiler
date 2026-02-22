@@ -1,6 +1,7 @@
 package views
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -53,6 +54,7 @@ const (
 	catFieldTextVerbosity
 	catFieldTools
 	catFieldPromptAppend
+	catFieldFallbackModels
 )
 
 type categoryConfig struct {
@@ -73,6 +75,7 @@ type categoryConfig struct {
 	textVerbosityIdx   int
 	tools              textinput.Model
 	promptAppend       textarea.Model
+	fallbackModels     textinput.Model
 	expanded           bool
 	// Model selector state
 	selectingModel       bool
@@ -119,6 +122,10 @@ func newCategoryConfig() categoryConfig {
 	tools.Placeholder = "tool1:true, tool2:false"
 	tools.Width = 40
 
+	fallbackModels := textinput.New()
+	fallbackModels.Placeholder = `"model-id" or ["model1", "model2"]`
+	fallbackModels.Width = 40
+
 	promptAppend := textarea.New()
 	promptAppend.Placeholder = "Append to prompt..."
 	promptAppend.SetWidth(50)
@@ -142,6 +149,7 @@ func newCategoryConfig() categoryConfig {
 		thinkingBudget:       thinkingBudget,
 		tools:                tools,
 		promptAppend:         promptAppend,
+		fallbackModels:       fallbackModels,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -260,6 +268,7 @@ func (w *WizardCategories) SetSize(width, height int) {
 		cc.variant.Width = layout.MediumFieldWidth(width)
 		cc.tools.Width = layout.WideFieldWidth(width, 10)
 		cc.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
+		cc.fallbackModels.Width = layout.WideFieldWidth(width, 10)
 		cc.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		cc.saveProviderInput.Width = layout.MediumFieldWidth(width)
 		cc.modelSelector.SetSize(width, height)
@@ -282,6 +291,16 @@ func (w *WizardCategories) SetConfig(cfg *config.Config) {
 		if catCfg.Model != "" {
 			cc.modelValue = catCfg.Model
 			cc.modelDisplay = catCfg.Model
+		}
+		if catCfg.FallbackModels != nil {
+			switch v := catCfg.FallbackModels.(type) {
+			case string:
+				cc.fallbackModels.SetValue(v)
+			default:
+				if b, err := json.Marshal(v); err == nil {
+					cc.fallbackModels.SetValue(string(b))
+				}
+			}
 		}
 		if catCfg.Description != "" {
 			cc.description.SetValue(catCfg.Description)
@@ -360,6 +379,15 @@ func (w *WizardCategories) Apply(cfg *config.Config) {
 		if cc.modelValue != "" {
 			catCfg.Model = cc.modelValue
 		}
+		if v := cc.fallbackModels.Value(); v != "" {
+			v = strings.TrimSpace(v)
+			var parsed interface{}
+			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+				catCfg.FallbackModels = parsed
+			} else {
+				catCfg.FallbackModels = v
+			}
+		}
 		if v := cc.description.Value(); v != "" {
 			catCfg.Description = v
 		}
@@ -430,6 +458,7 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	cc.thinkingBudget.Blur()
 	cc.tools.Blur()
 	cc.promptAppend.Blur()
+	cc.fallbackModels.Blur()
 
 	switch w.focusedField {
 	case catFieldName:
@@ -451,6 +480,8 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 		cc.tools.Focus()
 	case catFieldPromptAppend:
 		cc.promptAppend.Focus()
+	case catFieldFallbackModels:
+		cc.fallbackModels.Focus()
 	}
 }
 
@@ -482,6 +513,7 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 		catFieldTextVerbosity:   15,
 		catFieldTools:           17,
 		catFieldPromptAppend:    18,
+		catFieldFallbackModels:  19,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -562,7 +594,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "down", "j":
 					w.focusedField++
-					if w.focusedField > catFieldPromptAppend {
+					if w.focusedField > catFieldFallbackModels {
 						w.focusedField = catFieldName
 					}
 					w.updateFieldFocus(cc)
@@ -571,7 +603,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "up", "k":
 					if w.focusedField == catFieldName {
-						w.focusedField = catFieldPromptAppend
+						w.focusedField = catFieldFallbackModels
 					} else {
 						w.focusedField--
 					}
@@ -581,7 +613,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "tab":
 					w.focusedField++
-					if w.focusedField > catFieldPromptAppend {
+					if w.focusedField > catFieldFallbackModels {
 						w.focusedField = catFieldName
 					}
 					w.updateFieldFocus(cc)
@@ -590,7 +622,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "shift+tab":
 					if w.focusedField == catFieldName {
-						w.focusedField = catFieldPromptAppend
+						w.focusedField = catFieldFallbackModels
 					} else {
 						w.focusedField--
 					}
@@ -661,6 +693,10 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 				case catFieldPromptAppend:
 					cc.promptAppend.Focus()
 					cc.promptAppend, cmd = cc.promptAppend.Update(msg)
+					cmds = append(cmds, cmd)
+				case catFieldFallbackModels:
+					cc.fallbackModels.Focus()
+					cc.fallbackModels, cmd = cc.fallbackModels.Update(msg)
 					cmds = append(cmds, cmd)
 				}
 
@@ -852,6 +888,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, "")
 	lines = append(lines, renderField("tools", catFieldTools, cc.tools.View()))
 	lines = append(lines, renderField("prompt_append", catFieldPromptAppend, cc.promptAppend.View()))
+	lines = append(lines, renderField("fallback_models", catFieldFallbackModels, cc.fallbackModels.View()))
 	lines = append(lines, "")
 
 	return lines

@@ -110,3 +110,4 @@ main.go → cli.Execute() → rootCmd.Execute()
 - No CI/CD: No GitHub Actions, no Docker, no Goreleaser
 - Schema sync: `./update-schema.sh` fetches from `code-yeongyu/oh-my-opencode`
 - `models.json` corruption: auto-backup to `.bak` on load failure
+ Upstream schema URL: `https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json`

@@ -109,9 +109,10 @@ var disableableCommands = []string{
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
-var browserProviders = []string{"", "playwright", "agent-browser", "dev-browser"}
+var browserProviders = []string{"", "playwright", "playwright-cli", "agent-browser", "dev-browser"}
 var tmuxLayouts = []string{"", "main-horizontal", "main-vertical", "tiled", "even-horizontal", "even-vertical"}
 var websearchProviders = []string{"", "exa", "tavily"}
+var ralphLoopStrategies = []string{"", "reset", "continue"}
 
 // Sections in the other settings
 type otherSection int
@@ -121,6 +122,7 @@ const (
 	sectionDisabledAgents
 	sectionDisabledSkills
 	sectionDisabledCommands
+	sectionDisabledTools
 	sectionAutoUpdate
 	sectionExperimental
 	sectionClaudeCode
@@ -137,6 +139,8 @@ const (
 	sectionSisyphus
 	sectionNewTaskSystemEnabled
 	sectionDefaultRunAgent
+	sectionHashlineEdit
+	sectionRuntimeFallback
 	sectionSkillsJson
 )
 
@@ -145,6 +149,7 @@ var otherSectionNames = []string{
 	"Disabled Agents",
 	"Disabled Skills",
 	"Disabled Commands",
+	"Disabled Tools",
 	"Auto Update",
 	"Experimental",
 	"Claude Code",
@@ -161,6 +166,8 @@ var otherSectionNames = []string{
 	"Sisyphus",
 	"New Task System Enabled",
 	"Default Run Agent",
+	"Hashline Edit",
+	"Runtime Fallback (JSON)",
 	"Skills (JSON)",
 }
 
@@ -219,9 +226,11 @@ type WizardOther struct {
 	disabledAgents   map[string]bool
 	disabledSkills   map[string]bool
 	disabledCommands map[string]bool
+	disabledTools    textinput.Model
 
 	// Auto update
-	autoUpdate bool
+	autoUpdate   bool
+	hashlineEdit bool
 
 	// Experimental flags
 	expAggressiveTrunc      bool
@@ -232,6 +241,8 @@ type WizardOther struct {
 	expPluginLoadTimeoutMs  textinput.Model
 	expSafeHookCreation     bool
 	expHashlineEdit         bool
+	expDisableOmoEnv        bool
+	expModelFallbackTitle   bool
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -263,12 +274,14 @@ type WizardOther struct {
 	rlEnabled              bool
 	rlDefaultMaxIterations textinput.Model
 	rlStateDir             textinput.Model
+	rlDefaultStrategyIdx   int
 
 	// Background Task
-	btDefaultConcurrency  textinput.Model
-	btProviderConcurrency textinput.Model
-	btModelConcurrency    textinput.Model
-	btStaleTimeoutMs      textinput.Model
+	btDefaultConcurrency        textinput.Model
+	btProviderConcurrency       textinput.Model
+	btModelConcurrency          textinput.Model
+	btStaleTimeoutMs            textinput.Model
+	btMessageStalenessTimeoutMs textinput.Model
 
 	// Notification
 	notifForceEnable bool
@@ -308,7 +321,8 @@ type WizardOther struct {
 	defaultRunAgent textinput.Model
 
 	// Skills JSON
-	skillsEditor textarea.Model
+	runtimeFallbackEditor textarea.Model
+	skillsEditor          textarea.Model
 
 	// UI State
 	currentSection  otherSection
@@ -326,6 +340,10 @@ func NewWizardOther() WizardOther {
 	disabledMcps := textinput.New()
 	disabledMcps.Placeholder = "mcp1, mcp2, ..."
 	disabledMcps.Width = 50
+
+	disabledTools := textinput.New()
+	disabledTools.Placeholder = "tool1, tool2, ..."
+	disabledTools.Width = 50
 
 	rlMaxIter := textinput.New()
 	rlMaxIter.Placeholder = "10"
@@ -350,6 +368,10 @@ func NewWizardOther() WizardOther {
 	btStaleTimeoutMs := textinput.New()
 	btStaleTimeoutMs.Placeholder = "60000"
 	btStaleTimeoutMs.Width = 15
+
+	btMsgStaleTimeout := textinput.New()
+	btMsgStaleTimeout.Placeholder = "60000"
+	btMsgStaleTimeout.Width = 15
 
 	ccPrompt := textinput.New()
 	ccPrompt.Placeholder = "custom prompt..."
@@ -398,6 +420,11 @@ func NewWizardOther() WizardOther {
 	skillsEditor.SetWidth(60)
 	skillsEditor.SetHeight(8)
 
+	runtimeFallbackEditor := textarea.New()
+	runtimeFallbackEditor.Placeholder = `true or {"enabled": true, "max_fallback_attempts": 3}`
+	runtimeFallbackEditor.SetWidth(60)
+	runtimeFallbackEditor.SetHeight(6)
+
 	tmuxSize := textinput.New()
 	tmuxSize.Placeholder = "0.75"
 	tmuxSize.Width = 10
@@ -427,33 +454,36 @@ func NewWizardOther() WizardOther {
 	defaultRunAgent.Width = 30
 
 	return WizardOther{
-		disabledMcps:             disabledMcps,
-		disabledAgents:           disabledAgents,
-		disabledSkills:           disabledSkills,
-		disabledCommands:         disabledCommands,
-		expPluginLoadTimeoutMs:   expPluginLoadTimeoutMs,
-		rlDefaultMaxIterations:   rlMaxIter,
-		rlStateDir:               rlStateDir,
-		btDefaultConcurrency:     btConcurrency,
-		btProviderConcurrency:    btProviderConcurrency,
-		btModelConcurrency:       btModelConcurrency,
-		btStaleTimeoutMs:         btStaleTimeoutMs,
-		ccCustomPrompt:           ccPrompt,
-		babysittingTimeoutMs:     babysittingTimeoutMs,
-		tmuxMainPaneSize:         tmuxSize,
-		tmuxMainPaneMinWidth:     tmuxMinWidth,
-		tmuxAgentPaneMinWidth:    tmuxAgentWidth,
-		sisyphusTasksStoragePath: sisTasksStoragePath,
-		sisyphusTasksTaskListID:  sisTasksTaskListID,
-		defaultRunAgent:          defaultRunAgent,
-		dcpTurnProtTurns:         dcpTurnProtTurns,
-		dcpProtectedTools:        dcpProtectedTools,
-		dcpPurgeErrorsTurns:      dcpPurgeErrorsTurns,
-		ccPluginsOverride:        ccPluginsOverride,
-		skillsEditor:             skillsEditor,
-		tmuxLayoutIdx:            4,
-		sectionExpanded:          sectionExpanded,
-		keys:                     newWizardOtherKeyMap(),
+		disabledMcps:                disabledMcps,
+		disabledAgents:              disabledAgents,
+		disabledSkills:              disabledSkills,
+		disabledCommands:            disabledCommands,
+		disabledTools:               disabledTools,
+		expPluginLoadTimeoutMs:      expPluginLoadTimeoutMs,
+		rlDefaultMaxIterations:      rlMaxIter,
+		rlStateDir:                  rlStateDir,
+		btDefaultConcurrency:        btConcurrency,
+		btProviderConcurrency:       btProviderConcurrency,
+		btModelConcurrency:          btModelConcurrency,
+		btStaleTimeoutMs:            btStaleTimeoutMs,
+		btMessageStalenessTimeoutMs: btMsgStaleTimeout,
+		ccCustomPrompt:              ccPrompt,
+		babysittingTimeoutMs:        babysittingTimeoutMs,
+		tmuxMainPaneSize:            tmuxSize,
+		tmuxMainPaneMinWidth:        tmuxMinWidth,
+		tmuxAgentPaneMinWidth:       tmuxAgentWidth,
+		sisyphusTasksStoragePath:    sisTasksStoragePath,
+		sisyphusTasksTaskListID:     sisTasksTaskListID,
+		defaultRunAgent:             defaultRunAgent,
+		dcpTurnProtTurns:            dcpTurnProtTurns,
+		dcpProtectedTools:           dcpProtectedTools,
+		dcpPurgeErrorsTurns:         dcpPurgeErrorsTurns,
+		ccPluginsOverride:           ccPluginsOverride,
+		runtimeFallbackEditor:       runtimeFallbackEditor,
+		skillsEditor:                skillsEditor,
+		tmuxLayoutIdx:               4,
+		sectionExpanded:             sectionExpanded,
+		keys:                        newWizardOtherKeyMap(),
 	}
 }
 
@@ -483,12 +513,14 @@ func (w *WizardOther) SetSize(width, height int) {
 
 	wide := layout.WideFieldWidth(width, 10)
 	w.disabledMcps.Width = wide
+	w.disabledTools.Width = wide
 	w.rlDefaultMaxIterations.Width = layout.FixedSmallWidth()
 	w.rlStateDir.Width = wide
 	w.btDefaultConcurrency.Width = layout.FixedSmallWidth()
 	w.btProviderConcurrency.Width = wide
 	w.btModelConcurrency.Width = wide
 	w.btStaleTimeoutMs.Width = layout.FixedSmallWidth()
+	w.btMessageStalenessTimeoutMs.Width = layout.FixedSmallWidth()
 	w.ccCustomPrompt.Width = wide
 	w.dcpTurnProtTurns.Width = layout.FixedSmallWidth()
 	w.dcpProtectedTools.Width = wide
@@ -502,6 +534,7 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.sisyphusTasksStoragePath.Width = wide
 	w.sisyphusTasksTaskListID.Width = wide
 	w.defaultRunAgent.Width = wide
+	w.runtimeFallbackEditor.SetWidth(wide)
 	w.skillsEditor.SetWidth(wide)
 	w.viewport.SetContent(w.renderContent())
 }
@@ -533,9 +566,18 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		w.disabledMcps.SetValue(strings.Join(cfg.DisabledMCPs, ", "))
 	}
 
+	// Disabled Tools
+	if len(cfg.DisabledTools) > 0 {
+		w.disabledTools.SetValue(strings.Join(cfg.DisabledTools, ", "))
+	}
+
 	// Auto update
 	if cfg.AutoUpdate != nil {
 		w.autoUpdate = *cfg.AutoUpdate
+	}
+
+	if cfg.HashlineEdit != nil {
+		w.hashlineEdit = *cfg.HashlineEdit
 	}
 
 	// Experimental
@@ -563,6 +605,12 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.Experimental.HashlineEdit != nil {
 			w.expHashlineEdit = *cfg.Experimental.HashlineEdit
+		}
+		if cfg.Experimental.DisableOmoEnv != nil {
+			w.expDisableOmoEnv = *cfg.Experimental.DisableOmoEnv
+		}
+		if cfg.Experimental.ModelFallbackTitle != nil {
+			w.expModelFallbackTitle = *cfg.Experimental.ModelFallbackTitle
 		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
@@ -665,6 +713,14 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.RalphLoop.StateDir != "" {
 			w.rlStateDir.SetValue(cfg.RalphLoop.StateDir)
 		}
+		if cfg.RalphLoop.DefaultStrategy != "" {
+			for i, s := range ralphLoopStrategies {
+				if s == cfg.RalphLoop.DefaultStrategy {
+					w.rlDefaultStrategyIdx = i
+					break
+				}
+			}
+		}
 	}
 
 	// Background Task
@@ -680,6 +736,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.BackgroundTask.StaleTimeoutMs != nil {
 			w.btStaleTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.StaleTimeoutMs))
+		}
+		if cfg.BackgroundTask.MessageStalenessTimeoutMs != nil {
+			w.btMessageStalenessTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MessageStalenessTimeoutMs))
 		}
 	}
 
@@ -781,6 +840,15 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		w.defaultRunAgent.SetValue(cfg.DefaultRunAgent)
 	}
 
+	if cfg.RuntimeFallback != nil {
+		var prettyJSON bytes.Buffer
+		if err := json.Indent(&prettyJSON, cfg.RuntimeFallback, "", "  "); err == nil {
+			w.runtimeFallbackEditor.SetValue(prettyJSON.String())
+		} else {
+			w.runtimeFallbackEditor.SetValue(string(cfg.RuntimeFallback))
+		}
+	}
+
 	// Skills JSON
 	if cfg.Skills != nil {
 		var prettyJSON bytes.Buffer
@@ -844,15 +912,34 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.DisabledMCPs = nil
 	}
 
+	// Disabled Tools
+	if v := w.disabledTools.Value(); v != "" {
+		var tools []string
+		for _, t := range strings.Split(v, ",") {
+			if s := strings.TrimSpace(t); s != "" {
+				tools = append(tools, s)
+			}
+		}
+		cfg.DisabledTools = tools
+	}
+	if len(cfg.DisabledTools) == 0 {
+		cfg.DisabledTools = nil
+	}
+
 	// Auto update
 	if w.autoUpdate {
 		cfg.AutoUpdate = &w.autoUpdate
+	}
+
+	if w.hashlineEdit {
+		cfg.HashlineEdit = &w.hashlineEdit
 	}
 
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
 		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
 		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
+		w.expDisableOmoEnv || w.expModelFallbackTitle ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -885,6 +972,12 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.expHashlineEdit {
 			cfg.Experimental.HashlineEdit = &w.expHashlineEdit
+		}
+		if w.expDisableOmoEnv {
+			cfg.Experimental.DisableOmoEnv = &w.expDisableOmoEnv
+		}
+		if w.expModelFallbackTitle {
+			cfg.Experimental.ModelFallbackTitle = &w.expModelFallbackTitle
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -1001,7 +1094,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	}
 
 	// Ralph Loop
-	if w.rlEnabled || w.rlDefaultMaxIterations.Value() != "" || w.rlStateDir.Value() != "" {
+	if w.rlEnabled || w.rlDefaultMaxIterations.Value() != "" || w.rlStateDir.Value() != "" || w.rlDefaultStrategyIdx > 0 {
 		cfg.RalphLoop = &config.RalphLoopConfig{}
 		if w.rlEnabled {
 			cfg.RalphLoop.Enabled = &w.rlEnabled
@@ -1016,13 +1109,17 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		if v := w.rlStateDir.Value(); v != "" {
 			cfg.RalphLoop.StateDir = v
 		}
+		if w.rlDefaultStrategyIdx > 0 {
+			cfg.RalphLoop.DefaultStrategy = ralphLoopStrategies[w.rlDefaultStrategyIdx]
+		}
 	}
 
 	// Background Task
 	btHasData := w.btDefaultConcurrency.Value() != "" ||
 		w.btProviderConcurrency.Value() != "" ||
 		w.btModelConcurrency.Value() != "" ||
-		w.btStaleTimeoutMs.Value() != ""
+		w.btStaleTimeoutMs.Value() != "" ||
+		w.btMessageStalenessTimeoutMs.Value() != ""
 	if btHasData {
 		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
 		if v := w.btDefaultConcurrency.Value(); v != "" {
@@ -1041,6 +1138,11 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		if v := w.btStaleTimeoutMs.Value(); v != "" {
 			if i, err := strconv.Atoi(v); err == nil && i > 0 {
 				cfg.BackgroundTask.StaleTimeoutMs = &i
+			}
+		}
+		if v := w.btMessageStalenessTimeoutMs.Value(); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i > 0 {
+				cfg.BackgroundTask.MessageStalenessTimeoutMs = &i
 			}
 		}
 	}
@@ -1143,6 +1245,12 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	// Default Run Agent
 	cfg.DefaultRunAgent = strings.TrimSpace(w.defaultRunAgent.Value())
 
+	if v := w.runtimeFallbackEditor.Value(); strings.TrimSpace(v) != "" {
+		cfg.RuntimeFallback = json.RawMessage(v)
+	} else {
+		cfg.RuntimeFallback = nil
+	}
+
 	// Skills JSON
 	if v := w.skillsEditor.Value(); strings.TrimSpace(v) != "" {
 		cfg.Skills = json.RawMessage(v)
@@ -1197,77 +1305,77 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionExperimental && w.subCursor == 10 {
-				switch msg.String() {
-				case "esc":
-					w.dcpProtectedTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.dcpProtectedTools.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.dcpProtectedTools.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.dcpProtectedTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.dcpProtectedTools.Focus()
-					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
-					return w, cmd
-				default:
-					w.dcpProtectedTools.Focus()
-					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionExperimental && w.subCursor == 15 {
-				switch msg.String() {
-				case "esc":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.dcpPurgeErrorsTurns.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.dcpPurgeErrorsTurns.Focus()
-					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
-					return w, cmd
-				default:
-					w.dcpPurgeErrorsTurns.Focus()
-					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionExperimental && w.subCursor == 7 {
+				switch msg.String() {
+				case "esc":
+					w.dcpProtectedTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.dcpProtectedTools.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.dcpProtectedTools.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.dcpProtectedTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.dcpProtectedTools.Focus()
+					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
+					return w, cmd
+				default:
+					w.dcpProtectedTools.Focus()
+					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionExperimental && w.subCursor == 12 {
+				switch msg.String() {
+				case "esc":
+					w.dcpPurgeErrorsTurns.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.dcpPurgeErrorsTurns.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.dcpPurgeErrorsTurns.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.dcpPurgeErrorsTurns.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.dcpPurgeErrorsTurns.Focus()
+					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
+					return w, cmd
+				default:
+					w.dcpPurgeErrorsTurns.Focus()
+					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionExperimental && w.subCursor == 4 {
 				switch msg.String() {
 				case "right", "l":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx + 1) % len(dcpNotificationValues)
@@ -1280,7 +1388,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionExperimental && w.subCursor == 18 {
+			if w.currentSection == sectionExperimental && w.subCursor == 15 {
 				switch msg.String() {
 				case "esc":
 					w.expPluginLoadTimeoutMs.Blur()
@@ -1439,6 +1547,25 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionDisabledTools {
+				switch msg.String() {
+				case "esc":
+					w.disabledTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.disabledTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.disabledTools.Focus()
+					w.disabledTools, cmd = w.disabledTools.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionRalphLoop && w.subCursor == 1 {
 				switch msg.String() {
 				case "esc":
@@ -1509,6 +1636,19 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionRalphLoop && w.subCursor == 3 {
+				switch msg.String() {
+				case "right", "l":
+					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx + 1) % len(ralphLoopStrategies)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "left", "h":
+					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx - 1 + len(ralphLoopStrategies)) % len(ralphLoopStrategies)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				}
+			}
+
 			if w.currentSection == sectionBackgroundTask && w.subCursor == 2 {
 				switch msg.String() {
 				case "esc":
@@ -1575,6 +1715,41 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				default:
 					w.btStaleTimeoutMs.Focus()
 					w.btStaleTimeoutMs, cmd = w.btStaleTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 4 {
+				switch msg.String() {
+				case "esc":
+					w.btMessageStalenessTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btMessageStalenessTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btMessageStalenessTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btMessageStalenessTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btMessageStalenessTimeoutMs.Focus()
+					w.btMessageStalenessTimeoutMs, cmd = w.btMessageStalenessTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.btMessageStalenessTimeoutMs.Focus()
+					w.btMessageStalenessTimeoutMs, cmd = w.btMessageStalenessTimeoutMs.Update(msg)
 					return w, cmd
 				}
 			}
@@ -1866,6 +2041,25 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionRuntimeFallback {
+				switch msg.String() {
+				case "esc":
+					w.runtimeFallbackEditor.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.runtimeFallbackEditor.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.runtimeFallbackEditor.Focus()
+					w.runtimeFallbackEditor, cmd = w.runtimeFallbackEditor.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionSkillsJson {
 				switch msg.String() {
 				case "esc":
@@ -1951,6 +2145,8 @@ func (w *WizardOther) toggleSection() {
 		w.autoUpdate = !w.autoUpdate
 	case sectionNewTaskSystemEnabled:
 		w.newTaskSystemEnabled = !w.newTaskSystemEnabled
+	case sectionHashlineEdit:
+		w.hashlineEdit = !w.hashlineEdit
 	}
 }
 
@@ -1995,16 +2191,20 @@ func (w *WizardOther) toggleSubItem() {
 		case 11:
 			w.dcpPurgeErrorsEnabled = !w.dcpPurgeErrorsEnabled
 		case 12:
-		case 16:
+		case 13:
 			w.expPreemptiveCompaction = !w.expPreemptiveCompaction
-		case 17:
+		case 14:
 			w.expTaskSystem = !w.expTaskSystem
-		case 18:
+		case 15:
 			// plugin_load_timeout_ms textinput - handled in Update()
-		case 19:
+		case 16:
 			w.expSafeHookCreation = !w.expSafeHookCreation
-		case 20:
+		case 17:
 			w.expHashlineEdit = !w.expHashlineEdit
+		case 18:
+			w.expDisableOmoEnv = !w.expDisableOmoEnv
+		case 19:
+			w.expModelFallbackTitle = !w.expModelFallbackTitle
 		}
 	case sectionClaudeCode:
 		switch w.subCursor {
@@ -2094,13 +2294,15 @@ func (w WizardOther) renderContent() string {
 		}
 
 		// Simple sections without expansion
-		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled {
+		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled || section == sectionHashlineEdit {
 			checkbox := "[ ]"
 			checked := false
 			if section == sectionAutoUpdate {
 				checked = w.autoUpdate
 			} else if section == sectionNewTaskSystemEnabled {
 				checked = w.newTaskSystemEnabled
+			} else if section == sectionHashlineEdit {
+				checked = w.hashlineEdit
 			}
 			if checked {
 				checkbox = enabledStyle.Render("[✓]")
@@ -2174,6 +2376,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			lines = append(lines, renderCheckbox(i, cmd, w.disabledCommands[cmd]))
 		}
 
+	case sectionDisabledTools:
+		lines = append(lines, indent+"  "+w.disabledTools.View())
+
 	case sectionExperimental:
 		lines = append(lines, renderCheckbox(0, "aggressive_truncation", w.expAggressiveTrunc))
 		lines = append(lines, renderCheckbox(1, "auto_resume", w.expAutoResume))
@@ -2228,21 +2433,23 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("dcp_purge_errors_turns: ")+w.dcpPurgeErrorsTurns.View())
 
-		lines = append(lines, renderCheckbox(16, "preemptive_compaction", w.expPreemptiveCompaction))
-		lines = append(lines, renderCheckbox(17, "task_system", w.expTaskSystem))
+		lines = append(lines, renderCheckbox(13, "preemptive_compaction", w.expPreemptiveCompaction))
+		lines = append(lines, renderCheckbox(14, "task_system", w.expTaskSystem))
 
 		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 18 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
 			cursor = selectedStyle.Render("> ")
 		}
 		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 18 {
+		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
 			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("plugin_load_timeout_ms: ")+w.expPluginLoadTimeoutMs.View())
 
-		lines = append(lines, renderCheckbox(19, "safe_hook_creation", w.expSafeHookCreation))
-		lines = append(lines, renderCheckbox(20, "hashline_edit", w.expHashlineEdit))
+		lines = append(lines, renderCheckbox(16, "safe_hook_creation", w.expSafeHookCreation))
+		lines = append(lines, renderCheckbox(17, "hashline_edit", w.expHashlineEdit))
+		lines = append(lines, renderCheckbox(18, "disable_omo_env", w.expDisableOmoEnv))
+		lines = append(lines, renderCheckbox(19, "model_fallback_title", w.expModelFallbackTitle))
 
 	case sectionClaudeCode:
 		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
@@ -2291,6 +2498,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("state_dir: ")+w.rlStateDir.View())
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("default_strategy: ")+ralphLoopStrategies[w.rlDefaultStrategyIdx])
+
 	case sectionBackgroundTask:
 		cursor := "  "
 		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
@@ -2331,6 +2548,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("stale_timeout_ms: ")+w.btStaleTimeoutMs.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("message_staleness_timeout_ms: ")+w.btMessageStalenessTimeoutMs.View())
 
 	case sectionNotification:
 		lines = append(lines, renderCheckbox(0, "force_enable", w.notifForceEnable))
@@ -2443,6 +2670,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionDefaultRunAgent:
 		lines = append(lines, indent+"  value: "+w.defaultRunAgent.View())
+
+	case sectionRuntimeFallback:
+		lines = append(lines, indent+w.runtimeFallbackEditor.View())
 
 	case sectionSkillsJson:
 		lines = append(lines, indent+w.skillsEditor.View())

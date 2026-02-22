@@ -1,6 +1,7 @@
 package views
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -123,6 +124,7 @@ const (
 	fieldPermTask
 	fieldPermDoomLoop
 	fieldPermExtDir
+	fieldFallbackModels
 )
 
 type agentConfig struct {
@@ -136,6 +138,7 @@ type agentConfig struct {
 	topP                   textinput.Model
 	skills                 textinput.Model
 	tools                  textinput.Model
+	fallbackModels         textinput.Model
 	prompt                 textarea.Model
 	promptAppend           textarea.Model
 	disable                bool
@@ -195,6 +198,10 @@ func newAgentConfig() agentConfig {
 	tools.Placeholder = "tool1:true, tool2:false"
 	tools.Width = 40
 
+	fallbackModels := textinput.New()
+	fallbackModels.Placeholder = `"model-id" or ["model1", "model2"]`
+	fallbackModels.Width = 40
+
 	prompt := textarea.New()
 	prompt.Placeholder = "Custom prompt..."
 	prompt.SetWidth(50)
@@ -244,6 +251,7 @@ func newAgentConfig() agentConfig {
 		topP:                 topP,
 		skills:               skills,
 		tools:                tools,
+		fallbackModels:       fallbackModels,
 		prompt:               prompt,
 		promptAppend:         promptAppend,
 		description:          description,
@@ -370,6 +378,7 @@ func (w *WizardAgents) SetSize(width, height int) {
 		ac.category.Width = layout.MediumFieldWidth(width)
 		ac.skills.Width = layout.WideFieldWidth(width, 10)
 		ac.tools.Width = layout.WideFieldWidth(width, 10)
+		ac.fallbackModels.Width = layout.WideFieldWidth(width, 10)
 		ac.description.Width = layout.WideFieldWidth(width, 10)
 		ac.prompt.SetWidth(layout.WideFieldWidth(width, 10))
 		ac.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
@@ -392,6 +401,16 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 			if agentCfg.Model != "" {
 				ac.modelValue = agentCfg.Model
 				ac.modelDisplay = agentCfg.Model
+			}
+			if agentCfg.FallbackModels != nil {
+				switch v := agentCfg.FallbackModels.(type) {
+				case string:
+					ac.fallbackModels.SetValue(v)
+				default:
+					if b, err := json.Marshal(v); err == nil {
+						ac.fallbackModels.SetValue(string(b))
+					}
+				}
 			}
 			if agentCfg.Variant != "" {
 				ac.variant.SetValue(agentCfg.Variant)
@@ -519,6 +538,17 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 		}
 
 		agentCfg.Model = ac.modelValue
+		if v := ac.fallbackModels.Value(); v != "" {
+			v = strings.TrimSpace(v)
+			var parsed interface{}
+			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+				agentCfg.FallbackModels = parsed
+			} else {
+				agentCfg.FallbackModels = v
+			}
+		} else {
+			agentCfg.FallbackModels = nil
+		}
 		agentCfg.Variant = ac.variant.Value()
 		agentCfg.Category = ac.category.Value()
 		if v := ac.temperature.Value(); v != "" {
@@ -644,6 +674,7 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	ac.topP.Blur()
 	ac.skills.Blur()
 	ac.tools.Blur()
+	ac.fallbackModels.Blur()
 	ac.prompt.Blur()
 	ac.promptAppend.Blur()
 	ac.description.Blur()
@@ -668,6 +699,8 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 		ac.skills.Focus()
 	case fieldTools:
 		ac.tools.Focus()
+	case fieldFallbackModels:
+		ac.fallbackModels.Focus()
 	case fieldPrompt:
 		ac.prompt.Focus()
 	case fieldPromptAppend:
@@ -730,6 +763,7 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		fieldPermTask:         30,
 		fieldPermDoomLoop:     31,
 		fieldPermExtDir:       32,
+		fieldFallbackModels:   33,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -806,7 +840,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "down", "j":
 				w.focusedField++
-				if w.focusedField > fieldPermExtDir {
+				if w.focusedField > fieldFallbackModels {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -817,7 +851,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldPermExtDir
+					w.focusedField = fieldFallbackModels
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
@@ -825,7 +859,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "tab":
 				w.focusedField++
-				if w.focusedField > fieldPermExtDir {
+				if w.focusedField > fieldFallbackModels {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -836,7 +870,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldPermExtDir
+					w.focusedField = fieldFallbackModels
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
@@ -897,6 +931,9 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			case fieldTools:
 				ac.tools, cmd = ac.tools.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldFallbackModels:
+				ac.fallbackModels, cmd = ac.fallbackModels.Update(msg)
 				cmds = append(cmds, cmd)
 			case fieldPrompt:
 				ac.prompt, cmd = ac.prompt.Update(msg)
@@ -1135,6 +1172,9 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderDropdown("task", fieldPermTask, permissionValues, ac.permTaskIdx))
 	lines = append(lines, renderDropdown("doom_loop", fieldPermDoomLoop, permissionValues, ac.permDoomLoopIdx))
 	lines = append(lines, renderDropdown("external_dir", fieldPermExtDir, permissionValues, ac.permExtDirIdx))
+	lines = append(lines, "")
+	lines = append(lines, indent+wizAgentDimStyle.Render("── Fallback ──"))
+	lines = append(lines, renderField("fallback", fieldFallbackModels, ac.fallbackModels.View()))
 	lines = append(lines, "")
 
 	return lines
