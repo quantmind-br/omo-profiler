@@ -1,0 +1,185 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1772964095769,
+  "projectRoot": "/home/diogo/dev/omo-profiler",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Go",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "go.mod"
+        ]
+      },
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "go",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "make build",
+    "testCommand": "make test",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "cmd": {
+      "path": "cmd",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1772964095767,
+      "keyFiles": []
+    },
+    "diff.md": {
+      "path": "diff.md",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1772964095768,
+      "keyFiles": [
+        "schema-diff.md"
+      ]
+    },
+    "internal": {
+      "path": "internal",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1772964095768,
+      "keyFiles": []
+    },
+    "internal/config": {
+      "path": "internal/config",
+      "purpose": "Configuration files",
+      "fileCount": 5,
+      "lastAccessed": 1772964095768,
+      "keyFiles": [
+        "AGENTS.md",
+        "paths.go",
+        "paths_test.go"
+      ]
+    },
+    "internal/models": {
+      "path": "internal/models",
+      "purpose": "Data models",
+      "fileCount": 5,
+      "lastAccessed": 1772964095769,
+      "keyFiles": [
+        "AGENTS.md",
+        "models.go",
+        "models_test.go"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "internal/tui/views/wizard_other.go",
+      "accessCount": 30,
+      "lastAccessed": 1772964684513,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/views/wizard_agents.go",
+      "accessCount": 16,
+      "lastAccessed": 1772964783593,
+      "type": "file"
+    },
+    {
+      "path": "internal/config/types.go",
+      "accessCount": 6,
+      "lastAccessed": 1772964505620,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 2,
+      "lastAccessed": 1772964293325,
+      "type": "directory"
+    },
+    {
+      "path": "oh-my-opencode.schema.json",
+      "accessCount": 1,
+      "lastAccessed": 1772964292052,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/oh-my-opencode.schema.json",
+      "accessCount": 1,
+      "lastAccessed": 1772964292487,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/schema.json",
+      "accessCount": 1,
+      "lastAccessed": 1772964293432,
+      "type": "file"
+    },
+    {
+      "path": "internal/models/models.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964301999,
+      "type": "file"
+    },
+    {
+      "path": "internal/models/modelsdev.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964302347,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/views/wizard_hooks.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964410940,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/compare.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964412274,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/validator.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964420341,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/accessor_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964420435,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/views/model_registry_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1772964812555,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

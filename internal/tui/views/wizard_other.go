@@ -140,6 +140,8 @@ const (
 	sectionNewTaskSystemEnabled
 	sectionDefaultRunAgent
 	sectionHashlineEdit
+	sectionModelFallback
+	sectionStartWork
 	sectionRuntimeFallback
 	sectionSkillsJson
 )
@@ -167,6 +169,8 @@ var otherSectionNames = []string{
 	"New Task System Enabled",
 	"Default Run Agent",
 	"Hashline Edit",
+	"Model Fallback",
+	"Start Work",
 	"Runtime Fallback (JSON)",
 	"Skills (JSON)",
 }
@@ -229,8 +233,10 @@ type WizardOther struct {
 	disabledTools    textinput.Model
 
 	// Auto update
-	autoUpdate   bool
-	hashlineEdit bool
+	autoUpdate        bool
+	hashlineEdit      bool
+	modelFallback     bool
+	startWorkAutoCommit bool
 
 	// Experimental flags
 	expAggressiveTrunc      bool
@@ -282,6 +288,7 @@ type WizardOther struct {
 	btModelConcurrency          textinput.Model
 	btStaleTimeoutMs            textinput.Model
 	btMessageStalenessTimeoutMs textinput.Model
+	btSyncPollTimeoutMs         textinput.Model
 
 	// Notification
 	notifForceEnable bool
@@ -372,6 +379,10 @@ func NewWizardOther() WizardOther {
 	btMsgStaleTimeout := textinput.New()
 	btMsgStaleTimeout.Placeholder = "60000"
 	btMsgStaleTimeout.Width = 15
+
+	btSyncPollTimeoutMs := textinput.New()
+	btSyncPollTimeoutMs.Placeholder = "60000"
+	btSyncPollTimeoutMs.Width = 15
 
 	ccPrompt := textinput.New()
 	ccPrompt.Placeholder = "custom prompt..."
@@ -467,6 +478,7 @@ func NewWizardOther() WizardOther {
 		btModelConcurrency:          btModelConcurrency,
 		btStaleTimeoutMs:            btStaleTimeoutMs,
 		btMessageStalenessTimeoutMs: btMsgStaleTimeout,
+		btSyncPollTimeoutMs:         btSyncPollTimeoutMs,
 		ccCustomPrompt:              ccPrompt,
 		babysittingTimeoutMs:        babysittingTimeoutMs,
 		tmuxMainPaneSize:            tmuxSize,
@@ -521,6 +533,7 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.btModelConcurrency.Width = wide
 	w.btStaleTimeoutMs.Width = layout.FixedSmallWidth()
 	w.btMessageStalenessTimeoutMs.Width = layout.FixedSmallWidth()
+	w.btSyncPollTimeoutMs.Width = layout.FixedSmallWidth()
 	w.ccCustomPrompt.Width = wide
 	w.dcpTurnProtTurns.Width = layout.FixedSmallWidth()
 	w.dcpProtectedTools.Width = wide
@@ -578,6 +591,14 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 
 	if cfg.HashlineEdit != nil {
 		w.hashlineEdit = *cfg.HashlineEdit
+	}
+
+	if cfg.ModelFallback != nil {
+		w.modelFallback = *cfg.ModelFallback
+	}
+
+	if cfg.StartWork != nil && cfg.StartWork.AutoCommit != nil {
+		w.startWorkAutoCommit = *cfg.StartWork.AutoCommit
 	}
 
 	// Experimental
@@ -739,6 +760,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.BackgroundTask.MessageStalenessTimeoutMs != nil {
 			w.btMessageStalenessTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MessageStalenessTimeoutMs))
+		}
+		if cfg.BackgroundTask.SyncPollTimeoutMs != nil {
+			w.btSyncPollTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.SyncPollTimeoutMs))
 		}
 	}
 
@@ -935,6 +959,14 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		cfg.HashlineEdit = &w.hashlineEdit
 	}
 
+	if w.modelFallback {
+		cfg.ModelFallback = &w.modelFallback
+	}
+
+	if w.startWorkAutoCommit {
+		cfg.StartWork = &config.StartWorkConfig{AutoCommit: &w.startWorkAutoCommit}
+	}
+
 	// Experimental - only set if any flag is true or DCP has value
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
 		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
@@ -1119,7 +1151,8 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		w.btProviderConcurrency.Value() != "" ||
 		w.btModelConcurrency.Value() != "" ||
 		w.btStaleTimeoutMs.Value() != "" ||
-		w.btMessageStalenessTimeoutMs.Value() != ""
+		w.btMessageStalenessTimeoutMs.Value() != "" ||
+		w.btSyncPollTimeoutMs.Value() != ""
 	if btHasData {
 		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
 		if v := w.btDefaultConcurrency.Value(); v != "" {
@@ -1143,6 +1176,11 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		if v := w.btMessageStalenessTimeoutMs.Value(); v != "" {
 			if i, err := strconv.Atoi(v); err == nil && i > 0 {
 				cfg.BackgroundTask.MessageStalenessTimeoutMs = &i
+			}
+		}
+		if v := w.btSyncPollTimeoutMs.Value(); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i >= 60000 {
+				cfg.BackgroundTask.SyncPollTimeoutMs = &i
 			}
 		}
 	}
@@ -1754,6 +1792,54 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 5 {
+				switch msg.String() {
+				case "esc":
+					w.btSyncPollTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btSyncPollTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btSyncPollTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btSyncPollTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btSyncPollTimeoutMs.Focus()
+					w.btSyncPollTimeoutMs, cmd = w.btSyncPollTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.btSyncPollTimeoutMs.Focus()
+					w.btSyncPollTimeoutMs, cmd = w.btSyncPollTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionStartWork {
+				switch msg.String() {
+				case "esc", "tab":
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.startWorkAutoCommit = !w.startWorkAutoCommit
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				}
+			}
+
 			if w.currentSection == sectionCommentChecker {
 				switch msg.String() {
 				case "esc":
@@ -2147,6 +2233,8 @@ func (w *WizardOther) toggleSection() {
 		w.newTaskSystemEnabled = !w.newTaskSystemEnabled
 	case sectionHashlineEdit:
 		w.hashlineEdit = !w.hashlineEdit
+	case sectionModelFallback:
+		w.modelFallback = !w.modelFallback
 	}
 }
 
@@ -2294,7 +2382,7 @@ func (w WizardOther) renderContent() string {
 		}
 
 		// Simple sections without expansion
-		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled || section == sectionHashlineEdit {
+		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled || section == sectionHashlineEdit || section == sectionModelFallback {
 			checkbox := "[ ]"
 			checked := false
 			if section == sectionAutoUpdate {
@@ -2303,6 +2391,8 @@ func (w WizardOther) renderContent() string {
 				checked = w.newTaskSystemEnabled
 			} else if section == sectionHashlineEdit {
 				checked = w.hashlineEdit
+			} else if section == sectionModelFallback {
+				checked = w.modelFallback
 			}
 			if checked {
 				checkbox = enabledStyle.Render("[✓]")
@@ -2559,6 +2649,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("message_staleness_timeout_ms: ")+w.btMessageStalenessTimeoutMs.View())
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("sync_poll_timeout_ms: ")+w.btSyncPollTimeoutMs.View())
+
 	case sectionNotification:
 		lines = append(lines, renderCheckbox(0, "force_enable", w.notifForceEnable))
 
@@ -2670,6 +2770,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionDefaultRunAgent:
 		lines = append(lines, indent+"  value: "+w.defaultRunAgent.View())
+
+	case sectionStartWork:
+		lines = append(lines, renderCheckbox(0, "auto_commit", w.startWorkAutoCommit))
 
 	case sectionRuntimeFallback:
 		lines = append(lines, indent+w.runtimeFallbackEditor.View())

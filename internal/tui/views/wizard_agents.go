@@ -125,7 +125,10 @@ const (
 	fieldPermDoomLoop
 	fieldPermExtDir
 	fieldFallbackModels
+	fieldCompactionModel
+	fieldCompactionVariant
 )
+
 
 type agentConfig struct {
 	enabled                bool
@@ -150,6 +153,8 @@ type agentConfig struct {
 	thinkingBudget         textinput.Model
 	ultraworkModel         textinput.Model
 	ultraworkVariant       textinput.Model
+	compactionModel        textinput.Model
+	compactionVariant      textinput.Model
 	reasoningEffortIdx     int
 	textVerbosityIdx       int
 	providerOptionsDisplay string
@@ -236,6 +241,14 @@ func newAgentConfig() agentConfig {
 	ultraworkVariant.Placeholder = "variant (optional)"
 	ultraworkVariant.Width = 30
 
+	compactionModel := textinput.New()
+	compactionModel.Placeholder = "model ID"
+	compactionModel.Width = 30
+
+	compactionVariant := textinput.New()
+	compactionVariant.Placeholder = "variant (optional)"
+	compactionVariant.Width = 30
+
 	saveDisplayNameInput := textinput.New()
 	saveDisplayNameInput.Placeholder = "Display name"
 	saveDisplayNameInput.Width = 30
@@ -260,6 +273,8 @@ func newAgentConfig() agentConfig {
 		thinkingBudget:       thinkingBudget,
 		ultraworkModel:       ultraworkModel,
 		ultraworkVariant:     ultraworkVariant,
+		compactionModel:      compactionModel,
+		compactionVariant:    compactionVariant,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -384,6 +399,8 @@ func (w *WizardAgents) SetSize(width, height int) {
 		ac.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
 		ac.ultraworkModel.Width = layout.MediumFieldWidth(width)
 		ac.ultraworkVariant.Width = layout.MediumFieldWidth(width)
+		ac.compactionModel.Width = layout.MediumFieldWidth(width)
+		ac.compactionVariant.Width = layout.MediumFieldWidth(width)
 		ac.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		ac.saveProviderInput.Width = layout.MediumFieldWidth(width)
 		ac.modelSelector.SetSize(width, height)
@@ -497,6 +514,13 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 			} else {
 				ac.ultraworkModel.SetValue("")
 				ac.ultraworkVariant.SetValue("")
+			}
+			if agentCfg.Compaction != nil {
+				ac.compactionModel.SetValue(agentCfg.Compaction.Model)
+				ac.compactionVariant.SetValue(agentCfg.Compaction.Variant)
+			} else {
+				ac.compactionModel.SetValue("")
+				ac.compactionVariant.SetValue("")
 			}
 			for i, e := range effortLevels {
 				if e == agentCfg.ReasoningEffort {
@@ -655,6 +679,15 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			agentCfg.Ultrawork = nil
 		}
 
+		if m := ac.compactionModel.Value(); m != "" {
+			agentCfg.Compaction = &config.CompactionConfig{
+				Model:   m,
+				Variant: ac.compactionVariant.Value(),
+			}
+		} else {
+			agentCfg.Compaction = nil
+		}
+
 		agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
 		agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
 
@@ -683,6 +716,8 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	ac.thinkingBudget.Blur()
 	ac.ultraworkModel.Blur()
 	ac.ultraworkVariant.Blur()
+	ac.compactionModel.Blur()
+	ac.compactionVariant.Blur()
 
 	switch w.focusedField {
 	case fieldModel:
@@ -717,6 +752,10 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 		ac.ultraworkModel.Focus()
 	case fieldUltraworkVariant:
 		ac.ultraworkVariant.Focus()
+	case fieldCompactionModel:
+		ac.compactionModel.Focus()
+	case fieldCompactionVariant:
+		ac.compactionVariant.Focus()
 	}
 }
 
@@ -728,7 +767,7 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		baseLine++ // agent header line
 		ac := w.agents[allAgents[i]]
 		if ac.expanded && ac.enabled {
-			baseLine += 39 // expanded form ~39 lines
+			baseLine += 43 // expanded form ~43 lines
 		}
 	}
 	baseLine++ // current agent header
@@ -764,6 +803,8 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		fieldPermDoomLoop:     31,
 		fieldPermExtDir:       32,
 		fieldFallbackModels:   33,
+		fieldCompactionModel:   34,
+		fieldCompactionVariant: 35,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -840,7 +881,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "down", "j":
 				w.focusedField++
-				if w.focusedField > fieldFallbackModels {
+				if w.focusedField > fieldCompactionVariant {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -851,7 +892,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldFallbackModels
+					w.focusedField = fieldCompactionVariant
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
@@ -859,7 +900,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				return w, nil
 			case "tab":
 				w.focusedField++
-				if w.focusedField > fieldFallbackModels {
+				if w.focusedField > fieldCompactionVariant {
 					w.focusedField = fieldModel
 				}
 				w.updateFieldFocus(ac)
@@ -870,7 +911,7 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				if w.focusedField > fieldModel {
 					w.focusedField--
 				} else {
-					w.focusedField = fieldFallbackModels
+					w.focusedField = fieldCompactionVariant
 				}
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
@@ -958,6 +999,12 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			case fieldUltraworkVariant:
 				ac.ultraworkVariant, cmd = ac.ultraworkVariant.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldCompactionModel:
+				ac.compactionModel, cmd = ac.compactionModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case fieldCompactionVariant:
+				ac.compactionVariant, cmd = ac.compactionVariant.Update(msg)
 				cmds = append(cmds, cmd)
 			}
 
@@ -1175,6 +1222,10 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Fallback ──"))
 	lines = append(lines, renderField("fallback", fieldFallbackModels, ac.fallbackModels.View()))
+	lines = append(lines, "")
+	lines = append(lines, indent+wizAgentDimStyle.Render("── Compaction ──"))
+	lines = append(lines, renderField("compModel", fieldCompactionModel, ac.compactionModel.View()))
+	lines = append(lines, renderField("compVariant", fieldCompactionVariant, ac.compactionVariant.View()))
 	lines = append(lines, "")
 
 	return lines

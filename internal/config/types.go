@@ -11,6 +11,7 @@ type Config struct {
 	DisabledHooks           []string                       `json:"disabled_hooks,omitempty"`
 	DisabledCommands        []string                       `json:"disabled_commands,omitempty"`
 	HashlineEdit            *bool                          `json:"hashline_edit,omitempty"`
+	ModelFallback           *bool                          `json:"model_fallback,omitempty"`
 	Agents                  map[string]*AgentConfig        `json:"agents,omitempty"`
 	Categories              map[string]*CategoryConfig     `json:"categories,omitempty"`
 	ClaudeCode              *ClaudeCodeConfig              `json:"claude_code,omitempty"`
@@ -32,31 +33,34 @@ type Config struct {
 	Websearch               *WebsearchConfig               `json:"websearch,omitempty"`
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
+	StartWork               *StartWorkConfig               `json:"start_work,omitempty"`
 	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
 type AgentConfig struct {
-	Model           string                 `json:"model,omitempty"`
-	FallbackModels  interface{}            `json:"fallback_models,omitempty"`
-	Variant         string                 `json:"variant,omitempty"`
-	Category        string                 `json:"category,omitempty"`
-	Skills          []string               `json:"skills,omitempty"`
-	Temperature     *float64               `json:"temperature,omitempty"`
-	TopP            *float64               `json:"top_p,omitempty"`
-	Prompt          string                 `json:"prompt,omitempty"`
-	PromptAppend    string                 `json:"prompt_append,omitempty"`
-	Tools           map[string]bool        `json:"tools,omitempty"`
-	Disable         *bool                  `json:"disable,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Mode            string                 `json:"mode,omitempty"`
-	Color           string                 `json:"color,omitempty"`
-	Permission      *PermissionConfig      `json:"permission,omitempty"`
-	MaxTokens       *float64               `json:"maxTokens,omitempty"`
-	Thinking        *ThinkingConfig        `json:"thinking,omitempty"`
-	ReasoningEffort string                 `json:"reasoningEffort,omitempty"`
-	TextVerbosity   string                 `json:"textVerbosity,omitempty"`
-	ProviderOptions map[string]interface{} `json:"providerOptions,omitempty"`
-	Ultrawork       *UltraworkConfig       `json:"ultrawork,omitempty"`
+	Model            string                 `json:"model,omitempty"`
+	FallbackModels   interface{}            `json:"fallback_models,omitempty"`
+	Variant          string                 `json:"variant,omitempty"`
+	Category         string                 `json:"category,omitempty"`
+	Skills           []string               `json:"skills,omitempty"`
+	Temperature      *float64               `json:"temperature,omitempty"`
+	TopP             *float64               `json:"top_p,omitempty"`
+	Prompt           string                 `json:"prompt,omitempty"`
+	PromptAppend     string                 `json:"prompt_append,omitempty"`
+	Tools            map[string]bool        `json:"tools,omitempty"`
+	Disable          *bool                  `json:"disable,omitempty"`
+	Description      string                 `json:"description,omitempty"`
+	Mode             string                 `json:"mode,omitempty"`
+	Color            string                 `json:"color,omitempty"`
+	Permission       *PermissionConfig      `json:"permission,omitempty"`
+	MaxTokens        *float64               `json:"maxTokens,omitempty"`
+	Thinking         *ThinkingConfig        `json:"thinking,omitempty"`
+	ReasoningEffort  string                 `json:"reasoningEffort,omitempty"`
+	TextVerbosity    string                 `json:"textVerbosity,omitempty"`
+	ProviderOptions  map[string]interface{} `json:"providerOptions,omitempty"`
+	Ultrawork        *UltraworkConfig       `json:"ultrawork,omitempty"`
+	Compaction       *CompactionConfig      `json:"compaction,omitempty"`
+	AllowNonGptModel *bool                  `json:"allow_non_gpt_model,omitempty"`
 }
 
 // PermissionConfig - bash is interface{} to preserve string OR object
@@ -83,6 +87,7 @@ type CategoryConfig struct {
 	TextVerbosity   string          `json:"textVerbosity,omitempty"`
 	Tools           map[string]bool `json:"tools,omitempty"`
 	PromptAppend    string          `json:"prompt_append,omitempty"`
+	MaxPromptTokens *int64          `json:"max_prompt_tokens,omitempty"`
 	IsUnstableAgent *bool           `json:"is_unstable_agent,omitempty"`
 	Disable         *bool           `json:"disable,omitempty"`
 }
@@ -97,6 +102,17 @@ type ThinkingConfig struct {
 type UltraworkConfig struct {
 	Model   string `json:"model,omitempty"`
 	Variant string `json:"variant,omitempty"`
+}
+
+// CompactionConfig
+type CompactionConfig struct {
+	Model   string `json:"model,omitempty"`
+	Variant string `json:"variant,omitempty"`
+}
+
+// StartWorkConfig
+type StartWorkConfig struct {
+	AutoCommit *bool `json:"auto_commit,omitempty"`
 }
 
 // ClaudeCodeConfig
@@ -187,6 +203,7 @@ type BackgroundTaskConfig struct {
 	ModelConcurrency          map[string]int `json:"modelConcurrency,omitempty"`
 	StaleTimeoutMs            *int           `json:"staleTimeoutMs,omitempty"`
 	MessageStalenessTimeoutMs *int           `json:"messageStalenessTimeoutMs,omitempty"`
+	SyncPollTimeoutMs         *int           `json:"syncPollTimeoutMs,omitempty"`
 }
 
 // NotificationConfig
