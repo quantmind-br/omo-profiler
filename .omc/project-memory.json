@@ -127,15 +127,15 @@
       "type": "file"
     },
     {
-      "path": "internal/schema/validator.go",
-      "accessCount": 2,
-      "lastAccessed": 1773043916070,
+      "path": "internal/schema/schema.json",
+      "accessCount": 3,
+      "lastAccessed": 1773044433325,
       "type": "file"
     },
     {
-      "path": "internal/schema/schema.json",
+      "path": "internal/schema/validator.go",
       "accessCount": 2,
-      "lastAccessed": 1773043918621,
+      "lastAccessed": 1773043916070,
       "type": "file"
     },
     {
