@@ -110,15 +110,51 @@
     },
     {
       "path": "internal/config/types.go",
-      "accessCount": 6,
-      "lastAccessed": 1772964505620,
+      "accessCount": 7,
+      "lastAccessed": 1773043915969,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 2,
-      "lastAccessed": 1772964293325,
+      "accessCount": 3,
+      "lastAccessed": 1773043967817,
       "type": "directory"
+    },
+    {
+      "path": ".claude/commands/update-omo-profiler.md",
+      "accessCount": 3,
+      "lastAccessed": 1773044156407,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/validator.go",
+      "accessCount": 2,
+      "lastAccessed": 1773043916070,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/schema.json",
+      "accessCount": 2,
+      "lastAccessed": 1773043918621,
+      "type": "file"
+    },
+    {
+      "path": "internal/schema/compare.go",
+      "accessCount": 2,
+      "lastAccessed": 1773043970679,
+      "type": "file"
+    },
+    {
+      "path": "internal/config/AGENTS.md",
+      "accessCount": 2,
+      "lastAccessed": 1773043971187,
+      "type": "file"
+    },
+    {
+      "path": "AGENTS.md",
+      "accessCount": 2,
+      "lastAccessed": 1773043971573,
+      "type": "file"
     },
     {
       "path": "oh-my-opencode.schema.json",
@@ -130,12 +166,6 @@
       "path": "internal/schema/oh-my-opencode.schema.json",
       "accessCount": 1,
       "lastAccessed": 1772964292487,
-      "type": "file"
-    },
-    {
-      "path": "internal/schema/schema.json",
-      "accessCount": 1,
-      "lastAccessed": 1772964293432,
       "type": "file"
     },
     {
@@ -157,18 +187,6 @@
       "type": "file"
     },
     {
-      "path": "internal/schema/compare.go",
-      "accessCount": 1,
-      "lastAccessed": 1772964412274,
-      "type": "file"
-    },
-    {
-      "path": "internal/schema/validator.go",
-      "accessCount": 1,
-      "lastAccessed": 1772964420341,
-      "type": "file"
-    },
-    {
       "path": "internal/schema/accessor_test.go",
       "accessCount": 1,
       "lastAccessed": 1772964420435,
@@ -178,6 +196,48 @@
       "path": "internal/tui/views/model_registry_test.go",
       "accessCount": 1,
       "lastAccessed": 1772964812555,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043908790,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/app.go",
+      "accessCount": 1,
+      "lastAccessed": 1773043918343,
+      "type": "file"
+    },
+    {
+      "path": "internal/cli/cmd/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043920416,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043922707,
+      "type": "file"
+    },
+    {
+      "path": "internal/profile/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043922919,
+      "type": "file"
+    },
+    {
+      "path": "internal/models/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043928327,
+      "type": "file"
+    },
+    {
+      "path": "internal/tui/views/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1773043929935,
       "type": "file"
     }
   ],

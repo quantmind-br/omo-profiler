@@ -1,0 +1,7 @@
+{
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/Users/diogo/dev/omo-profiler/CLAUDE.md\"}",
+  "error": "File does not exist. Note: your current working directory is /Users/diogo/dev/omo-profiler/.claude/commands.",
+  "timestamp": "2026-03-09T08:11:49.164Z",
+  "retry_count": 1
+}
