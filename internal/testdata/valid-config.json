@@ -181,5 +181,42 @@
   "git_master": {
     "commit_footer": true,
     "include_co_authored_by": false
+  },
+  "openclaw": {
+    "enabled": true,
+    "gateways": {
+      "discord": {
+        "type": "http",
+        "url": "https://discord.example.com/webhook",
+        "method": "POST",
+        "headers": {"Authorization": "Bot token123"},
+        "timeout": 5000
+      }
+    },
+    "hooks": {
+      "on_complete": {
+        "enabled": true,
+        "gateway": "discord",
+        "instruction": "Notify on task completion"
+      }
+    },
+    "replyListener": {
+      "discordBotToken": "token123",
+      "discordChannelId": "123456",
+      "discordMention": "<@bot>",
+      "authorizedDiscordUserIds": ["user1"],
+      "telegramBotToken": "tg-token",
+      "telegramChatId": "chat123",
+      "pollIntervalMs": 3000,
+      "rateLimitPerMinute": 10,
+      "maxMessageLength": 500,
+      "includePrefix": true
+    }
+  },
+  "model_capabilities": {
+    "enabled": true,
+    "auto_refresh_on_start": false,
+    "refresh_timeout_ms": 30000,
+    "source_url": "https://models.dev/api/models"
   }
 }

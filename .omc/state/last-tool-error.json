@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"go test ./...\",\"description\":\"Run all tests\"}",
-  "error": "Exit code 1\ngo: downloading github.com/stretchr/testify v1.11.1\ngo: downloading github.com/davecgh/go-spew v1.1.1\ngo: downloading github.com/pmezard/go-difflib v1.0.0\n?   \tgithub.com/diogenes/omo-profiler/cmd/omo-profiler\t[no test files]\nok  \tgithub.com/diogenes/omo-profiler/internal/backup\t0.002s\n?   \tgithub.com/diogenes/omo-profiler/internal/cli\t[no test files]\nok  \tgithub.com/diogenes/omo-profiler/internal/cli/cmd\t0.002s\nok  \tgithub.com/diogenes/omo-profiler/internal/config\t0.003s\nok  \tgithub...",
-  "timestamp": "2026-03-08T10:13:24.721Z",
-  "retry_count": 1
-}

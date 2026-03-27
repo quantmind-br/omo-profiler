@@ -34,6 +34,8 @@ type Config struct {
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
 	StartWork               *StartWorkConfig               `json:"start_work,omitempty"`
+	Openclaw                *OpenclawConfig                 `json:"openclaw,omitempty"`
+	ModelCapabilities       *ModelCapabilitiesConfig        `json:"model_capabilities,omitempty"`
 	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
@@ -256,4 +258,51 @@ type SisyphusTasksConfig struct {
 	StoragePath      string `json:"storage_path,omitempty"`
 	ClaudeCodeCompat *bool  `json:"claude_code_compat,omitempty"`
 	TaskListID       string `json:"task_list_id,omitempty"`
+}
+
+// OpenclawConfig
+type OpenclawConfig struct {
+	Enabled       *bool                          `json:"enabled,omitempty"`
+	Gateways      map[string]*OpenclawGateway    `json:"gateways,omitempty"`
+	Hooks         map[string]*OpenclawHook       `json:"hooks,omitempty"`
+	ReplyListener *OpenclawReplyListenerConfig   `json:"replyListener,omitempty"`
+}
+
+// OpenclawGateway
+type OpenclawGateway struct {
+	Type    string            `json:"type,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Method  string            `json:"method,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Command string            `json:"command,omitempty"`
+	Timeout *float64          `json:"timeout,omitempty"`
+}
+
+// OpenclawHook
+type OpenclawHook struct {
+	Enabled     *bool  `json:"enabled,omitempty"`
+	Gateway     string `json:"gateway,omitempty"`
+	Instruction string `json:"instruction,omitempty"`
+}
+
+// OpenclawReplyListenerConfig
+type OpenclawReplyListenerConfig struct {
+	DiscordBotToken          string   `json:"discordBotToken,omitempty"`
+	DiscordChannelID         string   `json:"discordChannelId,omitempty"`
+	DiscordMention           string   `json:"discordMention,omitempty"`
+	AuthorizedDiscordUserIDs []string `json:"authorizedDiscordUserIds,omitempty"`
+	TelegramBotToken         string   `json:"telegramBotToken,omitempty"`
+	TelegramChatID           string   `json:"telegramChatId,omitempty"`
+	PollIntervalMs           *float64 `json:"pollIntervalMs,omitempty"`
+	RateLimitPerMinute       *float64 `json:"rateLimitPerMinute,omitempty"`
+	MaxMessageLength         *float64 `json:"maxMessageLength,omitempty"`
+	IncludePrefix            *bool    `json:"includePrefix,omitempty"`
+}
+
+// ModelCapabilitiesConfig
+type ModelCapabilitiesConfig struct {
+	Enabled            *bool   `json:"enabled,omitempty"`
+	AutoRefreshOnStart *bool   `json:"auto_refresh_on_start,omitempty"`
+	RefreshTimeoutMs   *int64  `json:"refresh_timeout_ms,omitempty"`
+	SourceURL          string  `json:"source_url,omitempty"`
 }

@@ -1103,3 +1103,98 @@ func TestTmuxRoundTrip(t *testing.T) {
 	assert.Contains(t, string(marshaled), `"main_pane_min_width":80`)
 	assert.Contains(t, string(marshaled), `"agent_pane_min_width":40`)
 }
+
+func TestOpenclawRoundTrip(t *testing.T) {
+	jsonData := `{
+		"openclaw": {
+			"enabled": true,
+			"gateways": {
+				"discord": {
+					"type": "http",
+					"url": "https://example.com/webhook",
+					"method": "POST",
+					"headers": {"Authorization": "Bot token"},
+					"timeout": 5000
+				}
+			},
+			"hooks": {
+				"on_complete": {
+					"enabled": true,
+					"gateway": "discord",
+					"instruction": "Notify on completion"
+				}
+			},
+			"replyListener": {
+				"discordBotToken": "token",
+				"pollIntervalMs": 3000,
+				"includePrefix": true
+			}
+		}
+	}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Openclaw)
+	require.NotNil(t, cfg.Openclaw.Enabled)
+	assert.True(t, *cfg.Openclaw.Enabled)
+	require.NotNil(t, cfg.Openclaw.Gateways["discord"])
+	assert.Equal(t, "http", cfg.Openclaw.Gateways["discord"].Type)
+	assert.Equal(t, "POST", cfg.Openclaw.Gateways["discord"].Method)
+	require.NotNil(t, cfg.Openclaw.Hooks["on_complete"])
+	assert.Equal(t, "discord", cfg.Openclaw.Hooks["on_complete"].Gateway)
+	require.NotNil(t, cfg.Openclaw.ReplyListener)
+	assert.Equal(t, "token", cfg.Openclaw.ReplyListener.DiscordBotToken)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"openclaw"`)
+	assert.Contains(t, string(marshaled), `"discord"`)
+	assert.Contains(t, string(marshaled), `"replyListener"`)
+}
+
+func TestModelCapabilitiesRoundTrip(t *testing.T) {
+	jsonData := `{
+		"model_capabilities": {
+			"enabled": true,
+			"auto_refresh_on_start": false,
+			"refresh_timeout_ms": 30000,
+			"source_url": "https://models.dev/api/models"
+		}
+	}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.ModelCapabilities)
+	require.NotNil(t, cfg.ModelCapabilities.Enabled)
+	assert.True(t, *cfg.ModelCapabilities.Enabled)
+	require.NotNil(t, cfg.ModelCapabilities.AutoRefreshOnStart)
+	assert.False(t, *cfg.ModelCapabilities.AutoRefreshOnStart)
+	require.NotNil(t, cfg.ModelCapabilities.RefreshTimeoutMs)
+	assert.Equal(t, int64(30000), *cfg.ModelCapabilities.RefreshTimeoutMs)
+	assert.Equal(t, "https://models.dev/api/models", cfg.ModelCapabilities.SourceURL)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"model_capabilities"`)
+	assert.Contains(t, string(marshaled), `"refresh_timeout_ms":30000`)
+	assert.Contains(t, string(marshaled), `"source_url":"https://models.dev/api/models"`)
+}
+
+func TestFallbackModelsObjectRoundTrip(t *testing.T) {
+	jsonData := `{"agents": {"build": {"fallback_models": [{"model": "gpt-4o", "variant": "fast", "reasoningEffort": "minimal", "temperature": 0.5}]}}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+
+	build := cfg.Agents["build"]
+	require.NotNil(t, build)
+	require.NotNil(t, build.FallbackModels)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"model":"gpt-4o"`)
+	assert.Contains(t, string(marshaled), `"reasoningEffort":"minimal"`)
+}
