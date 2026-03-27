@@ -119,6 +119,12 @@
       "accessCount": 1,
       "lastAccessed": 1774626105791,
       "type": "file"
+    },
+    {
+      "path": "internal/schema/schema.json",
+      "accessCount": 1,
+      "lastAccessed": 1774630487436,
+      "type": "file"
     }
   ],
   "userDirectives": []
