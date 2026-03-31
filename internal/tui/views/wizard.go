@@ -94,15 +94,19 @@ type Wizard struct {
 
 // NewWizard creates a new wizard for creating a profile
 func NewWizard() Wizard {
+	otherStep := NewWizardOther()
+	cfg := config.Config{}
+	otherStep.Apply(&cfg)
+
 	return Wizard{
 		step:           StepName,
-		config:         config.Config{},
+		config:         cfg,
 		editMode:       false,
 		nameStep:       NewWizardName(),
 		categoriesStep: NewWizardCategories(),
 		agentsStep:     NewWizardAgents(),
 		hooksStep:      NewWizardHooks(),
-		otherStep:      NewWizardOther(),
+		otherStep:      otherStep,
 		reviewStep:     NewWizardReview(),
 		keys:           newWizardKeyMap(),
 	}

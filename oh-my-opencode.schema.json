@@ -4261,6 +4261,10 @@
         },
         "replace_plan": {
           "type": "boolean"
+        },
+        "tdd": {
+          "default": true,
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -4885,6 +4889,11 @@
       "additionalProperties": false
     },
     "git_master": {
+      "default": {
+        "commit_footer": true,
+        "include_co_authored_by": true,
+        "git_env_prefix": "GIT_MASTER=1"
+      },
       "type": "object",
       "properties": {
         "commit_footer": {
@@ -4979,6 +4988,15 @@
           "default": 40,
           "type": "number",
           "minimum": 20
+        },
+        "isolation": {
+          "default": "session",
+          "type": "string",
+          "enum": [
+            "inline",
+            "window",
+            "session"
+          ]
         }
       },
       "required": [
@@ -4986,7 +5004,8 @@
         "layout",
         "main_pane_size",
         "main_pane_min_width",
-        "agent_pane_min_width"
+        "agent_pane_min_width",
+        "isolation"
       ],
       "additionalProperties": false
     },
@@ -5035,5 +5054,8 @@
       }
     }
   },
+  "required": [
+    "git_master"
+  ],
   "additionalProperties": false
 }

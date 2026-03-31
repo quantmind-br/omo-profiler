@@ -25,11 +25,18 @@ func TestValidate_ValidConfig(t *testing.T) {
 	v, err := NewValidator()
 	require.NoError(t, err)
 
-	// Empty config should be valid (all fields are optional)
-	cfg := &config.Config{}
+	// Config with required git_master should be valid
+	coAuth := true
+	cfg := &config.Config{
+		GitMaster: &config.GitMasterConfig{
+			CommitFooter:        true,
+			IncludeCoAuthoredBy: &coAuth,
+			GitEnvPrefix:        "GIT_MASTER=1",
+		},
+	}
 	errs, err := v.Validate(cfg)
 	require.NoError(t, err)
-	assert.Nil(t, errs, "empty config should be valid")
+	assert.Nil(t, errs, "config with required git_master should be valid")
 }
 
 func TestValidate_ValidConfigWithAgents(t *testing.T) {
@@ -37,7 +44,13 @@ func TestValidate_ValidConfigWithAgents(t *testing.T) {
 	require.NoError(t, err)
 
 	temp := 0.7
+	coAuth := true
 	cfg := &config.Config{
+		GitMaster: &config.GitMasterConfig{
+			CommitFooter:        true,
+			IncludeCoAuthoredBy: &coAuth,
+			GitEnvPrefix:        "GIT_MASTER=1",
+		},
 		Agents: map[string]*config.AgentConfig{
 			"build": {
 				Model:       "claude-sonnet-4-20250514",
@@ -152,10 +165,10 @@ func TestValidateJSON_ValidJSON(t *testing.T) {
 	v, err := NewValidator()
 	require.NoError(t, err)
 
-	validJSON := []byte(`{}`)
+	validJSON := []byte(`{"git_master": {"commit_footer": true, "include_co_authored_by": true, "git_env_prefix": "GIT_MASTER=1"}}`)
 	errs, err := v.ValidateJSON(validJSON)
 	require.NoError(t, err)
-	assert.Nil(t, errs, "empty JSON object should be valid")
+	assert.Nil(t, errs, "JSON with required git_master should be valid")
 }
 
 func TestValidateJSON_ValidJSONWithAgents(t *testing.T) {
@@ -163,6 +176,7 @@ func TestValidateJSON_ValidJSONWithAgents(t *testing.T) {
 	require.NoError(t, err)
 
 	validJSON := []byte(`{
+		"git_master": {"commit_footer": true, "include_co_authored_by": true, "git_env_prefix": "GIT_MASTER=1"},
 		"agents": {
 			"build": {
 				"temperature": 0.7,

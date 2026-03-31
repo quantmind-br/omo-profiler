@@ -111,6 +111,7 @@ var disableableCommands = []string{
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
 var browserProviders = []string{"", "playwright", "playwright-cli", "agent-browser", "dev-browser"}
 var tmuxLayouts = []string{"", "main-horizontal", "main-vertical", "tiled", "even-horizontal", "even-vertical"}
+var tmuxIsolations = []string{"", "inline", "window", "session"}
 var websearchProviders = []string{"", "exa", "tavily"}
 var ralphLoopStrategies = []string{"", "reset", "continue"}
 
@@ -223,6 +224,36 @@ func newWizardOtherKeyMap() wizardOtherKeyMap {
 	}
 }
 
+func parsePositiveInt64(input string) *int64 {
+	if strings.TrimSpace(input) == "" {
+		return nil
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
+	if err != nil || value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func parseNonNegativeInt(input string) *int {
+	if strings.TrimSpace(input) == "" {
+		return nil
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil || value < 0 {
+		return nil
+	}
+	return &value
+}
+
+func parsePositiveIntWithMinimum(input string, minimum int) *int {
+	value := parseNonNegativeInt(input)
+	if value == nil || *value < minimum {
+		return nil
+	}
+	return value
+}
+
 // WizardOther is step 4: Other settings
 type WizardOther struct {
 	// Disabled lists
@@ -233,9 +264,9 @@ type WizardOther struct {
 	disabledTools    textinput.Model
 
 	// Auto update
-	autoUpdate        bool
-	hashlineEdit      bool
-	modelFallback     bool
+	autoUpdate          bool
+	hashlineEdit        bool
+	modelFallback       bool
 	startWorkAutoCommit bool
 
 	// Experimental flags
@@ -249,6 +280,7 @@ type WizardOther struct {
 	expHashlineEdit         bool
 	expDisableOmoEnv        bool
 	expModelFallbackTitle   bool
+	expMaxTools             textinput.Model
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -275,6 +307,7 @@ type WizardOther struct {
 	saDefaultBuilderEnabled bool
 	saPlannerEnabled        bool
 	saReplacePlan           bool
+	saTDD                   bool
 
 	// Ralph Loop
 	rlEnabled              bool
@@ -286,16 +319,26 @@ type WizardOther struct {
 	btDefaultConcurrency        textinput.Model
 	btProviderConcurrency       textinput.Model
 	btModelConcurrency          textinput.Model
+	btMaxDepth                  textinput.Model
+	btMaxDescendants            textinput.Model
 	btStaleTimeoutMs            textinput.Model
 	btMessageStalenessTimeoutMs textinput.Model
+	btTaskTtlMs                 textinput.Model
+	btSessionGoneTimeoutMs      textinput.Model
 	btSyncPollTimeoutMs         textinput.Model
+	btMaxToolCalls              textinput.Model
+	btCircuitBreakerEnabled     bool
+	btCircuitBreakerMaxCalls    textinput.Model
+	btCircuitBreakerConsecutive textinput.Model
 
 	// Notification
 	notifForceEnable bool
 
 	// Git Master
 	gmCommitFooter        bool
+	gmCommitFooterText    textinput.Model
 	gmIncludeCoAuthoredBy bool
+	gmGitEnvPrefix        textinput.Model
 
 	// Comment Checker
 	ccCustomPrompt textinput.Model
@@ -312,6 +355,7 @@ type WizardOther struct {
 	tmuxMainPaneSize      textinput.Model
 	tmuxMainPaneMinWidth  textinput.Model
 	tmuxAgentPaneMinWidth textinput.Model
+	tmuxIsolationIdx      int
 
 	// Websearch
 	websearchProviderIdx int
@@ -376,13 +420,41 @@ func NewWizardOther() WizardOther {
 	btStaleTimeoutMs.Placeholder = "60000"
 	btStaleTimeoutMs.Width = 15
 
+	btMaxDepth := textinput.New()
+	btMaxDepth.Placeholder = "8"
+	btMaxDepth.Width = 10
+
+	btMaxDescendants := textinput.New()
+	btMaxDescendants.Placeholder = "100"
+	btMaxDescendants.Width = 10
+
 	btMsgStaleTimeout := textinput.New()
 	btMsgStaleTimeout.Placeholder = "60000"
 	btMsgStaleTimeout.Width = 15
 
+	btTaskTtlMs := textinput.New()
+	btTaskTtlMs.Placeholder = "300000"
+	btTaskTtlMs.Width = 15
+
+	btSessionGoneTimeoutMs := textinput.New()
+	btSessionGoneTimeoutMs.Placeholder = "10000"
+	btSessionGoneTimeoutMs.Width = 15
+
 	btSyncPollTimeoutMs := textinput.New()
 	btSyncPollTimeoutMs.Placeholder = "60000"
 	btSyncPollTimeoutMs.Width = 15
+
+	btMaxToolCalls := textinput.New()
+	btMaxToolCalls.Placeholder = "50"
+	btMaxToolCalls.Width = 10
+
+	btCircuitBreakerMaxCalls := textinput.New()
+	btCircuitBreakerMaxCalls.Placeholder = "25"
+	btCircuitBreakerMaxCalls.Width = 10
+
+	btCircuitBreakerConsecutive := textinput.New()
+	btCircuitBreakerConsecutive.Placeholder = "5"
+	btCircuitBreakerConsecutive.Width = 10
 
 	ccPrompt := textinput.New()
 	ccPrompt.Placeholder = "custom prompt..."
@@ -403,6 +475,10 @@ func NewWizardOther() WizardOther {
 	expPluginLoadTimeoutMs := textinput.New()
 	expPluginLoadTimeoutMs.Placeholder = "30000"
 	expPluginLoadTimeoutMs.Width = 10
+
+	expMaxTools := textinput.New()
+	expMaxTools.Placeholder = "64"
+	expMaxTools.Width = 10
 
 	ccPluginsOverride := textinput.New()
 	ccPluginsOverride.Placeholder = "serena:false, context7:true"
@@ -460,6 +536,15 @@ func NewWizardOther() WizardOther {
 	babysittingTimeoutMs.Placeholder = "60000"
 	babysittingTimeoutMs.Width = 10
 
+	gmCommitFooterText := textinput.New()
+	gmCommitFooterText.Placeholder = "Signed-off-by: ..."
+	gmCommitFooterText.Width = 40
+
+	gmGitEnvPrefix := textinput.New()
+	gmGitEnvPrefix.Placeholder = "GIT_MASTER=1"
+	gmGitEnvPrefix.Width = 25
+	gmGitEnvPrefix.SetValue("GIT_MASTER=1")
+
 	defaultRunAgent := textinput.New()
 	defaultRunAgent.Placeholder = "build"
 	defaultRunAgent.Width = 30
@@ -471,16 +556,26 @@ func NewWizardOther() WizardOther {
 		disabledCommands:            disabledCommands,
 		disabledTools:               disabledTools,
 		expPluginLoadTimeoutMs:      expPluginLoadTimeoutMs,
+		expMaxTools:                 expMaxTools,
 		rlDefaultMaxIterations:      rlMaxIter,
 		rlStateDir:                  rlStateDir,
 		btDefaultConcurrency:        btConcurrency,
 		btProviderConcurrency:       btProviderConcurrency,
 		btModelConcurrency:          btModelConcurrency,
+		btMaxDepth:                  btMaxDepth,
+		btMaxDescendants:            btMaxDescendants,
 		btStaleTimeoutMs:            btStaleTimeoutMs,
 		btMessageStalenessTimeoutMs: btMsgStaleTimeout,
+		btTaskTtlMs:                 btTaskTtlMs,
+		btSessionGoneTimeoutMs:      btSessionGoneTimeoutMs,
 		btSyncPollTimeoutMs:         btSyncPollTimeoutMs,
+		btMaxToolCalls:              btMaxToolCalls,
+		btCircuitBreakerMaxCalls:    btCircuitBreakerMaxCalls,
+		btCircuitBreakerConsecutive: btCircuitBreakerConsecutive,
 		ccCustomPrompt:              ccPrompt,
 		babysittingTimeoutMs:        babysittingTimeoutMs,
+		gmCommitFooterText:          gmCommitFooterText,
+		gmGitEnvPrefix:              gmGitEnvPrefix,
 		tmuxMainPaneSize:            tmuxSize,
 		tmuxMainPaneMinWidth:        tmuxMinWidth,
 		tmuxAgentPaneMinWidth:       tmuxAgentWidth,
@@ -493,7 +588,8 @@ func NewWizardOther() WizardOther {
 		ccPluginsOverride:           ccPluginsOverride,
 		runtimeFallbackEditor:       runtimeFallbackEditor,
 		skillsEditor:                skillsEditor,
-		tmuxLayoutIdx:               4,
+		tmuxLayoutIdx:               2,
+		tmuxIsolationIdx:            3,
 		sectionExpanded:             sectionExpanded,
 		keys:                        newWizardOtherKeyMap(),
 	}
@@ -532,15 +628,25 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.btProviderConcurrency.Width = wide
 	w.btModelConcurrency.Width = wide
 	w.btStaleTimeoutMs.Width = layout.FixedSmallWidth()
+	w.btMaxDepth.Width = layout.FixedSmallWidth()
+	w.btMaxDescendants.Width = layout.FixedSmallWidth()
 	w.btMessageStalenessTimeoutMs.Width = layout.FixedSmallWidth()
+	w.btTaskTtlMs.Width = layout.FixedSmallWidth()
+	w.btSessionGoneTimeoutMs.Width = layout.FixedSmallWidth()
 	w.btSyncPollTimeoutMs.Width = layout.FixedSmallWidth()
+	w.btMaxToolCalls.Width = layout.FixedSmallWidth()
+	w.btCircuitBreakerMaxCalls.Width = layout.FixedSmallWidth()
+	w.btCircuitBreakerConsecutive.Width = layout.FixedSmallWidth()
 	w.ccCustomPrompt.Width = wide
 	w.dcpTurnProtTurns.Width = layout.FixedSmallWidth()
 	w.dcpProtectedTools.Width = wide
 	w.dcpPurgeErrorsTurns.Width = layout.FixedSmallWidth()
 	w.expPluginLoadTimeoutMs.Width = layout.FixedSmallWidth()
+	w.expMaxTools.Width = layout.FixedSmallWidth()
 	w.ccPluginsOverride.Width = wide
 	w.babysittingTimeoutMs.Width = layout.FixedSmallWidth()
+	w.gmCommitFooterText.Width = wide
+	w.gmGitEnvPrefix.Width = wide
 	w.tmuxMainPaneSize.Width = layout.FixedSmallWidth()
 	w.tmuxMainPaneMinWidth.Width = layout.FixedSmallWidth()
 	w.tmuxAgentPaneMinWidth.Width = layout.FixedSmallWidth()
@@ -633,6 +739,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.Experimental.ModelFallbackTitle != nil {
 			w.expModelFallbackTitle = *cfg.Experimental.ModelFallbackTitle
 		}
+		if cfg.Experimental.MaxTools != nil {
+			w.expMaxTools.SetValue(fmt.Sprintf("%d", *cfg.Experimental.MaxTools))
+		}
 
 		if cfg.Experimental.DynamicContextPruning != nil {
 			dcp := cfg.Experimental.DynamicContextPruning
@@ -721,6 +830,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.SisyphusAgent.ReplacePlan != nil {
 			w.saReplacePlan = *cfg.SisyphusAgent.ReplacePlan
 		}
+		if cfg.SisyphusAgent.TDD != nil {
+			w.saTDD = *cfg.SisyphusAgent.TDD
+		}
 	}
 
 	// Ralph Loop
@@ -752,8 +864,14 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if len(cfg.BackgroundTask.ProviderConcurrency) > 0 {
 			w.btProviderConcurrency.SetValue(serializeMapStringInt(cfg.BackgroundTask.ProviderConcurrency))
 		}
-		if len(cfg.BackgroundTask.ModelConcurrency) > 0 {
+		if cfg.BackgroundTask.ModelConcurrency != nil {
 			w.btModelConcurrency.SetValue(serializeMapStringInt(cfg.BackgroundTask.ModelConcurrency))
+		}
+		if cfg.BackgroundTask.MaxDepth != nil {
+			w.btMaxDepth.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MaxDepth))
+		}
+		if cfg.BackgroundTask.MaxDescendants != nil {
+			w.btMaxDescendants.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MaxDescendants))
 		}
 		if cfg.BackgroundTask.StaleTimeoutMs != nil {
 			w.btStaleTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.StaleTimeoutMs))
@@ -761,8 +879,28 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		if cfg.BackgroundTask.MessageStalenessTimeoutMs != nil {
 			w.btMessageStalenessTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MessageStalenessTimeoutMs))
 		}
+		if cfg.BackgroundTask.TaskTtlMs != nil {
+			w.btTaskTtlMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.TaskTtlMs))
+		}
+		if cfg.BackgroundTask.SessionGoneTimeoutMs != nil {
+			w.btSessionGoneTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.SessionGoneTimeoutMs))
+		}
 		if cfg.BackgroundTask.SyncPollTimeoutMs != nil {
 			w.btSyncPollTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.SyncPollTimeoutMs))
+		}
+		if cfg.BackgroundTask.MaxToolCalls != nil {
+			w.btMaxToolCalls.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MaxToolCalls))
+		}
+		if cfg.BackgroundTask.CircuitBreaker != nil {
+			if cfg.BackgroundTask.CircuitBreaker.Enabled != nil {
+				w.btCircuitBreakerEnabled = *cfg.BackgroundTask.CircuitBreaker.Enabled
+			}
+			if cfg.BackgroundTask.CircuitBreaker.MaxToolCalls != nil {
+				w.btCircuitBreakerMaxCalls.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.CircuitBreaker.MaxToolCalls))
+			}
+			if cfg.BackgroundTask.CircuitBreaker.ConsecutiveThreshold != nil {
+				w.btCircuitBreakerConsecutive.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.CircuitBreaker.ConsecutiveThreshold))
+			}
 		}
 	}
 
@@ -776,12 +914,18 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 	// Git Master
 	if cfg.GitMaster != nil {
 		if cfg.GitMaster.CommitFooter != nil {
-			if v, ok := cfg.GitMaster.CommitFooter.(bool); ok {
+			switch v := cfg.GitMaster.CommitFooter.(type) {
+			case bool:
 				w.gmCommitFooter = v
+			case string:
+				w.gmCommitFooterText.SetValue(v)
 			}
 		}
 		if cfg.GitMaster.IncludeCoAuthoredBy != nil {
 			w.gmIncludeCoAuthoredBy = *cfg.GitMaster.IncludeCoAuthoredBy
+		}
+		if cfg.GitMaster.GitEnvPrefix != "" {
+			w.gmGitEnvPrefix.SetValue(cfg.GitMaster.GitEnvPrefix)
 		}
 	}
 
@@ -828,6 +972,14 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 		}
 		if cfg.Tmux.AgentPaneMinWidth != nil {
 			w.tmuxAgentPaneMinWidth.SetValue(fmt.Sprintf("%g", *cfg.Tmux.AgentPaneMinWidth))
+		}
+		if cfg.Tmux.Isolation != "" {
+			for i, v := range tmuxIsolations {
+				if v == cfg.Tmux.Isolation {
+					w.tmuxIsolationIdx = i
+					break
+				}
+			}
 		}
 	}
 
@@ -971,7 +1123,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
 		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
 		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
-		w.expDisableOmoEnv || w.expModelFallbackTitle ||
+		w.expDisableOmoEnv || w.expModelFallbackTitle || w.expMaxTools.Value() != "" ||
 		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
 		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
 		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
@@ -1010,6 +1162,9 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.expModelFallbackTitle {
 			cfg.Experimental.ModelFallbackTitle = &w.expModelFallbackTitle
+		}
+		if v := parsePositiveInt64(w.expMaxTools.Value()); v != nil {
+			cfg.Experimental.MaxTools = v
 		}
 
 		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
@@ -1109,7 +1264,7 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	}
 
 	// Sisyphus Agent - only set if any flag is true
-	if w.saDisabled || w.saDefaultBuilderEnabled || w.saPlannerEnabled || w.saReplacePlan {
+	if w.saDisabled || w.saDefaultBuilderEnabled || w.saPlannerEnabled || w.saReplacePlan || w.saTDD {
 		cfg.SisyphusAgent = &config.SisyphusAgentConfig{}
 		if w.saDisabled {
 			cfg.SisyphusAgent.Disabled = &w.saDisabled
@@ -1122,6 +1277,9 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		}
 		if w.saReplacePlan {
 			cfg.SisyphusAgent.ReplacePlan = &w.saReplacePlan
+		}
+		if w.saTDD {
+			cfg.SisyphusAgent.TDD = &w.saTDD
 		}
 	}
 
@@ -1150,9 +1308,17 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	btHasData := w.btDefaultConcurrency.Value() != "" ||
 		w.btProviderConcurrency.Value() != "" ||
 		w.btModelConcurrency.Value() != "" ||
+		w.btMaxDepth.Value() != "" ||
+		w.btMaxDescendants.Value() != "" ||
 		w.btStaleTimeoutMs.Value() != "" ||
 		w.btMessageStalenessTimeoutMs.Value() != "" ||
-		w.btSyncPollTimeoutMs.Value() != ""
+		w.btTaskTtlMs.Value() != "" ||
+		w.btSessionGoneTimeoutMs.Value() != "" ||
+		w.btSyncPollTimeoutMs.Value() != "" ||
+		w.btMaxToolCalls.Value() != "" ||
+		w.btCircuitBreakerEnabled ||
+		w.btCircuitBreakerMaxCalls.Value() != "" ||
+		w.btCircuitBreakerConsecutive.Value() != ""
 	if btHasData {
 		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
 		if v := w.btDefaultConcurrency.Value(); v != "" {
@@ -1168,19 +1334,43 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 		if v := w.btModelConcurrency.Value(); v != "" {
 			cfg.BackgroundTask.ModelConcurrency = parseMapStringInt(v)
 		}
-		if v := w.btStaleTimeoutMs.Value(); v != "" {
-			if i, err := strconv.Atoi(v); err == nil && i > 0 {
-				cfg.BackgroundTask.StaleTimeoutMs = &i
-			}
+		if v := parsePositiveInt64(w.btMaxDepth.Value()); v != nil {
+			cfg.BackgroundTask.MaxDepth = v
 		}
-		if v := w.btMessageStalenessTimeoutMs.Value(); v != "" {
-			if i, err := strconv.Atoi(v); err == nil && i > 0 {
-				cfg.BackgroundTask.MessageStalenessTimeoutMs = &i
-			}
+		if v := parsePositiveInt64(w.btMaxDescendants.Value()); v != nil {
+			cfg.BackgroundTask.MaxDescendants = v
 		}
-		if v := w.btSyncPollTimeoutMs.Value(); v != "" {
-			if i, err := strconv.Atoi(v); err == nil && i >= 60000 {
-				cfg.BackgroundTask.SyncPollTimeoutMs = &i
+		if v := parsePositiveIntWithMinimum(w.btStaleTimeoutMs.Value(), 60000); v != nil {
+			cfg.BackgroundTask.StaleTimeoutMs = v
+		}
+		if v := parsePositiveIntWithMinimum(w.btMessageStalenessTimeoutMs.Value(), 60000); v != nil {
+			cfg.BackgroundTask.MessageStalenessTimeoutMs = v
+		}
+		if v := parsePositiveIntWithMinimum(w.btTaskTtlMs.Value(), 300000); v != nil {
+			cfg.BackgroundTask.TaskTtlMs = v
+		}
+		if v := parsePositiveIntWithMinimum(w.btSessionGoneTimeoutMs.Value(), 10000); v != nil {
+			cfg.BackgroundTask.SessionGoneTimeoutMs = v
+		}
+		if v := parsePositiveIntWithMinimum(w.btSyncPollTimeoutMs.Value(), 60000); v != nil {
+			cfg.BackgroundTask.SyncPollTimeoutMs = v
+		}
+		if v := parsePositiveInt64(w.btMaxToolCalls.Value()); v != nil {
+			cfg.BackgroundTask.MaxToolCalls = v
+		}
+		cbHasData := w.btCircuitBreakerEnabled ||
+			w.btCircuitBreakerMaxCalls.Value() != "" ||
+			w.btCircuitBreakerConsecutive.Value() != ""
+		if cbHasData {
+			cfg.BackgroundTask.CircuitBreaker = &config.BackgroundCircuitBreaker{}
+			if w.btCircuitBreakerEnabled {
+				cfg.BackgroundTask.CircuitBreaker.Enabled = &w.btCircuitBreakerEnabled
+			}
+			if v := parsePositiveInt64(w.btCircuitBreakerMaxCalls.Value()); v != nil {
+				cfg.BackgroundTask.CircuitBreaker.MaxToolCalls = v
+			}
+			if v := parsePositiveInt64(w.btCircuitBreakerConsecutive.Value()); v != nil {
+				cfg.BackgroundTask.CircuitBreaker.ConsecutiveThreshold = v
 			}
 		}
 	}
@@ -1193,13 +1383,20 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 	}
 
 	// Git Master
-	if w.gmCommitFooter || w.gmIncludeCoAuthoredBy {
+	gmCommitFooterText := strings.TrimSpace(w.gmCommitFooterText.Value())
+	gmGitEnvPrefix := strings.TrimSpace(w.gmGitEnvPrefix.Value())
+	if w.gmCommitFooter || gmCommitFooterText != "" || w.gmIncludeCoAuthoredBy || gmGitEnvPrefix != "" {
 		cfg.GitMaster = &config.GitMasterConfig{}
-		if w.gmCommitFooter {
+		if gmCommitFooterText != "" {
+			cfg.GitMaster.CommitFooter = gmCommitFooterText
+		} else if w.gmCommitFooter {
 			cfg.GitMaster.CommitFooter = w.gmCommitFooter
 		}
 		if w.gmIncludeCoAuthoredBy {
 			cfg.GitMaster.IncludeCoAuthoredBy = &w.gmIncludeCoAuthoredBy
+		}
+		if gmGitEnvPrefix != "" {
+			cfg.GitMaster.GitEnvPrefix = gmGitEnvPrefix
 		}
 	}
 
@@ -1226,7 +1423,8 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 
 	// Tmux
 	tmuxHasData := w.tmuxEnabled || w.tmuxLayoutIdx > 0 ||
-		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" || w.tmuxAgentPaneMinWidth.Value() != ""
+		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" || w.tmuxAgentPaneMinWidth.Value() != "" ||
+		w.tmuxIsolationIdx > 0
 	if tmuxHasData {
 		cfg.Tmux = &config.TmuxConfig{}
 		if w.tmuxEnabled {
@@ -1249,6 +1447,9 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
 				cfg.Tmux.AgentPaneMinWidth = &f
 			}
+		}
+		if w.tmuxIsolationIdx > 0 {
+			cfg.Tmux.Isolation = tmuxIsolations[w.tmuxIsolationIdx]
 		}
 	}
 
@@ -1457,6 +1658,41 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				default:
 					w.expPluginLoadTimeoutMs.Focus()
 					w.expPluginLoadTimeoutMs, cmd = w.expPluginLoadTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionExperimental && w.subCursor == 20 {
+				switch msg.String() {
+				case "esc":
+					w.expMaxTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.expMaxTools.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.expMaxTools.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.expMaxTools.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.expMaxTools.Focus()
+					w.expMaxTools, cmd = w.expMaxTools.Update(msg)
+					return w, cmd
+				default:
+					w.expMaxTools.Focus()
+					w.expMaxTools, cmd = w.expMaxTools.Update(msg)
 					return w, cmd
 				}
 			}
@@ -1824,6 +2060,334 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					w.btSyncPollTimeoutMs.Focus()
 					w.btSyncPollTimeoutMs, cmd = w.btSyncPollTimeoutMs.Update(msg)
 					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 6 {
+				switch msg.String() {
+				case "esc":
+					w.btMaxDepth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btMaxDepth.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btMaxDepth.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btMaxDepth.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btMaxDepth.Focus()
+					w.btMaxDepth, cmd = w.btMaxDepth.Update(msg)
+					return w, cmd
+				default:
+					w.btMaxDepth.Focus()
+					w.btMaxDepth, cmd = w.btMaxDepth.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 7 {
+				switch msg.String() {
+				case "esc":
+					w.btMaxDescendants.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btMaxDescendants.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btMaxDescendants.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btMaxDescendants.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btMaxDescendants.Focus()
+					w.btMaxDescendants, cmd = w.btMaxDescendants.Update(msg)
+					return w, cmd
+				default:
+					w.btMaxDescendants.Focus()
+					w.btMaxDescendants, cmd = w.btMaxDescendants.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 8 {
+				switch msg.String() {
+				case "esc":
+					w.btTaskTtlMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btTaskTtlMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btTaskTtlMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btTaskTtlMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btTaskTtlMs.Focus()
+					w.btTaskTtlMs, cmd = w.btTaskTtlMs.Update(msg)
+					return w, cmd
+				default:
+					w.btTaskTtlMs.Focus()
+					w.btTaskTtlMs, cmd = w.btTaskTtlMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 9 {
+				switch msg.String() {
+				case "esc":
+					w.btSessionGoneTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btSessionGoneTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btSessionGoneTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btSessionGoneTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btSessionGoneTimeoutMs.Focus()
+					w.btSessionGoneTimeoutMs, cmd = w.btSessionGoneTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.btSessionGoneTimeoutMs.Focus()
+					w.btSessionGoneTimeoutMs, cmd = w.btSessionGoneTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 10 {
+				switch msg.String() {
+				case "esc":
+					w.btMaxToolCalls.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btMaxToolCalls.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btMaxToolCalls.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btMaxToolCalls.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btMaxToolCalls.Focus()
+					w.btMaxToolCalls, cmd = w.btMaxToolCalls.Update(msg)
+					return w, cmd
+				default:
+					w.btMaxToolCalls.Focus()
+					w.btMaxToolCalls, cmd = w.btMaxToolCalls.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 12 {
+				switch msg.String() {
+				case "esc":
+					w.btCircuitBreakerMaxCalls.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btCircuitBreakerMaxCalls.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btCircuitBreakerMaxCalls.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btCircuitBreakerMaxCalls.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btCircuitBreakerMaxCalls.Focus()
+					w.btCircuitBreakerMaxCalls, cmd = w.btCircuitBreakerMaxCalls.Update(msg)
+					return w, cmd
+				default:
+					w.btCircuitBreakerMaxCalls.Focus()
+					w.btCircuitBreakerMaxCalls, cmd = w.btCircuitBreakerMaxCalls.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionBackgroundTask && w.subCursor == 13 {
+				switch msg.String() {
+				case "esc":
+					w.btCircuitBreakerConsecutive.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.btCircuitBreakerConsecutive.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.btCircuitBreakerConsecutive.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.btCircuitBreakerConsecutive.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.btCircuitBreakerConsecutive.Focus()
+					w.btCircuitBreakerConsecutive, cmd = w.btCircuitBreakerConsecutive.Update(msg)
+					return w, cmd
+				default:
+					w.btCircuitBreakerConsecutive.Focus()
+					w.btCircuitBreakerConsecutive, cmd = w.btCircuitBreakerConsecutive.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionGitMaster && w.subCursor == 1 {
+				switch msg.String() {
+				case "esc":
+					w.gmCommitFooterText.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.gmCommitFooterText.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.gmCommitFooterText.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.gmCommitFooterText.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.gmCommitFooterText.Focus()
+					w.gmCommitFooterText, cmd = w.gmCommitFooterText.Update(msg)
+					return w, cmd
+				default:
+					w.gmCommitFooterText.Focus()
+					w.gmCommitFooterText, cmd = w.gmCommitFooterText.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionGitMaster && w.subCursor == 3 {
+				switch msg.String() {
+				case "esc":
+					w.gmGitEnvPrefix.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.gmGitEnvPrefix.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.gmGitEnvPrefix.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.gmGitEnvPrefix.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.gmGitEnvPrefix.Focus()
+					w.gmGitEnvPrefix, cmd = w.gmGitEnvPrefix.Update(msg)
+					return w, cmd
+				default:
+					w.gmGitEnvPrefix.Focus()
+					w.gmGitEnvPrefix, cmd = w.gmGitEnvPrefix.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionTmux && w.subCursor == 5 {
+				switch msg.String() {
+				case "right", "l":
+					w.tmuxIsolationIdx = (w.tmuxIsolationIdx + 1) % len(tmuxIsolations)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "left", "h":
+					w.tmuxIsolationIdx = (w.tmuxIsolationIdx - 1 + len(tmuxIsolations)) % len(tmuxIsolations)
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
 				}
 			}
 
@@ -2321,6 +2885,8 @@ func (w *WizardOther) toggleSubItem() {
 			w.saPlannerEnabled = !w.saPlannerEnabled
 		case 3:
 			w.saReplacePlan = !w.saReplacePlan
+		case 4:
+			w.saTDD = !w.saTDD
 		}
 	case sectionRalphLoop:
 		if w.subCursor == 0 {
@@ -2335,7 +2901,11 @@ func (w *WizardOther) toggleSubItem() {
 		case 0:
 			w.gmCommitFooter = !w.gmCommitFooter
 		case 1:
+			// commit_footer text input handled in Update()
+		case 2:
 			w.gmIncludeCoAuthoredBy = !w.gmIncludeCoAuthoredBy
+		case 3:
+			// git_env_prefix text input handled in Update()
 		}
 	case sectionBrowserAutomationEngine:
 		if w.subCursor == 0 {
@@ -2347,6 +2917,8 @@ func (w *WizardOther) toggleSubItem() {
 			w.tmuxEnabled = !w.tmuxEnabled
 		case 1:
 			w.tmuxLayoutIdx = (w.tmuxLayoutIdx + 1) % len(tmuxLayouts)
+		case 5:
+			w.tmuxIsolationIdx = (w.tmuxIsolationIdx + 1) % len(tmuxIsolations)
 		}
 	case sectionWebsearch:
 		if w.subCursor == 0 {
@@ -2541,6 +3113,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderCheckbox(18, "disable_omo_env", w.expDisableOmoEnv))
 		lines = append(lines, renderCheckbox(19, "model_fallback_title", w.expModelFallbackTitle))
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 20 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 20 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("max_tools: ")+w.expMaxTools.View())
+
 	case sectionClaudeCode:
 		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
 		lines = append(lines, renderCheckbox(1, "commands", w.ccCommands))
@@ -2564,6 +3146,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderCheckbox(1, "default_builder_enabled", w.saDefaultBuilderEnabled))
 		lines = append(lines, renderCheckbox(2, "planner_enabled", w.saPlannerEnabled))
 		lines = append(lines, renderCheckbox(3, "replace_plan", w.saReplacePlan))
+		lines = append(lines, renderCheckbox(4, "tdd", w.saTDD))
 
 	case sectionRalphLoop:
 		lines = append(lines, renderCheckbox(0, "enabled", w.rlEnabled))
@@ -2659,12 +3242,105 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		}
 		lines = append(lines, indent+cursor+style.Render("sync_poll_timeout_ms: ")+w.btSyncPollTimeoutMs.View())
 
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("max_depth: ")+w.btMaxDepth.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("max_descendants: ")+w.btMaxDescendants.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 8 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 8 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("task_ttl_ms: ")+w.btTaskTtlMs.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("session_gone_timeout_ms: ")+w.btSessionGoneTimeoutMs.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("max_tool_calls: ")+w.btMaxToolCalls.View())
+
+		lines = append(lines, renderCheckbox(11, "circuit_breaker.enabled", w.btCircuitBreakerEnabled))
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("circuit_breaker.max_tool_calls: ")+w.btCircuitBreakerMaxCalls.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 13 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 13 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("circuit_breaker.consecutive_threshold: ")+w.btCircuitBreakerConsecutive.View())
+
 	case sectionNotification:
 		lines = append(lines, renderCheckbox(0, "force_enable", w.notifForceEnable))
 
 	case sectionGitMaster:
 		lines = append(lines, renderCheckbox(0, "commit_footer", w.gmCommitFooter))
-		lines = append(lines, renderCheckbox(1, "include_co_authored_by", w.gmIncludeCoAuthoredBy))
+
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("commit_footer_text: ")+w.gmCommitFooterText.View())
+
+		lines = append(lines, renderCheckbox(2, "include_co_authored_by", w.gmIncludeCoAuthoredBy))
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("git_env_prefix: ")+w.gmGitEnvPrefix.View())
 
 	case sectionCommentChecker:
 		lines = append(lines, indent+"  custom_prompt: "+w.ccCustomPrompt.View())
@@ -2733,6 +3409,16 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			style = wizOtherLabelStyle
 		}
 		lines = append(lines, indent+cursor+style.Render("agent_pane_min_width: ")+w.tmuxAgentPaneMinWidth.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("isolation: ")+tmuxIsolations[w.tmuxIsolationIdx])
 
 	case sectionWebsearch:
 		cursor := "  "

@@ -113,6 +113,7 @@ func TestWizardReviewSetConfigNil(t *testing.T) {
 }
 
 func TestWizardReviewValidateAndPreview(t *testing.T) {
+	coAuth := true
 	tests := []struct {
 		name     string
 		config   *config.Config
@@ -128,9 +129,13 @@ func TestWizardReviewValidateAndPreview(t *testing.T) {
 		{
 			name: "simple config",
 			config: &config.Config{
-				// Minimal valid config
+				GitMaster: &config.GitMasterConfig{
+					CommitFooter:        true,
+					IncludeCoAuthoredBy: &coAuth,
+					GitEnvPrefix:        "GIT_MASTER=1",
+				},
 			},
-			wantJSON: "", // We'll just check it's not empty
+			wantJSON:  "", // We'll just check it's not empty
 			wantValid: true,
 		},
 	}
@@ -175,8 +180,15 @@ func TestWizardReviewUpdateWindowSizeMsg(t *testing.T) {
 }
 
 func TestWizardReviewUpdateSaveKey(t *testing.T) {
+	coAuth := true
 	wr := NewWizardReview()
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		GitMaster: &config.GitMasterConfig{
+			CommitFooter:        true,
+			IncludeCoAuthoredBy: &coAuth,
+			GitEnvPrefix:        "GIT_MASTER=1",
+		},
+	}
 	wr.SetConfig("test", cfg)
 
 	// Test save when valid
@@ -314,8 +326,15 @@ func TestWizardReviewView(t *testing.T) {
 }
 
 func TestWizardReviewViewWithValidConfig(t *testing.T) {
+	coAuth := true
 	wr := NewWizardReview()
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		GitMaster: &config.GitMasterConfig{
+			CommitFooter:        true,
+			IncludeCoAuthoredBy: &coAuth,
+			GitEnvPrefix:        "GIT_MASTER=1",
+		},
+	}
 	wr.SetConfig("test", cfg)
 	wr.SetSize(80, 24)
 

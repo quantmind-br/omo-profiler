@@ -34,8 +34,8 @@ type Config struct {
 	Sisyphus                *SisyphusConfig                `json:"sisyphus,omitempty"`
 	DefaultRunAgent         string                         `json:"default_run_agent,omitempty"`
 	StartWork               *StartWorkConfig               `json:"start_work,omitempty"`
-	Openclaw                *OpenclawConfig                 `json:"openclaw,omitempty"`
-	ModelCapabilities       *ModelCapabilitiesConfig        `json:"model_capabilities,omitempty"`
+	Openclaw                *OpenclawConfig                `json:"openclaw,omitempty"`
+	ModelCapabilities       *ModelCapabilitiesConfig       `json:"model_capabilities,omitempty"`
 	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
@@ -96,7 +96,7 @@ type CategoryConfig struct {
 
 // ThinkingConfig
 type ThinkingConfig struct {
-	Type         string   `json:"type"`
+	Type         string   `json:"type,omitempty"`
 	BudgetTokens *float64 `json:"budgetTokens,omitempty"`
 }
 
@@ -134,6 +134,7 @@ type SisyphusAgentConfig struct {
 	DefaultBuilderEnabled *bool `json:"default_builder_enabled,omitempty"`
 	PlannerEnabled        *bool `json:"planner_enabled,omitempty"`
 	ReplacePlan           *bool `json:"replace_plan,omitempty"`
+	TDD                   *bool `json:"tdd,omitempty"`
 }
 
 // ExperimentalConfig
@@ -149,6 +150,7 @@ type ExperimentalConfig struct {
 	DisableOmoEnv          *bool                        `json:"disable_omo_env,omitempty"`
 	HashlineEdit           *bool                        `json:"hashline_edit,omitempty"`
 	ModelFallbackTitle     *bool                        `json:"model_fallback_title,omitempty"`
+	MaxTools               *int64                       `json:"max_tools,omitempty"`
 }
 
 // DynamicContextPruningConfig
@@ -200,12 +202,25 @@ type RalphLoopConfig struct {
 
 // BackgroundTaskConfig
 type BackgroundTaskConfig struct {
-	DefaultConcurrency        *int           `json:"defaultConcurrency,omitempty"`
-	ProviderConcurrency       map[string]int `json:"providerConcurrency,omitempty"`
-	ModelConcurrency          map[string]int `json:"modelConcurrency,omitempty"`
-	StaleTimeoutMs            *int           `json:"staleTimeoutMs,omitempty"`
-	MessageStalenessTimeoutMs *int           `json:"messageStalenessTimeoutMs,omitempty"`
-	SyncPollTimeoutMs         *int           `json:"syncPollTimeoutMs,omitempty"`
+	DefaultConcurrency        *int                      `json:"defaultConcurrency,omitempty"`
+	ProviderConcurrency       map[string]int            `json:"providerConcurrency,omitempty"`
+	ModelConcurrency          map[string]int            `json:"modelConcurrency,omitempty"`
+	MaxDepth                  *int64                    `json:"maxDepth,omitempty"`
+	MaxDescendants            *int64                    `json:"maxDescendants,omitempty"`
+	StaleTimeoutMs            *int                      `json:"staleTimeoutMs,omitempty"`
+	MessageStalenessTimeoutMs *int                      `json:"messageStalenessTimeoutMs,omitempty"`
+	TaskTtlMs                 *int                      `json:"taskTtlMs,omitempty"`
+	SessionGoneTimeoutMs      *int                      `json:"sessionGoneTimeoutMs,omitempty"`
+	SyncPollTimeoutMs         *int                      `json:"syncPollTimeoutMs,omitempty"`
+	MaxToolCalls              *int64                    `json:"maxToolCalls,omitempty"`
+	CircuitBreaker            *BackgroundCircuitBreaker `json:"circuitBreaker,omitempty"`
+}
+
+// BackgroundCircuitBreaker configures runaway tool-call protection for background tasks.
+type BackgroundCircuitBreaker struct {
+	Enabled              *bool  `json:"enabled,omitempty"`
+	MaxToolCalls         *int64 `json:"maxToolCalls,omitempty"`
+	ConsecutiveThreshold *int64 `json:"consecutiveThreshold,omitempty"`
 }
 
 // NotificationConfig
@@ -217,6 +232,7 @@ type NotificationConfig struct {
 type GitMasterConfig struct {
 	CommitFooter        interface{} `json:"commit_footer,omitempty"`
 	IncludeCoAuthoredBy *bool       `json:"include_co_authored_by,omitempty"`
+	GitEnvPrefix        string      `json:"git_env_prefix,omitempty"`
 }
 
 // CommentCheckerConfig
@@ -241,6 +257,7 @@ type TmuxConfig struct {
 	MainPaneSize      *float64 `json:"main_pane_size,omitempty"`
 	MainPaneMinWidth  *float64 `json:"main_pane_min_width,omitempty"`
 	AgentPaneMinWidth *float64 `json:"agent_pane_min_width,omitempty"`
+	Isolation         string   `json:"isolation,omitempty"`
 }
 
 // WebsearchConfig - websearch provider configuration

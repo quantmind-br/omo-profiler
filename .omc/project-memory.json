@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1774625983731,
+  "lastScanned": 1774893730169,
   "projectRoot": "/home/diogo/dev/omo-profiler",
   "techStack": {
     "languages": [
@@ -53,14 +53,14 @@
       "path": "cmd",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1774625983730,
+      "lastAccessed": 1774893730167,
       "keyFiles": []
     },
     "diff.md": {
       "path": "diff.md",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1774625983730,
+      "lastAccessed": 1774893730168,
       "keyFiles": [
         "schema-diff.md"
       ]
@@ -69,14 +69,14 @@
       "path": "internal",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1774625983730,
+      "lastAccessed": 1774893730168,
       "keyFiles": []
     },
     "internal/config": {
       "path": "internal/config",
       "purpose": "Configuration files",
       "fileCount": 5,
-      "lastAccessed": 1774625983730,
+      "lastAccessed": 1774893730168,
       "keyFiles": [
         "AGENTS.md",
         "paths.go",
@@ -87,7 +87,7 @@
       "path": "internal/models",
       "purpose": "Data models",
       "fileCount": 5,
-      "lastAccessed": 1774625983730,
+      "lastAccessed": 1774893730168,
       "keyFiles": [
         "AGENTS.md",
         "models.go",

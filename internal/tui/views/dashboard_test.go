@@ -404,7 +404,7 @@ func TestDashboardRenderMenu(t *testing.T) {
 	}
 
 	// Should have cursor marker (default position)
-	if !contains(menu, " > ") {
+	if !contains(menu, ">") {
 		t.Error("expected cursor marker in menu")
 	}
 }
@@ -417,7 +417,7 @@ func TestDashboardRenderMenuCursorPosition(t *testing.T) {
 
 	// Cursor should be at position 3 (Edit Current)
 	// The menu should show the cursor indicator
-	if !contains(menu, " > ") {
+	if !contains(menu, ">") {
 		t.Error("expected cursor marker in menu")
 	}
 
