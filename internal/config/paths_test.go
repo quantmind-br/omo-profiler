@@ -59,16 +59,66 @@ func TestProfilesDir(t *testing.T) {
 }
 
 func TestConfigFile(t *testing.T) {
-	defer ResetBaseDir()
+	t.Run("no config files returns canonical", func(t *testing.T) {
+		defer ResetBaseDir()
+		tmpDir := t.TempDir()
+		SetBaseDir(tmpDir)
 
-	tmpDir := t.TempDir()
-	SetBaseDir(tmpDir)
+		got := ConfigFile()
+		expected := filepath.Join(tmpDir, ".config", "opencode", ConfigBasename)
+		if got != expected {
+			t.Errorf("ConfigFile() = %s, want %s", got, expected)
+		}
+	})
 
-	got := ConfigFile()
-	expected := filepath.Join(tmpDir, ".config", "opencode", "oh-my-opencode.json")
-	if got != expected {
-		t.Errorf("ConfigFile() = %s, want %s", got, expected)
-	}
+	t.Run("only canonical exists returns canonical", func(t *testing.T) {
+		defer ResetBaseDir()
+		tmpDir := t.TempDir()
+		SetBaseDir(tmpDir)
+
+		dir := filepath.Join(tmpDir, ".config", "opencode")
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644)
+
+		got := ConfigFile()
+		expected := filepath.Join(dir, ConfigBasename)
+		if got != expected {
+			t.Errorf("ConfigFile() = %s, want %s", got, expected)
+		}
+	})
+
+	t.Run("only legacy exists returns legacy", func(t *testing.T) {
+		defer ResetBaseDir()
+		tmpDir := t.TempDir()
+		SetBaseDir(tmpDir)
+
+		dir := filepath.Join(tmpDir, ".config", "opencode")
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644)
+
+		got := ConfigFile()
+		expected := filepath.Join(dir, LegacyConfigBasename)
+		if got != expected {
+			t.Errorf("ConfigFile() = %s, want %s", got, expected)
+		}
+	})
+
+	t.Run("both exist returns canonical", func(t *testing.T) {
+		defer ResetBaseDir()
+		tmpDir := t.TempDir()
+		SetBaseDir(tmpDir)
+
+		dir := filepath.Join(tmpDir, ".config", "opencode")
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644)
+		os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644)
+
+		got := ConfigFile()
+		expected := filepath.Join(dir, ConfigBasename)
+		if got != expected {
+			t.Errorf("ConfigFile() = %s, want %s", got, expected)
+		}
+	})
 }
 
 func TestModelsFile(t *testing.T) {
@@ -127,7 +177,7 @@ func TestEnsureDirs(t *testing.T) {
 }
 
 func TestDefaultSchema(t *testing.T) {
-	expected := "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json"
+	expected := "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json"
 	if DefaultSchema != expected {
 		t.Errorf("DefaultSchema = %s, want %s", DefaultSchema, expected)
 	}

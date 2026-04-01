@@ -11,7 +11,7 @@ import (
 var CurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show the name of the active profile",
-	Long:  `Displays the name of the currently active oh-my-opencode profile.`,
+	Long:  `Displays the name of the currently active oh-my-openagent profile.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		active, err := profile.GetActive()
 		if err != nil {

@@ -13,7 +13,7 @@ import (
 var SwitchCmd = &cobra.Command{
 	Use:   "switch <name>",
 	Short: "Activate a profile",
-	Long:  `Switches to the specified profile by copying it to oh-my-opencode.json. Creates a timestamped backup of the current config before switching.`,
+	Long:  `Switches to the specified profile by copying it to oh-my-openagent.json. Creates a timestamped backup of the current config before switching.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]

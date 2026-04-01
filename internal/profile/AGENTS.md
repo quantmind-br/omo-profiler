@@ -24,7 +24,7 @@ Core business logic for profile persistence, state management, and switching. Ha
 
 `SetActive(name)`:
 1. Reads profile JSON from `profiles/<name>.json`
-2. Overwrites `oh-my-opencode.json` with profile content (**COPY, not symlink**)
+2. Overwrites `oh-my-openagent.json` with profile content (**COPY, not symlink**)
 3. Updates `.active-profile` sidecar with profile name
 
 `GetActive()`:

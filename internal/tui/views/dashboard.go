@@ -221,7 +221,7 @@ func (d Dashboard) handleSelect() tea.Cmd {
 
 func (d Dashboard) View() string {
 	title := titleStyle.Render("OMO-Profiler")
-	subtitle := subtitleStyle.Render("Profile manager for oh-my-opencode")
+	subtitle := subtitleStyle.Render("Profile manager for oh-my-openagent")
 
 	var profileStatus string
 	if d.err != nil {

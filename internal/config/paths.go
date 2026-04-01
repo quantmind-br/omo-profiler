@@ -5,6 +5,13 @@ import (
 	"path/filepath"
 )
 
+const (
+	// ConfigBasename is the canonical config file name (oh-my-openagent)
+	ConfigBasename = "oh-my-openagent.json"
+	// LegacyConfigBasename is the legacy config file name (oh-my-opencode)
+	LegacyConfigBasename = "oh-my-opencode.json"
+)
+
 var baseDir string // empty = use os.UserHomeDir()
 
 // SetBaseDir sets a custom base directory (for testing)
@@ -27,9 +34,21 @@ func ProfilesDir() string {
 	return filepath.Join(ConfigDir(), "profiles")
 }
 
-// ConfigFile returns ~/.config/opencode/oh-my-opencode.json
+// ConfigFile returns the active config file path.
+// Checks for oh-my-openagent.json (canonical) first, then falls back to
+// oh-my-opencode.json (legacy). Defaults to oh-my-openagent.json for new installs.
 func ConfigFile() string {
-	return filepath.Join(ConfigDir(), "oh-my-opencode.json")
+	dir := ConfigDir()
+	canonical := filepath.Join(dir, ConfigBasename)
+	legacy := filepath.Join(dir, LegacyConfigBasename)
+
+	if _, err := os.Stat(canonical); err == nil {
+		return canonical
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return canonical
 }
 
 // ModelsFile returns ~/.config/opencode/models.json
@@ -46,4 +65,4 @@ func EnsureDirs() error {
 }
 
 // DefaultSchema is the schema URL to add when creating new profiles
-const DefaultSchema = "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json"
+const DefaultSchema = "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json"

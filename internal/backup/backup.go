@@ -32,9 +32,9 @@ func Create(configPath string) (string, error) {
 		return "", fmt.Errorf("failed to read config: %w", err)
 	}
 
-	// Generate backup filename with timestamp
 	timestamp := time.Now().Format("2006-01-02-150405")
-	backupName := fmt.Sprintf("oh-my-opencode.json.bak.%s", timestamp)
+	basename := filepath.Base(configPath)
+	backupName := fmt.Sprintf("%s.bak.%s", basename, timestamp)
 	backupPath := filepath.Join(config.ConfigDir(), backupName)
 
 	// Write backup
@@ -62,11 +62,10 @@ func List() ([]BackupInfo, error) {
 			continue
 		}
 		name := entry.Name()
-		if !strings.HasPrefix(name, "oh-my-opencode.json.bak.") {
+		if !isBackupFile(name) {
 			continue
 		}
 
-		// Parse timestamp from filename
 		parts := strings.Split(name, ".bak.")
 		if len(parts) != 2 {
 			continue
@@ -106,6 +105,11 @@ func Restore(backupPath string) error {
 	}
 
 	return nil
+}
+
+func isBackupFile(name string) bool {
+	return strings.HasPrefix(name, config.ConfigBasename+".bak.") ||
+		strings.HasPrefix(name, config.LegacyConfigBasename+".bak.")
 }
 
 // Clean removes old backups, keeping only the N most recent

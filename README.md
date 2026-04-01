@@ -1,6 +1,6 @@
 # omo-profiler
 
-TUI profile manager for oh-my-opencode
+TUI profile manager for oh-my-openagent
 
 ## Installation
 
@@ -48,11 +48,11 @@ omo-profiler export <profile-name> <output.json>
 - Edit existing profiles
 - Compare profiles side-by-side
 - Import/export profiles
-- Schema validation against oh-my-opencode
+- Schema validation against oh-my-openagent
 - Automatic backups on profile switch
 
 ## Profile Location
 
 Profiles are stored in `~/.config/opencode/profiles/`
 
-Active config: `~/.config/opencode/oh-my-opencode.json`
+Active config: `~/.config/opencode/oh-my-openagent.json`

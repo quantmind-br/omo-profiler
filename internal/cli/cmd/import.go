@@ -18,7 +18,7 @@ var importName string
 var ImportCmd = &cobra.Command{
 	Use:   "import <path>",
 	Short: "Import a profile from a JSON file",
-	Long:  `Imports a profile from a JSON file. The file must conform to the oh-my-opencode config schema.`,
+	Long:  `Imports a profile from a JSON file. The file must conform to the oh-my-openagent config schema.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		sourcePath := args[0]

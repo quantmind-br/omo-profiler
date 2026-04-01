@@ -52,13 +52,13 @@ func TestCreate(t *testing.T) {
 		t.Errorf("backup content = %q, want %q", backupContent, testContent)
 	}
 
-	// Verify filename format
 	filename := filepath.Base(backupPath)
-	if len(filename) < len("oh-my-opencode.json.bak.2006-01-02-150405") {
+	expectedPrefix := config.ConfigBasename + ".bak."
+	if len(filename) < len(expectedPrefix+"2006-01-02-150405") {
 		t.Errorf("backup filename too short: %s", filename)
 	}
-	if filename[:24] != "oh-my-opencode.json.bak." {
-		t.Errorf("backup filename prefix wrong: %s", filename)
+	if filename[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("backup filename prefix = %s, want prefix %s", filename, expectedPrefix)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestList_SortsByDateDescending(t *testing.T) {
 		"2025-01-14-080000",
 	}
 	for _, ts := range timestamps {
-		name := "oh-my-opencode.json.bak." + ts
+		name := config.ConfigBasename + ".bak." + ts
 		path := filepath.Join(dir, name)
 		if err := os.WriteFile(path, []byte("{}"), 0644); err != nil {
 			t.Fatalf("failed to create test backup: %v", err)
@@ -110,11 +110,10 @@ func TestList_SortsByDateDescending(t *testing.T) {
 		t.Fatalf("List() returned %d backups, want 3", len(backups))
 	}
 
-	// Should be sorted descending (most recent first)
 	expectedOrder := []string{
-		"oh-my-opencode.json.bak.2025-01-16-120000",
-		"oh-my-opencode.json.bak.2025-01-15-100000",
-		"oh-my-opencode.json.bak.2025-01-14-080000",
+		config.ConfigBasename + ".bak.2025-01-16-120000",
+		config.ConfigBasename + ".bak.2025-01-15-100000",
+		config.ConfigBasename + ".bak.2025-01-14-080000",
 	}
 	for i, backup := range backups {
 		if backup.Name != expectedOrder[i] {
@@ -127,17 +126,15 @@ func TestList_IgnoresOtherFiles(t *testing.T) {
 	setupTestDir(t)
 	dir := config.ConfigDir()
 
-	// Create a valid backup
-	validName := "oh-my-opencode.json.bak.2025-01-16-120000"
+	validName := config.ConfigBasename + ".bak.2025-01-16-120000"
 	if err := os.WriteFile(filepath.Join(dir, validName), []byte("{}"), 0644); err != nil {
 		t.Fatalf("failed to create test backup: %v", err)
 	}
 
-	// Create files that should be ignored
 	ignoredFiles := []string{
-		"oh-my-opencode.json",         // main config
-		"other-file.bak.2025-01-16",   // different prefix
-		"oh-my-opencode.json.bak.bad", // bad timestamp
+		config.ConfigBasename,              // main config
+		"other-file.bak.2025-01-16",        // different prefix
+		config.ConfigBasename + ".bak.bad", // bad timestamp
 	}
 	for _, name := range ignoredFiles {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0644); err != nil {
@@ -158,13 +155,36 @@ func TestList_IgnoresOtherFiles(t *testing.T) {
 	}
 }
 
+func TestList_FindsBothLegacyAndCanonical(t *testing.T) {
+	setupTestDir(t)
+	dir := config.ConfigDir()
+
+	files := []string{
+		config.ConfigBasename + ".bak.2025-01-16-120000",
+		config.LegacyConfigBasename + ".bak.2025-01-15-100000",
+	}
+	for _, name := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0644); err != nil {
+			t.Fatalf("failed to create test backup: %v", err)
+		}
+	}
+
+	backups, err := List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if len(backups) != 2 {
+		t.Fatalf("List() returned %d backups, want 2 (both legacy and canonical)", len(backups))
+	}
+}
+
 func TestRestore(t *testing.T) {
 	setupTestDir(t)
 	dir := config.ConfigDir()
 
-	// Create a backup file
 	backupContent := []byte(`{"restored": true}`)
-	backupPath := filepath.Join(dir, "oh-my-opencode.json.bak.2025-01-16-120000")
+	backupPath := filepath.Join(dir, config.ConfigBasename+".bak.2025-01-16-120000")
 	if err := os.WriteFile(backupPath, backupContent, 0644); err != nil {
 		t.Fatalf("failed to create backup: %v", err)
 	}
@@ -214,7 +234,7 @@ func TestClean(t *testing.T) {
 		"2025-01-16-100000",
 	}
 	for _, ts := range timestamps {
-		name := "oh-my-opencode.json.bak." + ts
+		name := config.ConfigBasename + ".bak." + ts
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0644); err != nil {
 			t.Fatalf("failed to create backup: %v", err)
 		}
@@ -253,7 +273,7 @@ func TestClean_FewerThanKeep(t *testing.T) {
 		"2025-01-16-100000",
 	}
 	for _, ts := range timestamps {
-		name := "oh-my-opencode.json.bak." + ts
+		name := config.ConfigBasename + ".bak." + ts
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0644); err != nil {
 			t.Fatalf("failed to create backup: %v", err)
 		}

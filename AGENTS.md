@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-TUI profile manager for `oh-my-opencode` configuration files. Go 1.25.6 + Bubble Tea + Cobra CLI. Manages profile CRUD, active state switching (copy-based, not symlink), and JSON schema validation against upstream.
+TUI profile manager for `oh-my-openagent` configuration files. Go 1.25.6 + Bubble Tea + Cobra CLI. Manages profile CRUD, active state switching (copy-based, not symlink), and JSON schema validation against upstream.
 
 ## STRUCTURE
 
@@ -104,10 +104,10 @@ main.go → cli.Execute() → rootCmd.Execute()
 ## NOTES
 
 - Profile storage: `~/.config/opencode/profiles/<name>.json`
-- Active config: `~/.config/opencode/oh-my-opencode.json`
+- Active config: `~/.config/opencode/oh-my-openagent.json`
 - State tracking: `.active-profile` sidecar (O(1) lookup) + content scan fallback (O(N))
 - Wizard steps: Name → Categories → Agents → Hooks → Other → Review
 - No CI/CD: No GitHub Actions, no Docker, no Goreleaser
-- Schema sync: `./update-schema.sh` fetches from `code-yeongyu/oh-my-opencode`
+- Schema sync: `./update-schema.sh` fetches from `code-yeongyu/oh-my-openagent`
 - `models.json` corruption: auto-backup to `.bak` on load failure
- Upstream schema URL: `https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json`
+ Upstream schema URL: `https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json`

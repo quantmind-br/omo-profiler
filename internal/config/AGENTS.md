@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Schema authority and path resolution. **Source of Truth** for `oh-my-opencode.json` structure — changes here affect persistence, UI rendering, and upstream compatibility.
+Schema authority and path resolution. **Source of Truth** for `oh-my-openagent.json` structure — changes here affect persistence, UI rendering, and upstream compatibility.
 
 ## FILES
 
@@ -17,7 +17,7 @@ Schema authority and path resolution. **Source of Truth** for `oh-my-opencode.js
 
 `types.go` is CRITICAL:
 
-1. **JSON Tags**: Must match `oh-my-opencode` schema keys exactly
+1. **JSON Tags**: Must match `oh-my-openagent` schema keys exactly
 2. **Pointers**: Use `*bool` to distinguish `false` from "missing"
 3. **No Logic**: Structs must remain pure data containers; no methods
 4. **Synchronization**: Fields must stay in sync with upstream schema
@@ -41,7 +41,7 @@ Schema authority and path resolution. **Source of Truth** for `oh-my-opencode.js
 ```go
 ConfigDir()    → ~/.config/opencode/
 ProfilesDir()  → ~/.config/opencode/profiles/
-ConfigFile()   → ~/.config/opencode/oh-my-opencode.json
+ConfigFile()   → ~/.config/opencode/oh-my-openagent.json (detects legacy oh-my-opencode.json)
 ModelsFile()   → ~/.config/opencode/models.json
 ```
 
@@ -53,4 +53,4 @@ ModelsFile()   → ~/.config/opencode/models.json
 - **Direct Struct Access**: Mutating `Config` fields outside `profile` package
 - **Missing Tags**: Omitting `json:"...,omitempty"` creates dirty config files
 - **Logic in Types**: Adding validation methods to `Config` (keep it pure data)
-- **Schema Drift**: Adding fields that don't exist in upstream `oh-my-opencode-schema.json`
+- **Schema Drift**: Adding fields that don't exist in upstream `oh-my-openagent` schema

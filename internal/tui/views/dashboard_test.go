@@ -315,7 +315,7 @@ func TestDashboardView(t *testing.T) {
 	}
 
 	// Check for subtitle
-	if !contains(view, "Profile manager for oh-my-opencode") {
+	if !contains(view, "Profile manager for oh-my-openagent") {
 		t.Error("expected subtitle in view")
 	}
 

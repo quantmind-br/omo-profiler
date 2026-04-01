@@ -54,6 +54,7 @@ const (
 	catFieldTextVerbosity
 	catFieldTools
 	catFieldPromptAppend
+	catFieldMaxPromptTokens
 	catFieldFallbackModels
 )
 
@@ -69,6 +70,7 @@ type categoryConfig struct {
 	temperature        textinput.Model
 	topP               textinput.Model
 	maxTokens          textinput.Model
+	maxPromptTokens    textinput.Model
 	thinkingTypeIdx    int
 	thinkingBudget     textinput.Model
 	reasoningEffortIdx int
@@ -114,6 +116,10 @@ func newCategoryConfig() categoryConfig {
 	maxTokens.Placeholder = "e.g. 4096"
 	maxTokens.Width = 10
 
+	maxPromptTokens := textinput.New()
+	maxPromptTokens.Placeholder = "e.g. 100000"
+	maxPromptTokens.Width = 10
+
 	thinkingBudget := textinput.New()
 	thinkingBudget.Placeholder = "e.g. 10000"
 	thinkingBudget.Width = 10
@@ -146,6 +152,7 @@ func newCategoryConfig() categoryConfig {
 		temperature:          temperature,
 		topP:                 topP,
 		maxTokens:            maxTokens,
+		maxPromptTokens:      maxPromptTokens,
 		thinkingBudget:       thinkingBudget,
 		tools:                tools,
 		promptAppend:         promptAppend,
@@ -267,6 +274,7 @@ func (w *WizardCategories) SetSize(width, height int) {
 		cc.description.Width = layout.MediumFieldWidth(width)
 		cc.variant.Width = layout.MediumFieldWidth(width)
 		cc.tools.Width = layout.WideFieldWidth(width, 10)
+		cc.maxPromptTokens.Width = 10
 		cc.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
 		cc.fallbackModels.Width = layout.WideFieldWidth(width, 10)
 		cc.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
@@ -322,6 +330,9 @@ func (w *WizardCategories) SetConfig(cfg *config.Config) {
 		}
 		if catCfg.MaxTokens != nil {
 			cc.maxTokens.SetValue(fmt.Sprintf("%.0f", *catCfg.MaxTokens))
+		}
+		if catCfg.MaxPromptTokens != nil {
+			cc.maxPromptTokens.SetValue(fmt.Sprintf("%d", *catCfg.MaxPromptTokens))
 		}
 
 		if catCfg.Thinking != nil {
@@ -415,6 +426,11 @@ func (w *WizardCategories) Apply(cfg *config.Config) {
 				catCfg.MaxTokens = &f
 			}
 		}
+		if v := cc.maxPromptTokens.Value(); v != "" {
+			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+				catCfg.MaxPromptTokens = &i
+			}
+		}
 
 		if cc.thinkingTypeIdx > 0 {
 			catCfg.Thinking = &config.ThinkingConfig{
@@ -455,6 +471,7 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	cc.temperature.Blur()
 	cc.topP.Blur()
 	cc.maxTokens.Blur()
+	cc.maxPromptTokens.Blur()
 	cc.thinkingBudget.Blur()
 	cc.tools.Blur()
 	cc.promptAppend.Blur()
@@ -474,6 +491,8 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 		cc.topP.Focus()
 	case catFieldMaxTokens:
 		cc.maxTokens.Focus()
+	case catFieldMaxPromptTokens:
+		cc.maxPromptTokens.Focus()
 	case catFieldThinkingBudget:
 		cc.thinkingBudget.Focus()
 	case catFieldTools:
@@ -491,7 +510,7 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 	for i := 0; i < w.cursor; i++ {
 		baseLine++ // category header
 		if w.categories[i].expanded {
-			baseLine += 21 // expanded form ~21 lines
+			baseLine += 22 // expanded form ~22 lines
 		}
 	}
 	baseLine++ // current category header
@@ -507,13 +526,14 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 		catFieldTemperature:     6,
 		catFieldTopP:            7,
 		catFieldMaxTokens:       8,
-		catFieldThinkingType:    11, // after empty line + thinking label
-		catFieldThinkingBudget:  12,
-		catFieldReasoningEffort: 14,
-		catFieldTextVerbosity:   15,
-		catFieldTools:           17,
-		catFieldPromptAppend:    18,
-		catFieldFallbackModels:  19,
+		catFieldMaxPromptTokens: 9,
+		catFieldThinkingType:    12, // after empty line + thinking label
+		catFieldThinkingBudget:  13,
+		catFieldReasoningEffort: 15,
+		catFieldTextVerbosity:   16,
+		catFieldTools:           18,
+		catFieldPromptAppend:    19,
+		catFieldFallbackModels:  20,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -681,6 +701,10 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 				case catFieldMaxTokens:
 					cc.maxTokens.Focus()
 					cc.maxTokens, cmd = cc.maxTokens.Update(msg)
+					cmds = append(cmds, cmd)
+				case catFieldMaxPromptTokens:
+					cc.maxPromptTokens.Focus()
+					cc.maxPromptTokens, cmd = cc.maxPromptTokens.Update(msg)
 					cmds = append(cmds, cmd)
 				case catFieldThinkingBudget:
 					cc.thinkingBudget.Focus()
@@ -878,6 +902,7 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, renderField("temperature", catFieldTemperature, cc.temperature.View()))
 	lines = append(lines, renderField("top_p", catFieldTopP, cc.topP.View()))
 	lines = append(lines, renderField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
+	lines = append(lines, renderField("max_prompt_tokens", catFieldMaxPromptTokens, cc.maxPromptTokens.View()))
 	lines = append(lines, "")
 	lines = append(lines, indent+wizCatDimStyle.Render("── Thinking ──"))
 	lines = append(lines, renderDropdown("type", catFieldThinkingType, thinkingTypes, cc.thinkingTypeIdx))

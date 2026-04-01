@@ -106,6 +106,7 @@ var disableableCommands = []string{
 	"refactor",
 	"start-work",
 	"stop-continuation",
+	"remove-ai-slops",
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
@@ -143,6 +144,8 @@ const (
 	sectionHashlineEdit
 	sectionModelFallback
 	sectionStartWork
+	sectionModelCapabilities
+	sectionOpenclaw
 	sectionRuntimeFallback
 	sectionSkillsJson
 )
@@ -172,6 +175,8 @@ var otherSectionNames = []string{
 	"Hashline Edit",
 	"Model Fallback",
 	"Start Work",
+	"Model Capabilities",
+	"Openclaw (JSON)",
 	"Runtime Fallback (JSON)",
 	"Skills (JSON)",
 }
@@ -371,6 +376,13 @@ type WizardOther struct {
 	// Default Run Agent
 	defaultRunAgent textinput.Model
 
+	mcEnabled            bool
+	mcAutoRefreshOnStart bool
+	mcRefreshTimeoutMs   textinput.Model
+	mcSourceURL          textinput.Model
+
+	openclawEditor textarea.Model
+
 	// Skills JSON
 	runtimeFallbackEditor textarea.Model
 	skillsEditor          textarea.Model
@@ -549,6 +561,19 @@ func NewWizardOther() WizardOther {
 	defaultRunAgent.Placeholder = "build"
 	defaultRunAgent.Width = 30
 
+	mcRefreshTimeoutMs := textinput.New()
+	mcRefreshTimeoutMs.Placeholder = "60000"
+	mcRefreshTimeoutMs.Width = 10
+
+	mcSourceURL := textinput.New()
+	mcSourceURL.Placeholder = "https://models.dev/api"
+	mcSourceURL.Width = 50
+
+	openclawEditor := textarea.New()
+	openclawEditor.Placeholder = `{"enabled": true, "gateways": {}, "hooks": {}, "replyListener": {}}`
+	openclawEditor.SetWidth(60)
+	openclawEditor.SetHeight(6)
+
 	return WizardOther{
 		disabledMcps:                disabledMcps,
 		disabledAgents:              disabledAgents,
@@ -582,10 +607,13 @@ func NewWizardOther() WizardOther {
 		sisyphusTasksStoragePath:    sisTasksStoragePath,
 		sisyphusTasksTaskListID:     sisTasksTaskListID,
 		defaultRunAgent:             defaultRunAgent,
+		mcRefreshTimeoutMs:          mcRefreshTimeoutMs,
+		mcSourceURL:                 mcSourceURL,
 		dcpTurnProtTurns:            dcpTurnProtTurns,
 		dcpProtectedTools:           dcpProtectedTools,
 		dcpPurgeErrorsTurns:         dcpPurgeErrorsTurns,
 		ccPluginsOverride:           ccPluginsOverride,
+		openclawEditor:              openclawEditor,
 		runtimeFallbackEditor:       runtimeFallbackEditor,
 		skillsEditor:                skillsEditor,
 		tmuxLayoutIdx:               2,
@@ -653,6 +681,9 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.sisyphusTasksStoragePath.Width = wide
 	w.sisyphusTasksTaskListID.Width = wide
 	w.defaultRunAgent.Width = wide
+	w.mcRefreshTimeoutMs.Width = layout.FixedSmallWidth()
+	w.mcSourceURL.Width = wide
+	w.openclawEditor.SetWidth(wide)
 	w.runtimeFallbackEditor.SetWidth(wide)
 	w.skillsEditor.SetWidth(wide)
 	w.viewport.SetContent(w.renderContent())
@@ -1014,6 +1045,27 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 	// Default Run Agent
 	if cfg.DefaultRunAgent != "" {
 		w.defaultRunAgent.SetValue(cfg.DefaultRunAgent)
+	}
+
+	if cfg.ModelCapabilities != nil {
+		if cfg.ModelCapabilities.Enabled != nil {
+			w.mcEnabled = *cfg.ModelCapabilities.Enabled
+		}
+		if cfg.ModelCapabilities.AutoRefreshOnStart != nil {
+			w.mcAutoRefreshOnStart = *cfg.ModelCapabilities.AutoRefreshOnStart
+		}
+		if cfg.ModelCapabilities.RefreshTimeoutMs != nil {
+			w.mcRefreshTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.ModelCapabilities.RefreshTimeoutMs))
+		}
+		if cfg.ModelCapabilities.SourceURL != "" {
+			w.mcSourceURL.SetValue(cfg.ModelCapabilities.SourceURL)
+		}
+	}
+
+	if cfg.Openclaw != nil {
+		if raw, err := json.MarshalIndent(cfg.Openclaw, "", "  "); err == nil {
+			w.openclawEditor.SetValue(string(raw))
+		}
 	}
 
 	if cfg.RuntimeFallback != nil {
@@ -1483,6 +1535,33 @@ func (w *WizardOther) Apply(cfg *config.Config) {
 
 	// Default Run Agent
 	cfg.DefaultRunAgent = strings.TrimSpace(w.defaultRunAgent.Value())
+
+	modelCapabilitiesHasData := w.mcEnabled || w.mcAutoRefreshOnStart ||
+		strings.TrimSpace(w.mcRefreshTimeoutMs.Value()) != "" || strings.TrimSpace(w.mcSourceURL.Value()) != ""
+	if modelCapabilitiesHasData {
+		cfg.ModelCapabilities = &config.ModelCapabilitiesConfig{}
+		if w.mcEnabled {
+			cfg.ModelCapabilities.Enabled = &w.mcEnabled
+		}
+		if w.mcAutoRefreshOnStart {
+			cfg.ModelCapabilities.AutoRefreshOnStart = &w.mcAutoRefreshOnStart
+		}
+		if v := parsePositiveInt64(w.mcRefreshTimeoutMs.Value()); v != nil {
+			cfg.ModelCapabilities.RefreshTimeoutMs = v
+		}
+		if v := strings.TrimSpace(w.mcSourceURL.Value()); v != "" {
+			cfg.ModelCapabilities.SourceURL = v
+		}
+	}
+
+	if v := strings.TrimSpace(w.openclawEditor.Value()); v != "" {
+		var parsed config.OpenclawConfig
+		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+			cfg.Openclaw = &parsed
+		}
+	} else {
+		cfg.Openclaw = nil
+	}
 
 	if v := w.runtimeFallbackEditor.Value(); strings.TrimSpace(v) != "" {
 		cfg.RuntimeFallback = json.RawMessage(v)
@@ -2691,6 +2770,95 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
+			if w.currentSection == sectionModelCapabilities && w.subCursor == 2 {
+				switch msg.String() {
+				case "esc":
+					w.mcRefreshTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.mcRefreshTimeoutMs.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.mcRefreshTimeoutMs.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.mcRefreshTimeoutMs.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.mcRefreshTimeoutMs.Focus()
+					w.mcRefreshTimeoutMs, cmd = w.mcRefreshTimeoutMs.Update(msg)
+					return w, cmd
+				default:
+					w.mcRefreshTimeoutMs.Focus()
+					w.mcRefreshTimeoutMs, cmd = w.mcRefreshTimeoutMs.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionModelCapabilities && w.subCursor == 3 {
+				switch msg.String() {
+				case "esc":
+					w.mcSourceURL.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "up", "k":
+					w.mcSourceURL.Blur()
+					if w.subCursor > 0 {
+						w.subCursor--
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "down", "j":
+					w.mcSourceURL.Blur()
+					w.subCursor++
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.mcSourceURL.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "enter", " ":
+					w.mcSourceURL.Focus()
+					w.mcSourceURL, cmd = w.mcSourceURL.Update(msg)
+					return w, cmd
+				default:
+					w.mcSourceURL.Focus()
+					w.mcSourceURL, cmd = w.mcSourceURL.Update(msg)
+					return w, cmd
+				}
+			}
+
+			if w.currentSection == sectionOpenclaw {
+				switch msg.String() {
+				case "esc":
+					w.openclawEditor.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case "tab":
+					w.openclawEditor.Blur()
+					w.inSubSection = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				default:
+					w.openclawEditor.Focus()
+					w.openclawEditor, cmd = w.openclawEditor.Update(msg)
+					return w, cmd
+				}
+			}
+
 			if w.currentSection == sectionRuntimeFallback {
 				switch msg.String() {
 				case "esc":
@@ -2927,6 +3095,13 @@ func (w *WizardOther) toggleSubItem() {
 	case sectionSisyphus:
 		if w.subCursor == 2 {
 			w.sisyphusTasksClaudeCodeCompat = !w.sisyphusTasksClaudeCodeCompat
+		}
+	case sectionModelCapabilities:
+		switch w.subCursor {
+		case 0:
+			w.mcEnabled = !w.mcEnabled
+		case 1:
+			w.mcAutoRefreshOnStart = !w.mcAutoRefreshOnStart
 		}
 	}
 }
@@ -3459,6 +3634,33 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 
 	case sectionStartWork:
 		lines = append(lines, renderCheckbox(0, "auto_commit", w.startWorkAutoCommit))
+
+	case sectionModelCapabilities:
+		lines = append(lines, renderCheckbox(0, "enabled", w.mcEnabled))
+		lines = append(lines, renderCheckbox(1, "auto_refresh_on_start", w.mcAutoRefreshOnStart))
+
+		cursor := "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style := dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("refresh_timeout_ms: ")+w.mcRefreshTimeoutMs.View())
+
+		cursor = "  "
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			cursor = selectedStyle.Render("> ")
+		}
+		style = dimStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
+			style = wizOtherLabelStyle
+		}
+		lines = append(lines, indent+cursor+style.Render("source_url: ")+w.mcSourceURL.View())
+
+	case sectionOpenclaw:
+		lines = append(lines, indent+w.openclawEditor.View())
 
 	case sectionRuntimeFallback:
 		lines = append(lines, indent+w.runtimeFallbackEditor.View())
