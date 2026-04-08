@@ -1,7 +1,10 @@
 package views
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -77,6 +80,7 @@ type Wizard struct {
 	originalProfileName string // for rename detection in edit mode
 	config              config.Config
 	selection           *profile.FieldSelection
+	preservedUnknown    map[string]json.RawMessage
 	editMode            bool // true when editing existing profile, false when creating new
 
 	// Sub-views for each step
@@ -123,12 +127,13 @@ func NewWizardForEdit(p *profile.Profile) Wizard {
 	w.originalProfileName = p.Name
 	w.config = p.Config
 	w.selection = profile.NewSelectionFromPresence(p.FieldPresence)
+	w.preservedUnknown = p.PreservedUnknown
 	w.nameStep.SetName(p.Name)
 	w.categoriesStep.SetConfig(&w.config, w.selection)
 	w.agentsStep.SetConfig(&w.config, w.selection)
 	w.hooksStep.SetConfig(&w.config, w.selection)
 	w.otherStep.SetConfig(&w.config, w.selection)
-	w.reviewStep.SetConfig(p.Name, &w.config, w.selection)
+	w.reviewStep.SetConfig(p.Name, &w.config, w.selection, w.preservedUnknown)
 	return w
 }
 
@@ -143,6 +148,7 @@ func NewWizardFromTemplate(templateName string) (Wizard, error) {
 	w.editMode = false
 	w.config = template.Config
 	w.selection = profile.NewSelectionFromPresence(template.FieldPresence)
+	w.preservedUnknown = template.PreservedUnknown
 	w.categoriesStep.SetConfig(&w.config, w.selection)
 	w.agentsStep.SetConfig(&w.config, w.selection)
 	w.hooksStep.SetConfig(&w.config, w.selection)
@@ -285,7 +291,7 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 	case StepOther:
 		w.otherStep.Apply(&w.config, w.selection)
 		w.step = StepReview
-		w.reviewStep.SetConfig(w.profileName, &w.config, w.selection)
+		w.reviewStep.SetConfig(w.profileName, &w.config, w.selection, w.preservedUnknown)
 		return w, w.reviewStep.Init()
 
 	case StepReview:
@@ -296,7 +302,7 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 			return w, nil
 		}
 
-		validationErrors, err := validator.Validate(&w.config)
+		validationErrors, err := validator.ValidateForSave(&w.config)
 		if err != nil {
 			w.err = fmt.Errorf("validation error: %w", err)
 			return w, nil
@@ -318,16 +324,33 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 		}
 
 		// Capture values for async closure
-		p := &profile.Profile{
-			Name:   w.profileName,
-			Config: w.config,
-		}
+		profileName := w.profileName
+		cfg := w.config
+		selection := w.selection
+		preservedUnknown := w.preservedUnknown
 		editMode := w.editMode
 		originalName := w.originalProfileName
 
 		return w, func() tea.Msg {
-			if err := profile.Save(p); err != nil {
+			data, err := profile.MarshalSparse(&cfg, selection, preservedUnknown)
+			if err != nil {
 				return wizardSaveDoneMsg{err: err}
+			}
+
+			if err := config.EnsureDirs(); err != nil {
+				return wizardSaveDoneMsg{err: err}
+			}
+
+			path := filepath.Join(config.ProfilesDir(), profileName+".json")
+			if err := os.WriteFile(path, data, 0644); err != nil {
+				return wizardSaveDoneMsg{err: err}
+			}
+
+			p := &profile.Profile{
+				Name:             profileName,
+				Config:           cfg,
+				Path:             path,
+				PreservedUnknown: preservedUnknown,
 			}
 			if editMode && p.Name != originalName {
 				_ = profile.Delete(originalName)

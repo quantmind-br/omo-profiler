@@ -70,17 +70,18 @@ func newWizardReviewKeyMap() wizardReviewKeyMap {
 
 // WizardReview is step 5: Review and save
 type WizardReview struct {
-	profileName    string
-	config         *config.Config
-	selection      *profile.FieldSelection
-	jsonPreview    string
-	validationErrs []schema.ValidationError
-	isValid        bool
-	viewport       viewport.Model
-	ready          bool
-	width          int
-	height         int
-	keys           wizardReviewKeyMap
+	profileName      string
+	config           *config.Config
+	selection        *profile.FieldSelection
+	preservedUnknown map[string]json.RawMessage
+	jsonPreview      string
+	validationErrs   []schema.ValidationError
+	isValid          bool
+	viewport         viewport.Model
+	ready            bool
+	width            int
+	height           int
+	keys             wizardReviewKeyMap
 }
 
 func NewWizardReview() WizardReview {
@@ -109,10 +110,11 @@ func (w *WizardReview) SetSize(width, height int) {
 	}
 }
 
-func (w *WizardReview) SetConfig(name string, cfg *config.Config, selection *profile.FieldSelection) {
+func (w *WizardReview) SetConfig(name string, cfg *config.Config, selection *profile.FieldSelection, preservedUnknown map[string]json.RawMessage) {
 	w.profileName = name
 	w.config = cfg
 	w.selection = selection
+	w.preservedUnknown = preservedUnknown
 	w.validateAndPreview()
 }
 
@@ -124,7 +126,7 @@ func (w *WizardReview) validateAndPreview() {
 	}
 
 	// Generate JSON preview
-	jsonData, err := json.MarshalIndent(w.config, "", "  ")
+	jsonData, err := profile.MarshalSparse(w.config, w.selection, w.preservedUnknown)
 	if err != nil {
 		w.jsonPreview = fmt.Sprintf("Error generating preview: %v", err)
 		w.isValid = false
@@ -140,7 +142,7 @@ func (w *WizardReview) validateAndPreview() {
 		return
 	}
 
-	errs, err := validator.Validate(w.config)
+	errs, err := validator.ValidateForSave(w.config)
 	if err != nil {
 		w.validationErrs = nil
 		w.isValid = true // Validation error, assume valid

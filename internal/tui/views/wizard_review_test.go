@@ -1,11 +1,15 @@
 package views
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/schema"
 )
 
@@ -75,7 +79,7 @@ func TestWizardReviewSetConfig(t *testing.T) {
 		// Use valid config structure
 	}
 
-	wr.SetConfig("test-profile", cfg, nil)
+	wr.SetConfig("test-profile", cfg, nil, nil)
 
 	if wr.profileName != "test-profile" {
 		t.Errorf("expected profile name 'test-profile', got '%s'", wr.profileName)
@@ -93,7 +97,7 @@ func TestWizardReviewSetConfig(t *testing.T) {
 func TestWizardReviewSetConfigNil(t *testing.T) {
 	wr := NewWizardReview()
 
-	wr.SetConfig("empty", nil, nil)
+	wr.SetConfig("empty", nil, nil, nil)
 
 	if wr.profileName != "empty" {
 		t.Errorf("expected profile name 'empty', got '%s'", wr.profileName)
@@ -113,29 +117,25 @@ func TestWizardReviewSetConfigNil(t *testing.T) {
 }
 
 func TestWizardReviewValidateAndPreview(t *testing.T) {
-	coAuth := true
 	tests := []struct {
 		name      string
 		config    *config.Config
+		selection *profile.FieldSelection
 		wantJSON  string
 		wantValid bool
 	}{
 		{
 			name:      "nil config",
 			config:    nil,
+			selection: nil,
 			wantJSON:  "{}",
 			wantValid: true,
 		},
 		{
-			name: "simple config",
-			config: &config.Config{
-				GitMaster: &config.GitMasterConfig{
-					CommitFooter:        true,
-					IncludeCoAuthoredBy: &coAuth,
-					GitEnvPrefix:        "GIT_MASTER=1",
-				},
-			},
-			wantJSON:  "", // We'll just check it's not empty
+			name:      "simple config",
+			config:    &config.Config{DisabledMCPs: []string{"mcp1"}},
+			selection: selectedFields("disabled_mcps"),
+			wantJSON:  "{\n  \"disabled_mcps\": [\n    \"mcp1\"\n  ]\n}",
 			wantValid: true,
 		},
 	}
@@ -143,14 +143,10 @@ func TestWizardReviewValidateAndPreview(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			wr := NewWizardReview()
-			wr.SetConfig("test", tt.config, nil)
+			wr.SetConfig("test", tt.config, tt.selection, nil)
 
-			if tt.wantJSON != "" && wr.jsonPreview != tt.wantJSON {
+			if wr.jsonPreview != tt.wantJSON {
 				t.Errorf("expected jsonPreview %q, got %q", tt.wantJSON, wr.jsonPreview)
-			}
-
-			if tt.wantJSON == "" && wr.jsonPreview == "" {
-				t.Error("expected jsonPreview to be set")
 			}
 
 			if wr.isValid != tt.wantValid {
@@ -180,16 +176,9 @@ func TestWizardReviewUpdateWindowSizeMsg(t *testing.T) {
 }
 
 func TestWizardReviewUpdateSaveKey(t *testing.T) {
-	coAuth := true
 	wr := NewWizardReview()
-	cfg := &config.Config{
-		GitMaster: &config.GitMasterConfig{
-			CommitFooter:        true,
-			IncludeCoAuthoredBy: &coAuth,
-			GitEnvPrefix:        "GIT_MASTER=1",
-		},
-	}
-	wr.SetConfig("test", cfg, nil)
+	cfg := &config.Config{DisabledMCPs: []string{"mcp1"}}
+	wr.SetConfig("test", cfg, selectedFields("disabled_mcps"), nil)
 
 	// Test save when valid
 	msg := tea.KeyMsg{Type: tea.KeyEnter, Runes: []rune("enter")}
@@ -326,16 +315,9 @@ func TestWizardReviewView(t *testing.T) {
 }
 
 func TestWizardReviewViewWithValidConfig(t *testing.T) {
-	coAuth := true
 	wr := NewWizardReview()
-	cfg := &config.Config{
-		GitMaster: &config.GitMasterConfig{
-			CommitFooter:        true,
-			IncludeCoAuthoredBy: &coAuth,
-			GitEnvPrefix:        "GIT_MASTER=1",
-		},
-	}
-	wr.SetConfig("test", cfg, nil)
+	cfg := &config.Config{DisabledMCPs: []string{"mcp1"}}
+	wr.SetConfig("test", cfg, selectedFields("disabled_mcps"), nil)
 	wr.SetSize(80, 24)
 
 	view := wr.View()
@@ -406,4 +388,102 @@ func TestWizardReviewKeyMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWizardReviewPreviewMatchesSparseSaveOutput(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	selection := selectedFields("disabled_mcps")
+	cfg := config.Config{DisabledMCPs: []string{"mcp1"}}
+	preservedUnknown := map[string]json.RawMessage{
+		"custom": json.RawMessage(`{"keep":true}`),
+	}
+
+	wr := NewWizardReview()
+	wr.SetConfig("preview-save-match", &cfg, selection, preservedUnknown)
+
+	w := NewWizard()
+	w.step = StepReview
+	w.profileName = "preview-save-match"
+	w.config = cfg
+	w.selection = selection
+	w.preservedUnknown = preservedUnknown
+
+	_, cmd := w.nextStep()
+	if cmd == nil {
+		t.Fatal("expected save command")
+	}
+
+	result := cmd()
+	msg, ok := result.(wizardSaveDoneMsg)
+	if !ok {
+		t.Fatalf("expected wizardSaveDoneMsg, got %T", result)
+	}
+	if msg.err != nil {
+		t.Fatalf("save failed: %v", msg.err)
+	}
+
+	saved, err := os.ReadFile(filepath.Join(config.ProfilesDir(), "preview-save-match.json"))
+	if err != nil {
+		t.Fatalf("read saved profile: %v", err)
+	}
+
+	if string(saved) != wr.jsonPreview {
+		t.Fatalf("saved output mismatch\npreview:\n%s\n\nsaved:\n%s", wr.jsonPreview, string(saved))
+	}
+}
+
+func TestWizardReviewBlankProfileSavesAsEmptyObject(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	selection := profile.NewBlankSelection()
+	cfg := config.Config{}
+
+	wr := NewWizardReview()
+	wr.SetConfig("blank-profile", &cfg, selection, nil)
+	if wr.jsonPreview != "{}" {
+		t.Fatalf("expected empty object preview, got %q", wr.jsonPreview)
+	}
+
+	w := NewWizard()
+	w.step = StepReview
+	w.profileName = "blank-profile"
+	w.config = cfg
+	w.selection = selection
+
+	_, cmd := w.nextStep()
+	if cmd == nil {
+		t.Fatal("expected save command")
+	}
+
+	result := cmd()
+	msg, ok := result.(wizardSaveDoneMsg)
+	if !ok {
+		t.Fatalf("expected wizardSaveDoneMsg, got %T", result)
+	}
+	if msg.err != nil {
+		t.Fatalf("save failed: %v", msg.err)
+	}
+
+	saved, err := os.ReadFile(filepath.Join(config.ProfilesDir(), "blank-profile.json"))
+	if err != nil {
+		t.Fatalf("read saved profile: %v", err)
+	}
+
+	if string(saved) != "{}" {
+		t.Fatalf("expected saved profile to be {}, got %q", string(saved))
+	}
+	if string(saved) != wr.jsonPreview {
+		t.Fatalf("preview/save mismatch: preview=%q saved=%q", wr.jsonPreview, string(saved))
+	}
+}
+
+func selectedFields(paths ...string) *profile.FieldSelection {
+	selection := profile.NewBlankSelection()
+	for _, path := range paths {
+		selection.SetSelected(path, true)
+	}
+	return selection
 }
