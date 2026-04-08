@@ -270,12 +270,7 @@ func (l List) View() string {
 	}
 
 	if l.confirmingDelete {
-		confirmStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#F9E2AF")).
-			Background(lipgloss.Color("#45475A")).
-			Padding(0, 1)
-		confirmText := confirmStyle.Render(fmt.Sprintf("Delete '%s'? [y/n]", l.deleteTarget))
+		confirmText := layout.RenderConfirmDialog(l.deleteTarget, "Delete")
 		return lipgloss.JoinVertical(lipgloss.Left, content, "", confirmText)
 	}
 

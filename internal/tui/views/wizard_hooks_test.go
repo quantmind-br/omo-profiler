@@ -475,8 +475,8 @@ func TestWizardHooksView(t *testing.T) {
 	}
 
 	// Check for help text
-	if !contains(view, "Space to toggle") {
-		t.Error("expected 'Space to toggle' in view")
+	if !contains(view, "[Space] toggle") {
+		t.Error("expected '[Space] toggle' in view")
 	}
 
 	// Check for stats

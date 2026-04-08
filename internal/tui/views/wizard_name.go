@@ -37,8 +37,8 @@ func newWizardNameKeyMap() wizardNameKeyMap {
 			key.WithHelp("tab/enter", "next"),
 		),
 		Cancel: key.NewBinding(
-			key.WithKeys("esc"),
-			key.WithHelp("esc", "cancel"),
+			key.WithKeys("shift+tab", "esc"),
+			key.WithHelp("shift+tab/esc", "cancel"),
 		),
 	}
 }
@@ -143,11 +143,13 @@ func (w WizardName) View() string {
 		status = wizNameValidStyle.Render("✓ Valid name")
 	}
 
+	help := wizNameDescStyle.Render("tab/enter: next • shift+tab/esc: cancel")
+
 	if layout.IsShort(w.height) {
-		return lipgloss.JoinVertical(lipgloss.Left, label, desc, input, status)
+		return lipgloss.JoinVertical(lipgloss.Left, label, desc, input, status, "", help)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, label, desc, "", input, status)
+	return lipgloss.JoinVertical(lipgloss.Left, label, desc, "", input, status, "", help)
 }
 
 // IsComplete returns true if the name is valid

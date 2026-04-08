@@ -624,13 +624,7 @@ func (m ModelRegistry) renderDeleteConfirm() string {
 		}
 	}
 
-	confirmStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#F9E2AF")).
-		Background(lipgloss.Color("#45475A")).
-		Padding(0, 1)
-
-	confirmText := confirmStyle.Render(fmt.Sprintf("Delete '%s'? (y/n)", targetName))
+	confirmText := layout.RenderConfirmDialog(targetName, "Delete")
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left, content, confirmText)

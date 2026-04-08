@@ -256,7 +256,8 @@ func (s SchemaCheck) View() string {
 		content += "\n\n Press Esc to go back"
 
 	case stateSchemaCheckError:
-		content = errorStyle.Render(fmt.Sprintf("\n Error: %s", s.errorMsg))
+		content = "\n" + strings.Repeat("─", 50) + "\n\n"
+		content += errorIconStyle.Render("⚠ ") + errorStyle.Render(s.errorMsg)
 		content += "\n\n [r] retry  [esc] back"
 	}
 	if layout.IsShort(s.height) {

@@ -95,6 +95,9 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F38BA8"))
+
+	errorIconStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F38BA8"))
 )
 
 func NewDashboard() Dashboard {

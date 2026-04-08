@@ -992,7 +992,7 @@ func TestWizardCategoriesViewExpanded(t *testing.T) {
 		t.Error("expected 'model' field in expanded view")
 	}
 
-	if !contains(view, "Esc: close form") {
+	if !contains(view, "[Esc] close") {
 		t.Error("expected close form help in expanded view")
 	}
 }

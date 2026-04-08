@@ -2092,7 +2092,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 
 	// Bash permission - editable for both string and object modes
 	if ac.editingBashPerms {
-		lines = append(lines, renderField("bash", fieldPermBash, "[editing]"))
+		lines = append(lines, indent+wizAgentSelectedStyle.Render("┌─ Editing Bash Permissions ─┐"))
 		if len(ac.bashRuleKeys) == 0 && !ac.bashAddingRule {
 			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("(empty) press 'a' to add"))
 		}
@@ -2110,7 +2110,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 		if ac.bashAddingRule {
 			lines = append(lines, indent+"  "+wizAgentTextStyle.Render("New tool: ")+ac.bashRuleNewTool.View())
 		}
-		helpText := "a:add d:del c:to-string ↑↓:nav ←→:cycle esc:done"
+		helpText := "a:add d:del esc:done [?] more"
 		if ac.bashAddingRule {
 			helpText = "enter:confirm esc:cancel"
 		}
@@ -2130,7 +2130,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Fallback ──"))
 	if ac.editingFallbackModels {
-		lines = append(lines, renderField("fallback", fieldFallbackModels, "[editing]"))
+		lines = append(lines, indent+wizAgentSelectedStyle.Render("┌─ Editing Fallback Models ─┐"))
 		if len(ac.fallbackEntries) == 0 {
 			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("(empty) press 'a' to add"))
 		}
@@ -2149,7 +2149,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 			}
 			lines = append(lines, indent+cursor+wizAgentTextStyle.Render(formatFallbackEntry(entry)))
 		}
-		helpText := "a:add d:del e:edit r:raw ↑↓:nav esc:done"
+		helpText := "a:add d:del esc:done [?] more"
 		if ac.fallbackEditingField || ac.fallbackEditingRaw {
 			helpText = "enter:save esc:cancel"
 		}
@@ -2664,7 +2664,7 @@ func (w WizardAgents) View() string {
 	}
 
 	title := wizAgentLabelStyle.Render("Configure Agents")
-	desc := wizAgentDimStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
+	desc := wizAgentDimStyle.Render("[Space] toggle  [Enter] expand  [Tab] next step")
 
 	if w.inForm {
 		desc = wizAgentDimStyle.Render("↑/↓/Tab: navigate • Space: toggle include • Enter: edit/value • Esc: close form")

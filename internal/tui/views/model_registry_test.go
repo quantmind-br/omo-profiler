@@ -740,7 +740,7 @@ func TestModelRegistryViewDeleteConfirm(t *testing.T) {
 		t.Error("expected 'Delete' in confirmation view")
 	}
 
-	if !contains(view, "(y/n)") {
-		t.Error("expected '(y/n)' in confirmation view")
+	if !contains(view, "[y/n]") {
+		t.Error("expected '[y/n]' in confirmation view")
 	}
 }

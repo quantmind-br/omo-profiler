@@ -1,10 +1,6 @@
 package tui
 
-import (
-	"fmt"
-
-	"github.com/charmbracelet/lipgloss"
-)
+import "github.com/charmbracelet/lipgloss"
 
 var (
 	Purple  = lipgloss.Color("#7D56F4")
@@ -59,14 +55,3 @@ var (
 	ErrorIconStyle = lipgloss.NewStyle().
 			Foreground(Red)
 )
-
-// RenderConfirmDialog renders a styled confirmation dialog with the given message and target.
-// Format: "{message} '{target}'? [y/n]"
-func RenderConfirmDialog(target, message string) string {
-	confirmStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(Yellow).
-		Background(Gray).
-		Padding(0, 1)
-	return confirmStyle.Render(fmt.Sprintf("%s '%s'? [y/n]", message, target))
-}

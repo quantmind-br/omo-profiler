@@ -1,6 +1,25 @@
 package layout
 
-import "github.com/mattn/go-runewidth"
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
+)
+
+var (
+	Yellow = lipgloss.Color("#F9E2AF")
+	Gray   = lipgloss.Color("#6C7086")
+)
+
+func RenderConfirmDialog(target, message string) string {
+	confirmStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(Yellow).
+		Background(Gray).
+		Padding(0, 1)
+	return confirmStyle.Render(fmt.Sprintf("%s '%s'? [y/n]", message, target))
+}
 
 const (
 	MinTerminalWidth  = 40

@@ -3761,7 +3761,7 @@ func (w WizardOther) View() string {
 	helpStyle := wizOtherHelpStyle
 
 	title := titleStyle.Render("Other Settings")
-	desc := helpStyle.Render("Enter to expand • Space to toggle • Tab next • Shift+Tab back")
+	desc := helpStyle.Render("[Enter] expand  [Space] toggle  [Tab] next  [Shift+Tab] back")
 
 	if w.inSubSection {
 		desc = helpStyle.Render("Space/Enter to toggle • Esc to close section")

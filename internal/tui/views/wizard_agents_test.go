@@ -684,7 +684,7 @@ func TestWizardAgentsView(t *testing.T) {
 		t.Error("expected 'Configure Agents' in view")
 	}
 
-	if !contains(view, "Space to enable/disable") {
+	if !contains(view, "[Space] toggle") {
 		t.Error("expected toggle help in view")
 	}
 }

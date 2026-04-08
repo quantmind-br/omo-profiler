@@ -106,6 +106,8 @@ func (t TemplateSelect) View() string {
 			"",
 			normalStyle.Render("No profiles available to use as template."),
 			"",
+			normalStyle.Render("Create a profile from the dashboard first, then use it as a template."),
+			"",
 			normalStyle.Render("Press esc to go back."),
 		}
 		if layout.IsShort(t.height) {

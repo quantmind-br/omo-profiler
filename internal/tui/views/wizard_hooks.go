@@ -324,9 +324,11 @@ func (w WizardHooks) renderContent() string {
 			nameStyle = wizHooksNameStyle
 		}
 
-		status := ""
+		var status string
 		if w.disabled[hook] {
-			status = disabledStyle.Render(" (disabled)")
+			status = disabledStyle.Render(" [✗] disabled")
+		} else {
+			status = enabledStyle.Render(" [✓] enabled")
 		}
 
 		line := fmt.Sprintf("%s%s %s%s", cursor, checkbox, nameStyle.Render(hook), status)
@@ -359,7 +361,7 @@ func (w WizardHooks) View() string {
 	}
 
 	title := titleStyle.Render("Configure Hooks")
-	desc := helpStyle.Render("Space to toggle focused item • ✓ included/enabled • ✗ disabled • Tab next • Shift+Tab back")
+	desc := helpStyle.Render("[Space] toggle  [Tab] next  [Shift+Tab] back  [✓] enabled  [✗] disabled")
 	stats := helpStyle.Render(fmt.Sprintf("%d/%d hooks disabled", disabledCount, len(allHooks)))
 
 	return lipgloss.JoinVertical(lipgloss.Left,

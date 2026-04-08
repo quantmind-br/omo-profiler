@@ -1180,10 +1180,11 @@ func (w WizardCategories) View() string {
 	}
 
 	title := wizCatLabelStyle.Render("Configure Categories")
-	desc := wizCatDimStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
+	desc := wizCatDimStyle.Render("[↑↓] navigate  [n] new  [d] delete  [→] expand  [←] collapse  [Enter] edit  [Tab] next step")
 
 	if w.inForm {
-		desc = wizCatDimStyle.Render("↑/↓/Tab: navigate • Space: toggle include • Enter: select/toggle • Esc: close form")
+		cc := w.categories[w.cursor]
+		desc = wizCatDimStyle.Render(fmt.Sprintf("Editing: %s — [↑↓] navigate  [Space] toggle  [Esc] close", cc.nameInput.Value()))
 	}
 
 	content := w.viewport.View()

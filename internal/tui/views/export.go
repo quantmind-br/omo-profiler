@@ -18,6 +18,7 @@ var (
 	exportGray   = lipgloss.Color("#6C7086")
 	exportRed    = lipgloss.Color("#F38BA8")
 	exportPurple = lipgloss.Color("#7D56F4")
+	exportYellow = lipgloss.Color("#F9E2AF")
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 	exportHelpStyle    = lipgloss.NewStyle().Foreground(exportGray)
 	exportErrorStyle   = lipgloss.NewStyle().Foreground(exportRed)
 	exportProfileStyle = lipgloss.NewStyle().Bold(true).Foreground(exportPurple)
+	exportNoticeStyle  = lipgloss.NewStyle().Foreground(exportYellow)
 )
 
 // ExportDoneMsg is sent when export is completed
@@ -57,12 +59,14 @@ func newExportKeyMap() exportKeyMap {
 
 // Export is a view for exporting profiles to JSON files
 type Export struct {
-	textInput   textinput.Model
-	profileName string
-	width       int
-	height      int
-	err         error
-	keys        exportKeyMap
+	textInput    textinput.Model
+	profileName  string
+	width        int
+	height       int
+	err          error
+	keys         exportKeyMap
+	resolvedPath string
+	pathChanged  bool
 }
 
 // NewExport creates a new Export view for the given profile
@@ -113,11 +117,13 @@ func (e Export) Update(msg tea.Msg) (Export, tea.Cmd) {
 			}
 
 			// Auto-rename if file exists
-			expandedPath = autoRenameIfExists(expandedPath)
+			resolvedPath := autoRenameIfExists(expandedPath)
+			e.resolvedPath = resolvedPath
+			e.pathChanged = resolvedPath != expandedPath
 
 			return e, func() tea.Msg {
 				return ExportDoneMsg{
-					Path: expandedPath,
+					Path: resolvedPath,
 					Err:  nil,
 				}
 			}
@@ -148,6 +154,10 @@ func (e Export) View() string {
 		profileInfo,
 		desc,
 		input,
+	}
+
+	if e.pathChanged && e.resolvedPath != "" {
+		content = append(content, exportNoticeStyle.Render("⚠ File exists. Exporting as: "+e.resolvedPath))
 	}
 
 	if e.err != nil {
