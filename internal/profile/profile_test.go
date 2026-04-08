@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
@@ -261,5 +262,166 @@ func TestLoadWithoutLegacyFields(t *testing.T) {
 
 	if p.LegacyFieldsWarning != "" {
 		t.Errorf("Expected empty LegacyFieldsWarning, got: %s", p.LegacyFieldsWarning)
+	}
+}
+
+func TestProfileLoadPreservesUnknownJSON(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	profileJSON := `{
+		"disabled_mcps": ["test-mcp"],
+		"customField": {"enabled": true},
+		"anotherLegacy": [1, 2, 3]
+	}`
+
+	profilePath := filepath.Join(config.ProfilesDir(), "preserve-unknown.json")
+	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
+		t.Fatalf("Failed to create test profile: %v", err)
+	}
+
+	p, err := Load("preserve-unknown")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if len(p.Config.DisabledMCPs) != 1 || p.Config.DisabledMCPs[0] != "test-mcp" {
+		t.Fatalf("known config field not loaded correctly: %#v", p.Config.DisabledMCPs)
+	}
+
+	if _, ok := p.PreservedUnknown["customField"]; !ok {
+		t.Fatal("expected customField to be preserved")
+	}
+
+	if _, ok := p.PreservedUnknown["anotherLegacy"]; !ok {
+		t.Fatal("expected anotherLegacy to be preserved")
+	}
+
+	if len(p.PreservedUnknown) != 2 {
+		t.Fatalf("expected 2 preserved unknown keys, got %d", len(p.PreservedUnknown))
+	}
+
+	var customField map[string]bool
+	if err := json.Unmarshal(p.PreservedUnknown["customField"], &customField); err != nil {
+		t.Fatalf("failed to decode preserved customField: %v", err)
+	}
+
+	if !customField["enabled"] {
+		t.Fatal("expected preserved customField.enabled to be true")
+	}
+	var anotherLegacy []int
+	if err := json.Unmarshal(p.PreservedUnknown["anotherLegacy"], &anotherLegacy); err != nil {
+		t.Fatalf("failed to decode preserved anotherLegacy: %v", err)
+	}
+
+	if !reflect.DeepEqual(anotherLegacy, []int{1, 2, 3}) {
+		t.Fatalf("unexpected preserved anotherLegacy value: %#v", anotherLegacy)
+	}
+}
+
+func TestProfileLoadCapturesFieldPresence(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	profileJSON := `{
+		"disabled_mcps": ["test-mcp"],
+		"agents": {
+			"worker": {"model": "gpt-5"}
+		}
+	}`
+
+	profilePath := filepath.Join(config.ProfilesDir(), "field-presence.json")
+	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
+		t.Fatalf("Failed to create test profile: %v", err)
+	}
+
+	p, err := Load("field-presence")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !p.FieldPresence["disabled_mcps"] {
+		t.Fatal("expected disabled_mcps to be marked present")
+	}
+
+	if !p.FieldPresence["agents"] {
+		t.Fatal("expected agents to be marked present")
+	}
+
+	if _, ok := p.FieldPresence["categories"]; ok {
+		t.Fatal("expected categories to be absent from FieldPresence")
+	}
+}
+
+func TestProfileSaveRoundTripsPreservedUnknownFragments(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	p := &Profile{
+		Name: "roundtrip-unknown",
+		Config: config.Config{
+			DisabledAgents: []string{"agent1"},
+		},
+		PreservedUnknown: map[string]json.RawMessage{
+			"customField":   json.RawMessage(`{"enabled":true}`),
+			"anotherLegacy": json.RawMessage(`[1,2,3]`),
+		},
+	}
+
+	if err := Save(p); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	reloaded, err := Load("roundtrip-unknown")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if len(reloaded.Config.DisabledAgents) != 1 || reloaded.Config.DisabledAgents[0] != "agent1" {
+		t.Fatalf("known config field not round-tripped correctly: %#v", reloaded.Config.DisabledAgents)
+	}
+
+	var customField map[string]bool
+	if err := json.Unmarshal(reloaded.PreservedUnknown["customField"], &customField); err != nil {
+		t.Fatalf("failed to decode preserved customField: %v", err)
+	}
+
+	if !customField["enabled"] {
+		t.Fatal("expected preserved customField.enabled to be true after reload")
+	}
+
+	var anotherLegacy []int
+	if err := json.Unmarshal(reloaded.PreservedUnknown["anotherLegacy"], &anotherLegacy); err != nil {
+		t.Fatalf("failed to decode preserved anotherLegacy: %v", err)
+	}
+
+	if !reflect.DeepEqual(anotherLegacy, []int{1, 2, 3}) {
+		t.Fatalf("unexpected preserved anotherLegacy after reload: %#v", anotherLegacy)
+	}
+}
+
+func TestProfileLoadFailsOnMalformedJSON(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	profilePath := filepath.Join(config.ProfilesDir(), "malformed.json")
+	if err := os.WriteFile(profilePath, []byte("}{invalid"), 0644); err != nil {
+		t.Fatalf("Failed to create malformed profile: %v", err)
+	}
+
+	if _, err := Load("malformed"); err == nil {
+		t.Fatal("expected malformed JSON load to fail")
 	}
 }
