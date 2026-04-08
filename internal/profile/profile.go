@@ -57,12 +57,135 @@ var knownConfigTags = []string{
 	"_migrations",
 }
 
+var knownFieldPaths = func() map[string]struct{} {
+	paths := make(map[string]struct{}, len(allFieldPaths))
+	for _, path := range allFieldPaths {
+		paths[path] = struct{}{}
+	}
+	return paths
+}()
+
+var knownFieldPathPrefixes = func() map[string]struct{} {
+	prefixes := make(map[string]struct{}, len(allFieldPaths)*2)
+	for _, path := range allFieldPaths {
+		parts := strings.Split(path, ".")
+		for i := 1; i < len(parts); i++ {
+			prefixes[strings.Join(parts[:i], ".")] = struct{}{}
+		}
+	}
+	return prefixes
+}()
+
 func knownTags() map[string]struct{} {
 	tags := make(map[string]struct{}, len(knownConfigTags))
 	for _, tag := range knownConfigTags {
 		tags[tag] = struct{}{}
 	}
 	return tags
+}
+
+func collectFieldPresence(raw map[string]json.RawMessage) map[string]bool {
+	presence := make(map[string]bool)
+	tags := knownTags()
+	for key, value := range raw {
+		if _, ok := tags[key]; !ok {
+			continue
+		}
+		collectFieldPresenceFromRaw(canonicalPathSegment(key), value, presence)
+	}
+	return presence
+}
+
+func collectFieldPresenceFromRaw(path string, raw json.RawMessage, presence map[string]bool) {
+	for _, candidate := range selectionPathCandidates(path) {
+		if _, ok := knownFieldPaths[candidate]; ok {
+			presence[candidate] = true
+			return
+		}
+	}
+
+	if !hasKnownFieldPathPrefix(path) {
+		return
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return
+	}
+
+	for key, value := range object {
+		collectFieldPresenceFromRaw(joinSelectionPath(path, canonicalPathSegment(key)), value, presence)
+	}
+}
+
+func hasKnownFieldPathPrefix(path string) bool {
+	for _, candidate := range selectionPathPrefixCandidates(path) {
+		if _, ok := knownFieldPathPrefixes[candidate]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func selectionPathPrefixCandidates(path string) []string {
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return nil
+	}
+
+	wildcardableCount := len(parts) - 1
+	total := 1 << wildcardableCount
+	seen := make(map[string]struct{}, total)
+	candidates := make([]string, 0, total)
+	for mask := range total {
+		candidateParts := append([]string(nil), parts...)
+		for i := range wildcardableCount {
+			if mask&(1<<i) == 0 {
+				continue
+			}
+			candidateParts[i+1] = "*"
+		}
+
+		candidate := strings.Join(candidateParts, ".")
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		candidates = append(candidates, candidate)
+	}
+
+	return candidates
+}
+
+func selectionPathCandidates(path string) []string {
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return nil
+	}
+
+	middleCount := max(0, len(parts)-2)
+
+	total := 1 << middleCount
+	seen := make(map[string]struct{}, total)
+	candidates := make([]string, 0, total)
+	for mask := range total {
+		candidateParts := append([]string(nil), parts...)
+		for i := range middleCount {
+			if mask&(1<<i) == 0 {
+				continue
+			}
+			candidateParts[i+1] = "*"
+		}
+
+		candidate := strings.Join(candidateParts, ".")
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		candidates = append(candidates, candidate)
+	}
+
+	return candidates
 }
 
 // detectLegacyFields checks if the JSON data contains unknown fields
@@ -97,15 +220,14 @@ func Load(name string) (*Profile, error) {
 	}
 
 	preservedUnknown := make(map[string]json.RawMessage)
-	fieldPresence := make(map[string]bool)
 	tags := knownTags()
 	for key, value := range raw {
 		if _, ok := tags[key]; ok {
-			fieldPresence[key] = true
 			continue
 		}
 		preservedUnknown[key] = value
 	}
+	fieldPresence := collectFieldPresence(raw)
 
 	var cfg config.Config
 	if err := json.Unmarshal(data, &cfg); err != nil {

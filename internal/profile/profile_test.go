@@ -352,12 +352,49 @@ func TestProfileLoadCapturesFieldPresence(t *testing.T) {
 		t.Fatal("expected disabled_mcps to be marked present")
 	}
 
-	if !p.FieldPresence["agents"] {
-		t.Fatal("expected agents to be marked present")
+	if !p.FieldPresence["agents.*.model"] {
+		t.Fatal("expected agents.*.model to be marked present")
 	}
 
-	if _, ok := p.FieldPresence["categories"]; ok {
-		t.Fatal("expected categories to be absent from FieldPresence")
+	if p.FieldPresence["agents.*.temperature"] {
+		t.Fatal("expected agents.*.temperature to remain absent from FieldPresence")
+	}
+
+	if _, ok := p.FieldPresence["categories.*.model"]; ok {
+		t.Fatal("expected categories.*.model to be absent from FieldPresence")
+	}
+}
+
+func TestProfileLoadCapturesLeafPresenceForNestedKnownFields(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	profileJSON := `{
+		"agents": {
+			"build": {"model": "gpt-4"}
+		}
+	}`
+
+	profilePath := filepath.Join(config.ProfilesDir(), "leaf-presence.json")
+	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
+		t.Fatalf("Failed to create test profile: %v", err)
+	}
+
+	p, err := Load("leaf-presence")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !p.FieldPresence["agents.*.model"] {
+		t.Fatal("expected agents.*.model to be marked present")
+	}
+
+	if p.FieldPresence["agents.*.temperature"] {
+		t.Fatal("expected agents.*.temperature to remain absent")
 	}
 }
 
@@ -598,7 +635,7 @@ func TestRegressionSparsePersistenceContract(t *testing.T) {
 	if reloaded.FieldPresence["disabled_mcps"] {
 		t.Fatal("expected unchecked disabled_mcps to stay omitted after reload")
 	}
-	for _, requiredKey := range []string{"hashline_edit", "disabled_hooks", "default_run_agent", "agents", "experimental"} {
+	for _, requiredKey := range []string{"hashline_edit", "disabled_hooks", "default_run_agent", "agents.*.model", "experimental.task_system", "experimental.max_tools"} {
 		if !reloaded.FieldPresence[requiredKey] {
 			t.Fatalf("expected %s to be marked present after sparse reload", requiredKey)
 		}

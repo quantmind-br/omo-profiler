@@ -174,7 +174,7 @@ func NewBlankSelection() *FieldSelection {
 func NewSelectionFromPresence(presence map[string]bool) *FieldSelection {
 	selection := NewBlankSelection()
 	for _, path := range allFieldPaths {
-		if presence[topLevelPath(path)] {
+		if presence[path] {
 			selection.selected[path] = true
 		}
 	}
@@ -250,11 +250,6 @@ func (s *FieldSelection) Clone() *FieldSelection {
 		}
 	}
 	return clone
-}
-
-func topLevelPath(path string) string {
-	parts := strings.SplitN(path, ".", 2)
-	return parts[0]
 }
 
 func wildcardCandidates(path string) []string {

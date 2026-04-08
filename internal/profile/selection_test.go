@@ -18,7 +18,7 @@ func TestNewBlankSelectionHasNothingSelected(t *testing.T) {
 func TestNewSelectionFromPresenceSeedsFromExistingProfile(t *testing.T) {
 	selection := NewSelectionFromPresence(map[string]bool{
 		"disabled_hooks": true,
-		"agents":         true,
+		"agents.*.model": true,
 	})
 
 	if !selection.IsSelected("disabled_hooks") {
@@ -26,15 +26,41 @@ func TestNewSelectionFromPresenceSeedsFromExistingProfile(t *testing.T) {
 	}
 
 	if !selection.IsSelected("agents.*.model") {
-		t.Fatal("expected agents.*.model to be selected from top-level presence")
+		t.Fatal("expected agents.*.model to be selected from leaf presence")
 	}
 
 	if !selection.IsSelected("agents.builder.model") {
 		t.Fatal("expected agents.builder.model to inherit wildcard selection")
 	}
 
+	if selection.IsSelected("agents.*.temperature") {
+		t.Fatal("expected unrelated agents.* leaf paths to remain unselected")
+	}
+
 	if selection.IsSelected("categories.*.model") {
 		t.Fatal("expected categories.*.model to remain unselected")
+	}
+}
+
+func TestNewSelectionFromPresenceOnlySelectsPresentLeafPaths(t *testing.T) {
+	selection := NewSelectionFromPresence(map[string]bool{
+		"agents.*.model": true,
+	})
+
+	if !selection.IsSelected("agents.*.model") {
+		t.Fatal("expected agents.*.model to be selected")
+	}
+
+	if !selection.IsSelected("agents.build.model") {
+		t.Fatal("expected agents.build.model to inherit wildcard selection")
+	}
+
+	if selection.IsSelected("agents.*.temperature") {
+		t.Fatal("expected agents.*.temperature to remain unselected")
+	}
+
+	if selection.IsSelected("agents.build.temperature") {
+		t.Fatal("expected agents.build.temperature to remain unselected")
 	}
 }
 

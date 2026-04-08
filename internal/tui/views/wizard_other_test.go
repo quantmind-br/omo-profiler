@@ -199,7 +199,7 @@ func TestParseSerializeMapStringIntRoundTrip(t *testing.T) {
 
 func TestWizardOtherLoadsCheckboxStateFromJSONPresence(t *testing.T) {
 	w := NewWizardOther()
-	selection := profile.NewSelectionFromPresence(map[string]bool{"experimental": true})
+	selection := profile.NewSelectionFromPresence(map[string]bool{"experimental.aggressive_truncation": true})
 	cfg := &config.Config{Experimental: &config.ExperimentalConfig{AggressiveTruncation: boolPtr(true)}}
 
 	w.SetConfig(cfg, selection)
