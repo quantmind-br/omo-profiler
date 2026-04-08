@@ -18,7 +18,7 @@ import (
 )
 
 var thinkingTypes = []string{"", "enabled", "disabled"}
-var effortLevels = []string{"", "low", "medium", "high", "xhigh"}
+var effortLevels = []string{"", "none", "minimal", "low", "medium", "high", "xhigh"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
 var (

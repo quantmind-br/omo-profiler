@@ -302,6 +302,46 @@ func TestWizardCategoriesApplyWithIsUnstable(t *testing.T) {
 	}
 }
 
+func TestWizardCategoriesReasoningEffortNewValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		effort string
+		idx    int
+	}{
+		{name: "none", effort: "none", idx: 1},
+		{name: "minimal", effort: "minimal", idx: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wc := NewWizardCategories()
+			cfg := &config.Config{
+				Categories: map[string]*config.CategoryConfig{
+					"test": {ReasoningEffort: tt.effort},
+				},
+			}
+
+			wc.SetConfig(cfg)
+
+			if got := wc.categories[0].reasoningEffortIdx; got != tt.idx {
+				t.Fatalf("reasoningEffortIdx: expected %d for %q, got %d", tt.idx, tt.effort, got)
+			}
+
+			out := &config.Config{}
+			wc.Apply(out)
+
+			catCfg := out.Categories["test"]
+			if catCfg == nil {
+				t.Fatalf("expected test category to exist after Apply")
+			}
+
+			if catCfg.ReasoningEffort != tt.effort {
+				t.Fatalf("ReasoningEffort: expected %q, got %q", tt.effort, catCfg.ReasoningEffort)
+			}
+		})
+	}
+}
+
 func TestWizardCategoriesUpdateWindowSizeMsg(t *testing.T) {
 	wc := NewWizardCategories()
 
