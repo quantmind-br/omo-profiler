@@ -1169,8 +1169,11 @@ func TestAllowNonGptModelFalseOnHephaestus(t *testing.T) {
 	if agentCfg == nil {
 		t.Fatal("expected hephaestus agent")
 	}
-	if agentCfg.AllowNonGptModel != nil {
-		t.Errorf("expected nil for false allow_non_gpt_model, got %v", agentCfg.AllowNonGptModel)
+	if agentCfg.AllowNonGptModel == nil {
+		t.Fatal("expected AllowNonGptModel to be set for hephaestus, got nil")
+	}
+	if *agentCfg.AllowNonGptModel != false {
+		t.Errorf("expected AllowNonGptModel=false, got %v", *agentCfg.AllowNonGptModel)
 	}
 }
 

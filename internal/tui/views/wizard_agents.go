@@ -971,7 +971,8 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 				b := true
 				agentCfg.AllowNonGptModel = &b
 			} else {
-				agentCfg.AllowNonGptModel = nil
+				b := false
+				agentCfg.AllowNonGptModel = &b
 			}
 		} else {
 			agentCfg.AllowNonGptModel = nil
@@ -1679,7 +1680,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("compModel", fieldCompactionModel, ac.compactionModel.View()))
 	lines = append(lines, renderField("compVariant", fieldCompactionVariant, ac.compactionVariant.View()))
 	if name == "hephaestus" {
-		lines = append(lines, renderBool("non_gpt", fieldAllowNonGpt, ac.allowNonGpt))
+		lines = append(lines, renderBool("allow_non_gpt", fieldAllowNonGpt, ac.allowNonGpt))
 	}
 	lines = append(lines, "")
 
@@ -1976,7 +1977,6 @@ func (w WizardAgents) handleBashPermsEditor(ac *agentConfig, msg tea.KeyMsg) (Wi
 			return w, nil
 		case "n", "N", "esc":
 			ac.bashConvertingToObj = false
-			ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
 			w.viewport.SetContent(w.renderContent())
 			return w, nil
 		}
