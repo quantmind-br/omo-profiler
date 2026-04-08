@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -311,6 +312,82 @@ func TestValidationError_Error(t *testing.T) {
 	assert.Equal(t, "agents.build.temperature: Must be less than or equal to 2", e.Error())
 }
 
+func TestRegressionSparseValidationContract(t *testing.T) {
+	v, err := GetValidator()
+	require.NoError(t, err)
+
+	blankSparseJSON := mustMarshalSparseJSON(t, &config.Config{})
+	assert.JSONEq(t, `{}`, string(blankSparseJSON))
+
+	saveErrors, err := v.ValidateForSave(&config.Config{})
+	require.NoError(t, err)
+	assert.Nil(t, saveErrors, "blank sparse config should be valid for save")
+
+	saveJSONErrors, err := v.ValidateJSONForSave(blankSparseJSON)
+	require.NoError(t, err)
+	assert.Nil(t, saveJSONErrors, "blank sparse JSON should be valid for save")
+
+	strictErrors, err := v.Validate(&config.Config{})
+	require.NoError(t, err)
+	require.NotEmpty(t, strictErrors, "strict validation should reject a blank config")
+	assert.True(t, hasRequiredValidationError(strictErrors), "strict validation should keep required-field errors")
+
+	strictJSONErrors, err := v.ValidateJSON(blankSparseJSON)
+	require.NoError(t, err)
+	require.NotEmpty(t, strictJSONErrors, "strict validation should reject blank sparse JSON")
+	assert.True(t, hasRequiredValidationError(strictJSONErrors), "strict JSON validation should keep required-field errors")
+
+	invalidSaveCases := []struct {
+		name          string
+		cfg           *config.Config
+		data          []byte
+		wantSubstring string
+	}{
+		{
+			name: "invalid enum remains invalid after sparse marshal",
+			cfg: &config.Config{
+				Agents: map[string]*config.AgentConfig{
+					"build": {Mode: "invalid_mode"},
+				},
+			},
+			data: mustMarshalSparseJSON(t, &config.Config{
+				Agents: map[string]*config.AgentConfig{
+					"build": {Mode: "invalid_mode"},
+				},
+			}, "agents.*.mode"),
+			wantSubstring: "must be one of the following",
+		},
+		{
+			name:          "wrong type survives required-error filtering",
+			data:          []byte(`{"agents":{"build":{"temperature":"hot"}}}`),
+			wantSubstring: "Invalid type",
+		},
+	}
+
+	for _, tc := range invalidSaveCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.cfg != nil {
+				typedSaveErrors, err := v.ValidateForSave(tc.cfg)
+				require.NoError(t, err)
+				require.NotEmpty(t, typedSaveErrors, "typed save validation should reject malformed present values")
+				assert.False(t, hasRequiredValidationError(typedSaveErrors), "save validation should only reject the malformed present value")
+				assert.Contains(t, strings.Join(validationErrorMessages(typedSaveErrors), "\n"), tc.wantSubstring)
+			}
+
+			strictErrors, err := v.ValidateJSON(tc.data)
+			require.NoError(t, err)
+			require.NotEmpty(t, strictErrors, "strict validation should reject malformed sparse JSON")
+			assert.True(t, hasRequiredValidationError(strictErrors), "strict validation should still report required-field errors")
+
+			saveErrors, err := v.ValidateJSONForSave(tc.data)
+			require.NoError(t, err)
+			require.NotEmpty(t, saveErrors, "save validation should reject malformed present values")
+			assert.False(t, hasRequiredValidationError(saveErrors), "save validation should filter only required errors")
+			assert.Contains(t, strings.Join(validationErrorMessages(saveErrors), "\n"), tc.wantSubstring)
+		})
+	}
+}
+
 func hasRequiredValidationError(errors []ValidationError) bool {
 	for _, err := range errors {
 		if strings.Contains(err.Message, "is required") {
@@ -338,4 +415,17 @@ func validationErrorMessages(errors []ValidationError) []string {
 	}
 
 	return messages
+}
+
+func mustMarshalSparseJSON(t *testing.T, cfg *config.Config, selectedPaths ...string) []byte {
+	t.Helper()
+
+	selection := profile.NewBlankSelection()
+	for _, path := range selectedPaths {
+		selection.SetSelected(path, true)
+	}
+
+	data, err := profile.MarshalSparse(cfg, selection, nil)
+	require.NoError(t, err)
+	return data
 }

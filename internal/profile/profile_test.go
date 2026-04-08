@@ -425,3 +425,251 @@ func TestProfileLoadFailsOnMalformedJSON(t *testing.T) {
 		t.Fatal("expected malformed JSON load to fail")
 	}
 }
+
+func TestRegressionSparsePersistenceContract(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs failed: %v", err)
+	}
+
+	const profileName = "regression-sparse-contract"
+	profilePath := filepath.Join(config.ProfilesDir(), profileName+".json")
+	initialProfileJSON := `{
+		"disabled_mcps": ["legacy-mcp"],
+		"hashline_edit": true,
+		"custom_bundle": {
+			"enabled": true,
+			"thresholds": {
+				"high": 2,
+				"low": 1
+			}
+		},
+		"custom_flags": ["alpha", "beta"]
+	}`
+
+	if err := os.WriteFile(profilePath, []byte(initialProfileJSON), 0644); err != nil {
+		t.Fatalf("Failed to create initial regression profile: %v", err)
+	}
+
+	p, err := Load(profileName)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !p.FieldPresence["disabled_mcps"] {
+		t.Fatal("expected disabled_mcps to be marked present on initial load")
+	}
+	if !p.FieldPresence["hashline_edit"] {
+		t.Fatal("expected hashline_edit to be marked present on initial load")
+	}
+	if len(p.PreservedUnknown) != 2 {
+		t.Fatalf("expected 2 top-level preserved unknown fragments, got %d", len(p.PreservedUnknown))
+	}
+
+	p.Config.DisabledMCPs = []string{"omit-me"}
+	p.Config.HashlineEdit = boolPtr(false)
+	p.Config.DisabledHooks = []string{}
+	p.Config.DefaultRunAgent = ""
+	p.Config.Experimental = &config.ExperimentalConfig{
+		TaskSystem: boolPtr(false),
+		MaxTools:   int64Ptr(0),
+	}
+	p.Config.Agents = map[string]*config.AgentConfig{
+		"builder": {Model: "gpt-5"},
+	}
+	p.PreservedUnknown["agents"] = json.RawMessage(`{"builder":{"model":"legacy-model","legacy":true},"legacy_agent":{"model":"legacy-only"}}`)
+	p.PreservedUnknown["experimental"] = json.RawMessage(`{"legacy_flag":true,"task_system":true}`)
+
+	selection := NewBlankSelection()
+	for _, path := range []string{
+		"hashline_edit",
+		"disabled_hooks",
+		"default_run_agent",
+		"experimental.task_system",
+		"experimental.max_tools",
+		"agents.*.model",
+	} {
+		selection.SetSelected(path, true)
+	}
+
+	data, err := MarshalSparse(&p.Config, selection, p.PreservedUnknown)
+	if err != nil {
+		t.Fatalf("MarshalSparse failed: %v", err)
+	}
+
+	decoded := decodeSparseJSON(t, data)
+	if _, ok := decoded["disabled_mcps"]; ok {
+		t.Fatalf("expected unchecked disabled_mcps to be omitted, got %#v", decoded["disabled_mcps"])
+	}
+
+	serializedChecks := []struct {
+		name  string
+		check func(*testing.T, map[string]any)
+	}{
+		{
+			name: "selected zero values survive sparse JSON",
+			check: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+
+				if value, ok := payload["hashline_edit"].(bool); !ok || value {
+					t.Fatalf("expected hashline_edit to be false, got %#v", payload["hashline_edit"])
+				}
+
+				if value, ok := payload["default_run_agent"].(string); !ok || value != "" {
+					t.Fatalf("expected default_run_agent to be an explicit empty string, got %#v", payload["default_run_agent"])
+				}
+
+				hooks, ok := payload["disabled_hooks"].([]any)
+				if !ok || len(hooks) != 0 {
+					t.Fatalf("expected disabled_hooks to be an explicit empty array, got %#v", payload["disabled_hooks"])
+				}
+
+				experimental := decodedObject(t, payload["experimental"], "experimental")
+				if taskSystem, ok := experimental["task_system"].(bool); !ok || taskSystem {
+					t.Fatalf("expected experimental.task_system to be false, got %#v", experimental["task_system"])
+				}
+				if maxTools, ok := experimental["max_tools"].(float64); !ok || maxTools != 0 {
+					t.Fatalf("expected experimental.max_tools to be 0, got %#v", experimental["max_tools"])
+				}
+			},
+		},
+		{
+			name: "multiple preserved unknown fragments survive and known leaves win overlaps",
+			check: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+
+				customBundle := decodedObject(t, payload["custom_bundle"], "custom_bundle")
+				if enabled, ok := customBundle["enabled"].(bool); !ok || !enabled {
+					t.Fatalf("expected preserved custom_bundle.enabled to remain true, got %#v", customBundle["enabled"])
+				}
+
+				thresholds := decodedObject(t, customBundle["thresholds"], "custom_bundle.thresholds")
+				if low, ok := thresholds["low"].(float64); !ok || low != 1 {
+					t.Fatalf("expected preserved custom_bundle.thresholds.low to remain 1, got %#v", thresholds["low"])
+				}
+				if high, ok := thresholds["high"].(float64); !ok || high != 2 {
+					t.Fatalf("expected preserved custom_bundle.thresholds.high to remain 2, got %#v", thresholds["high"])
+				}
+
+				customFlags, ok := payload["custom_flags"].([]any)
+				if !ok || !reflect.DeepEqual(customFlags, []any{"alpha", "beta"}) {
+					t.Fatalf("expected preserved custom_flags to remain [alpha beta], got %#v", payload["custom_flags"])
+				}
+
+				agents := decodedObject(t, payload["agents"], "agents")
+				builder := decodedObject(t, agents["builder"], "agents.builder")
+				if model, ok := builder["model"].(string); !ok || model != "gpt-5" {
+					t.Fatalf("expected selected agents.builder.model to win, got %#v", builder["model"])
+				}
+				if legacy, ok := builder["legacy"].(bool); !ok || !legacy {
+					t.Fatalf("expected preserved agents.builder.legacy sibling to remain, got %#v", builder["legacy"])
+				}
+
+				legacyAgent := decodedObject(t, agents["legacy_agent"], "agents.legacy_agent")
+				if model, ok := legacyAgent["model"].(string); !ok || model != "legacy-only" {
+					t.Fatalf("expected preserved legacy_agent model to remain, got %#v", legacyAgent["model"])
+				}
+
+				experimental := decodedObject(t, payload["experimental"], "experimental")
+				if legacyFlag, ok := experimental["legacy_flag"].(bool); !ok || !legacyFlag {
+					t.Fatalf("expected preserved experimental.legacy_flag sibling to remain, got %#v", experimental["legacy_flag"])
+				}
+			},
+		},
+	}
+
+	for _, tc := range serializedChecks {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.check(t, decoded)
+		})
+	}
+
+	if err := os.WriteFile(profilePath, data, 0644); err != nil {
+		t.Fatalf("Failed to persist sparse regression profile: %v", err)
+	}
+
+	reloaded, err := Load(profileName)
+	if err != nil {
+		t.Fatalf("Reload after sparse save failed: %v", err)
+	}
+
+	if reloaded.FieldPresence["disabled_mcps"] {
+		t.Fatal("expected unchecked disabled_mcps to stay omitted after reload")
+	}
+	for _, requiredKey := range []string{"hashline_edit", "disabled_hooks", "default_run_agent", "agents", "experimental"} {
+		if !reloaded.FieldPresence[requiredKey] {
+			t.Fatalf("expected %s to be marked present after sparse reload", requiredKey)
+		}
+	}
+
+	if reloaded.Config.HashlineEdit == nil || *reloaded.Config.HashlineEdit {
+		t.Fatalf("expected hashline_edit to reload as false, got %#v", reloaded.Config.HashlineEdit)
+	}
+	if !reflect.DeepEqual(reloaded.Config.DisabledHooks, []string{}) {
+		t.Fatalf("expected disabled_hooks to reload as an explicit empty slice, got %#v", reloaded.Config.DisabledHooks)
+	}
+	if reloaded.Config.Experimental == nil {
+		t.Fatal("expected experimental config to reload")
+	}
+	if reloaded.Config.Experimental.TaskSystem == nil || *reloaded.Config.Experimental.TaskSystem {
+		t.Fatalf("expected experimental.task_system to reload as false, got %#v", reloaded.Config.Experimental.TaskSystem)
+	}
+	if reloaded.Config.Experimental.MaxTools == nil || *reloaded.Config.Experimental.MaxTools != 0 {
+		t.Fatalf("expected experimental.max_tools to reload as 0, got %#v", reloaded.Config.Experimental.MaxTools)
+	}
+	if got := reloaded.Config.DefaultRunAgent; got != "" {
+		t.Fatalf("expected default_run_agent to reload as empty string, got %q", got)
+	}
+	if got := reloaded.Config.Agents["builder"].Model; got != "gpt-5" {
+		t.Fatalf("expected selected builder model to reload, got %q", got)
+	}
+	if got := reloaded.Config.Agents["legacy_agent"].Model; got != "legacy-only" {
+		t.Fatalf("expected preserved legacy_agent model to reload, got %q", got)
+	}
+
+	if len(reloaded.PreservedUnknown) != 2 {
+		t.Fatalf("expected only top-level unknown fragments to survive reload, got %d", len(reloaded.PreservedUnknown))
+	}
+
+	reloadedUnknownChecks := []struct {
+		name  string
+		check func(*testing.T)
+	}{
+		{
+			name: "custom bundle survives round-trip",
+			check: func(t *testing.T) {
+				t.Helper()
+
+				var customBundle map[string]any
+				if err := json.Unmarshal(reloaded.PreservedUnknown["custom_bundle"], &customBundle); err != nil {
+					t.Fatalf("failed to decode reloaded custom_bundle: %v", err)
+				}
+				if enabled, ok := customBundle["enabled"].(bool); !ok || !enabled {
+					t.Fatalf("expected reloaded custom_bundle.enabled to remain true, got %#v", customBundle["enabled"])
+				}
+			},
+		},
+		{
+			name: "custom flags survive round-trip",
+			check: func(t *testing.T) {
+				t.Helper()
+
+				var customFlags []string
+				if err := json.Unmarshal(reloaded.PreservedUnknown["custom_flags"], &customFlags); err != nil {
+					t.Fatalf("failed to decode reloaded custom_flags: %v", err)
+				}
+				if !reflect.DeepEqual(customFlags, []string{"alpha", "beta"}) {
+					t.Fatalf("expected reloaded custom_flags to remain [alpha beta], got %#v", customFlags)
+				}
+			},
+		},
+	}
+
+	for _, tc := range reloadedUnknownChecks {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.check(t)
+		})
+	}
+}
