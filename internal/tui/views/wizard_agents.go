@@ -3,6 +3,9 @@ package views
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -16,6 +19,15 @@ import (
 	"github.com/diogenes/omo-profiler/internal/models"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
+
+type fallbackModelEntry struct {
+	model           string
+	modelDisplay    string
+	variant         string
+	reasoningEffort string
+	rawJSON         string
+	isRawJSON       bool
+}
 
 func parseMapStringBool(s string) map[string]bool {
 	if s == "" {
@@ -50,6 +62,44 @@ func serializeMapStringBool(m map[string]bool) string {
 		pairs = append(pairs, fmt.Sprintf("%s:%t", k, v))
 	}
 	return strings.Join(pairs, ", ")
+}
+
+func sortedKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func validateAgentField(label, value string) string {
+	switch label {
+	case "color":
+		if value != "" && !validationHexRe.MatchString(value) {
+			return wizAgentErrorStyle.Render(" ✗ invalid hex")
+		}
+	case "temperature":
+		if value != "" {
+			if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
+				return wizAgentErrorStyle.Render(" ✗ must be 0-2")
+			}
+		}
+	case "top_p":
+		if value != "" {
+			if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+				return wizAgentErrorStyle.Render(" ✗ must be 0-1")
+			}
+		}
+	}
+	return ""
+}
+
+func (w WizardAgents) lastFieldForCurrentAgent() agentFormField {
+	if allAgents[w.cursor] == "hephaestus" {
+		return fieldAllowNonGpt
+	}
+	return fieldCompactionVariant
 }
 
 var allAgents = []string{
@@ -94,6 +144,8 @@ var (
 	wizAgentErrorStyle    = lipgloss.NewStyle().Foreground(wizAgentRed)
 )
 
+var validationHexRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+
 type agentFormField int
 
 const (
@@ -127,45 +179,68 @@ const (
 	fieldFallbackModels
 	fieldCompactionModel
 	fieldCompactionVariant
+	fieldAllowNonGpt
 )
 
-
 type agentConfig struct {
-	enabled                bool
-	expanded               bool
-	modelValue             string
-	modelDisplay           string
-	variant                textinput.Model
-	category               textinput.Model
-	temperature            textinput.Model
-	topP                   textinput.Model
-	skills                 textinput.Model
-	tools                  textinput.Model
-	fallbackModels         textinput.Model
-	prompt                 textarea.Model
-	promptAppend           textarea.Model
-	disable                bool
-	description            textinput.Model
-	modeIdx                int
-	color                  textinput.Model
-	maxTokens              textinput.Model
-	thinkingTypeIdx        int
-	thinkingBudget         textinput.Model
-	ultraworkModel         textinput.Model
-	ultraworkVariant       textinput.Model
-	compactionModel        textinput.Model
-	compactionVariant      textinput.Model
-	reasoningEffortIdx     int
-	textVerbosityIdx       int
-	providerOptionsDisplay string
+	enabled               bool
+	expanded              bool
+	modelValue            string
+	modelDisplay          string
+	variant               textinput.Model
+	category              textinput.Model
+	temperature           textinput.Model
+	topP                  textinput.Model
+	skills                textinput.Model
+	tools                 textinput.Model
+	fallbackModels        textinput.Model
+	editingFallbackModels bool
+	fallbackEntries       []fallbackModelEntry
+	fallbackFocusedIdx    int
+	fallbackEditField     int
+	fallbackEditInput     textinput.Model
+	fallbackEditingField  bool
+	fallbackEditingRaw    bool
+	fallbackRawInput      textinput.Model
+	prompt                textarea.Model
+	promptAppend          textarea.Model
+	disable               bool
+	description           textinput.Model
+	modeIdx               int
+	color                 textinput.Model
+	maxTokens             textinput.Model
+	thinkingTypeIdx       int
+	thinkingBudget        textinput.Model
+	ultraworkModel        textinput.Model
+	ultraworkVariant      textinput.Model
+	compactionModel       textinput.Model
+	compactionVariant     textinput.Model
+	allowNonGpt           bool
+	reasoningEffortIdx    int
+	textVerbosityIdx      int
+	providerOptions       map[string]interface{}
+	editingProviderOpts   bool
+	provOptKeys           []string
+	provOptValues         []textinput.Model
+	provOptFocusedIdx     int
+	provOptEditingVal     bool
+	provOptNewKey         textinput.Model
+	provOptAddingKey      bool
 	// Permissions
-	permEditIdx     int
-	permBashIdx     int
-	permWebfetchIdx int
-	permTaskIdx     int
-	permDoomLoopIdx int
-	permExtDirIdx   int
-	originalBash    interface{} // Preserve bash object through edit cycle
+	permEditIdx         int
+	permBashIdx         int
+	permWebfetchIdx     int
+	permTaskIdx         int
+	permDoomLoopIdx     int
+	permExtDirIdx       int
+	originalBash        interface{} // Preserve bash object through edit cycle
+	editingBashPerms    bool
+	bashConvertingToObj bool
+	bashRuleKeys        []string
+	bashRulePermIdx     []int
+	bashRuleFocusedIdx  int
+	bashRuleNewTool     textinput.Model
+	bashAddingRule      bool
 	// Model selector state
 	selectingModel       bool
 	modelSelector        ModelSelector
@@ -206,6 +281,14 @@ func newAgentConfig() agentConfig {
 	fallbackModels := textinput.New()
 	fallbackModels.Placeholder = `"model-id" or ["model1", "model2"]`
 	fallbackModels.Width = 40
+
+	fallbackEditInput := textinput.New()
+	fallbackEditInput.Placeholder = "variant"
+	fallbackEditInput.Width = 30
+
+	fallbackRawInput := textinput.New()
+	fallbackRawInput.Placeholder = `{"model":"id"}`
+	fallbackRawInput.Width = 40
 
 	prompt := textarea.New()
 	prompt.Placeholder = "Custom prompt..."
@@ -257,6 +340,10 @@ func newAgentConfig() agentConfig {
 	saveProviderInput.Placeholder = "Provider (optional)"
 	saveProviderInput.Width = 30
 
+	bashRuleNewTool := textinput.New()
+	bashRuleNewTool.Placeholder = "tool name"
+	bashRuleNewTool.Width = 20
+
 	return agentConfig{
 		variant:              variant,
 		category:             category,
@@ -265,6 +352,8 @@ func newAgentConfig() agentConfig {
 		skills:               skills,
 		tools:                tools,
 		fallbackModels:       fallbackModels,
+		fallbackEditInput:    fallbackEditInput,
+		fallbackRawInput:     fallbackRawInput,
 		prompt:               prompt,
 		promptAppend:         promptAppend,
 		description:          description,
@@ -277,7 +366,129 @@ func newAgentConfig() agentConfig {
 		compactionVariant:    compactionVariant,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
+		bashRuleNewTool:      bashRuleNewTool,
 	}
+}
+
+func hasAdvancedFallbackFields(entry map[string]interface{}) bool {
+	for key := range entry {
+		if key != "model" && key != "variant" && key != "reasoningEffort" {
+			return true
+		}
+	}
+	return false
+}
+
+func parseFallbackEntries(value interface{}) []fallbackModelEntry {
+	if value == nil {
+		return nil
+	}
+
+	var entries []fallbackModelEntry
+	appendString := func(model string) {
+		entries = append(entries, fallbackModelEntry{model: model, modelDisplay: model})
+	}
+	appendObject := func(entry map[string]interface{}) {
+		fe := fallbackModelEntry{}
+		if m, ok := entry["model"].(string); ok {
+			fe.model = m
+			fe.modelDisplay = m
+		}
+		if v, ok := entry["variant"].(string); ok {
+			fe.variant = v
+		}
+		if r, ok := entry["reasoningEffort"].(string); ok {
+			fe.reasoningEffort = r
+		}
+		if hasAdvancedFallbackFields(entry) {
+			fe.isRawJSON = true
+			if raw, err := json.Marshal(entry); err == nil {
+				fe.rawJSON = string(raw)
+			}
+		}
+		entries = append(entries, fe)
+	}
+
+	switch v := value.(type) {
+	case string:
+		appendString(v)
+	case []string:
+		for _, item := range v {
+			appendString(item)
+		}
+	case []interface{}:
+		for _, item := range v {
+			switch entry := item.(type) {
+			case string:
+				appendString(entry)
+			case map[string]interface{}:
+				appendObject(entry)
+			}
+		}
+	}
+
+	return entries
+}
+
+func refreshFallbackRawInput(ac *agentConfig) {
+	if len(ac.fallbackEntries) == 0 {
+		ac.fallbackModels.SetValue("")
+		return
+	}
+
+	var fallback interface{}
+	if len(ac.fallbackEntries) == 1 && ac.fallbackEntries[0].variant == "" && ac.fallbackEntries[0].reasoningEffort == "" && !ac.fallbackEntries[0].isRawJSON {
+		fallback = ac.fallbackEntries[0].model
+	} else {
+		arr := make([]interface{}, len(ac.fallbackEntries))
+		for i, fe := range ac.fallbackEntries {
+			if fe.isRawJSON {
+				var parsed interface{}
+				if err := json.Unmarshal([]byte(fe.rawJSON), &parsed); err == nil {
+					arr[i] = parsed
+				} else {
+					arr[i] = fe.model
+				}
+				continue
+			}
+			if fe.variant != "" || fe.reasoningEffort != "" {
+				obj := map[string]interface{}{"model": fe.model}
+				if fe.variant != "" {
+					obj["variant"] = fe.variant
+				}
+				if fe.reasoningEffort != "" {
+					obj["reasoningEffort"] = fe.reasoningEffort
+				}
+				arr[i] = obj
+			} else {
+				arr[i] = fe.model
+			}
+		}
+		fallback = arr
+	}
+
+	if raw, err := json.Marshal(fallback); err == nil {
+		ac.fallbackModels.SetValue(string(raw))
+	}
+}
+
+func formatFallbackEntry(entry fallbackModelEntry) string {
+	if entry.isRawJSON {
+		text := entry.rawJSON
+		if text == "" {
+			text = entry.model
+		}
+		return fmt.Sprintf("raw %s", text)
+	}
+
+	parts := []string{entry.modelDisplay}
+	if entry.variant != "" {
+		parts = append(parts, "variant="+entry.variant)
+	}
+	if entry.reasoningEffort != "" {
+		parts = append(parts, "reasoning="+entry.reasoningEffort)
+	}
+	return strings.Join(parts, " • ")
 }
 
 type wizardAgentsKeyMap struct {
@@ -394,6 +605,8 @@ func (w *WizardAgents) SetSize(width, height int) {
 		ac.skills.Width = layout.WideFieldWidth(width, 10)
 		ac.tools.Width = layout.WideFieldWidth(width, 10)
 		ac.fallbackModels.Width = layout.WideFieldWidth(width, 10)
+		ac.fallbackEditInput.Width = layout.MediumFieldWidth(width)
+		ac.fallbackRawInput.Width = layout.WideFieldWidth(width, 10)
 		ac.description.Width = layout.WideFieldWidth(width, 10)
 		ac.prompt.SetWidth(layout.WideFieldWidth(width, 10))
 		ac.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
@@ -403,6 +616,7 @@ func (w *WizardAgents) SetSize(width, height int) {
 		ac.compactionVariant.Width = layout.MediumFieldWidth(width)
 		ac.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		ac.saveProviderInput.Width = layout.MediumFieldWidth(width)
+		ac.bashRuleNewTool.Width = layout.MediumFieldWidth(width)
 		ac.modelSelector.SetSize(width, height)
 	}
 	w.viewport.SetContent(w.renderContent())
@@ -419,14 +633,11 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 				ac.modelValue = agentCfg.Model
 				ac.modelDisplay = agentCfg.Model
 			}
+			ac.fallbackEntries = parseFallbackEntries(agentCfg.FallbackModels)
+			ac.fallbackFocusedIdx = 0
 			if agentCfg.FallbackModels != nil {
-				switch v := agentCfg.FallbackModels.(type) {
-				case string:
-					ac.fallbackModels.SetValue(v)
-				default:
-					if b, err := json.Marshal(v); err == nil {
-						ac.fallbackModels.SetValue(string(b))
-					}
+				if raw, err := json.Marshal(agentCfg.FallbackModels); err == nil {
+					ac.fallbackModels.SetValue(string(raw))
 				}
 			}
 			if agentCfg.Variant != "" {
@@ -473,6 +684,20 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 			// Permissions
 			if agentCfg.Permission != nil {
 				ac.originalBash = agentCfg.Permission.Bash
+				if bashObj, ok := agentCfg.Permission.Bash.(map[string]interface{}); ok {
+					ac.bashRuleKeys = sortedKeys(bashObj)
+					ac.bashRulePermIdx = make([]int, len(ac.bashRuleKeys))
+					for i, k := range ac.bashRuleKeys {
+						if v, ok2 := bashObj[k].(string); ok2 {
+							for j, pv := range permissionValues {
+								if pv == v {
+									ac.bashRulePermIdx[i] = j
+									break
+								}
+							}
+						}
+					}
+				}
 				for i, v := range permissionValues {
 					if v == agentCfg.Permission.Edit {
 						ac.permEditIdx = i
@@ -522,6 +747,12 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 				ac.compactionModel.SetValue("")
 				ac.compactionVariant.SetValue("")
 			}
+			if name == "hephaestus" {
+				ac.allowNonGpt = false
+				if agentCfg.AllowNonGptModel != nil {
+					ac.allowNonGpt = *agentCfg.AllowNonGptModel
+				}
+			}
 			for i, e := range effortLevels {
 				if e == agentCfg.ReasoningEffort {
 					ac.reasoningEffortIdx = i
@@ -534,10 +765,19 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 					break
 				}
 			}
-			if len(agentCfg.ProviderOptions) > 0 {
-				ac.providerOptionsDisplay = fmt.Sprintf("[%d options set]", len(agentCfg.ProviderOptions))
+			ac.providerOptions = agentCfg.ProviderOptions
+			if ac.providerOptions != nil {
+				ac.provOptKeys = sortedKeys(ac.providerOptions)
+				ac.provOptValues = make([]textinput.Model, len(ac.provOptKeys))
+				for i, k := range ac.provOptKeys {
+					v := textinput.New()
+					v.Width = 30
+					v.SetValue(fmt.Sprintf("%v", ac.providerOptions[k]))
+					ac.provOptValues[i] = v
+				}
 			} else {
-				ac.providerOptionsDisplay = "(none)"
+				ac.provOptKeys = nil
+				ac.provOptValues = nil
 			}
 		}
 	}
@@ -562,16 +802,46 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 		}
 
 		agentCfg.Model = ac.modelValue
-		if v := ac.fallbackModels.Value(); v != "" {
-			v = strings.TrimSpace(v)
-			var parsed interface{}
-			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-				agentCfg.FallbackModels = parsed
+		if len(ac.fallbackEntries) > 0 {
+			if len(ac.fallbackEntries) == 1 && ac.fallbackEntries[0].variant == "" && ac.fallbackEntries[0].reasoningEffort == "" && !ac.fallbackEntries[0].isRawJSON {
+				agentCfg.FallbackModels = ac.fallbackEntries[0].model
 			} else {
-				agentCfg.FallbackModels = v
+				arr := make([]interface{}, len(ac.fallbackEntries))
+				for i, fe := range ac.fallbackEntries {
+					if fe.isRawJSON {
+						var parsed interface{}
+						if json.Unmarshal([]byte(fe.rawJSON), &parsed) == nil {
+							arr[i] = parsed
+						} else {
+							arr[i] = fe.model
+						}
+					} else if fe.variant != "" || fe.reasoningEffort != "" {
+						obj := map[string]interface{}{"model": fe.model}
+						if fe.variant != "" {
+							obj["variant"] = fe.variant
+						}
+						if fe.reasoningEffort != "" {
+							obj["reasoningEffort"] = fe.reasoningEffort
+						}
+						arr[i] = obj
+					} else {
+						arr[i] = fe.model
+					}
+				}
+				agentCfg.FallbackModels = arr
 			}
 		} else {
-			agentCfg.FallbackModels = nil
+			if v := ac.fallbackModels.Value(); v != "" {
+				v = strings.TrimSpace(v)
+				var parsed interface{}
+				if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+					agentCfg.FallbackModels = parsed
+				} else {
+					agentCfg.FallbackModels = v
+				}
+			} else {
+				agentCfg.FallbackModels = nil
+			}
 		}
 		agentCfg.Variant = ac.variant.Value()
 		agentCfg.Category = ac.category.Value()
@@ -619,16 +889,24 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 		agentCfg.PromptAppend = ac.promptAppend.Value()
 
 		// Permissions
-		if ac.permEditIdx > 0 || ac.permBashIdx > 0 || ac.originalBash != nil ||
+		if ac.permEditIdx > 0 || ac.permBashIdx > 0 || len(ac.bashRuleKeys) > 0 ||
 			ac.permWebfetchIdx > 0 || ac.permTaskIdx > 0 || ac.permDoomLoopIdx > 0 || ac.permExtDirIdx > 0 {
 			agentCfg.Permission = &config.PermissionConfig{}
 			if ac.permEditIdx > 0 {
 				agentCfg.Permission.Edit = permissionValues[ac.permEditIdx]
 			}
-			if ac.permBashIdx > 0 {
+			if len(ac.bashRuleKeys) > 0 {
+				bashMap := make(map[string]interface{})
+				for i, k := range ac.bashRuleKeys {
+					if i < len(ac.bashRulePermIdx) && ac.bashRulePermIdx[i] > 0 {
+						bashMap[k] = permissionValues[ac.bashRulePermIdx[i]]
+					}
+				}
+				if len(bashMap) > 0 {
+					agentCfg.Permission.Bash = bashMap
+				}
+			} else if ac.permBashIdx > 0 {
 				agentCfg.Permission.Bash = permissionValues[ac.permBashIdx]
-			} else if ac.originalBash != nil {
-				agentCfg.Permission.Bash = ac.originalBash
 			}
 			if ac.permWebfetchIdx > 0 {
 				agentCfg.Permission.Webfetch = permissionValues[ac.permWebfetchIdx]
@@ -688,8 +966,45 @@ func (w *WizardAgents) Apply(cfg *config.Config) {
 			agentCfg.Compaction = nil
 		}
 
+		if name == "hephaestus" {
+			if ac.allowNonGpt {
+				b := true
+				agentCfg.AllowNonGptModel = &b
+			} else {
+				agentCfg.AllowNonGptModel = nil
+			}
+		} else {
+			agentCfg.AllowNonGptModel = nil
+		}
+
 		agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
 		agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
+
+		if len(ac.provOptKeys) > 0 {
+			result := make(map[string]interface{})
+			for i, k := range ac.provOptKeys {
+				if k == "" {
+					continue
+				}
+				if i < len(ac.provOptValues) {
+					raw := ac.provOptValues[i].Value()
+					if f, err := strconv.ParseFloat(raw, 64); err == nil {
+						result[k] = f
+					} else if b, err := strconv.ParseBool(raw); err == nil {
+						result[k] = b
+					} else {
+						result[k] = raw
+					}
+				}
+			}
+			if len(result) > 0 {
+				agentCfg.ProviderOptions = result
+			} else {
+				agentCfg.ProviderOptions = nil
+			}
+		} else {
+			agentCfg.ProviderOptions = nil
+		}
 
 		cfg.Agents[name] = agentCfg
 	}
@@ -735,7 +1050,9 @@ func (w *WizardAgents) updateFieldFocus(ac *agentConfig) {
 	case fieldTools:
 		ac.tools.Focus()
 	case fieldFallbackModels:
-		ac.fallbackModels.Focus()
+		if !ac.editingFallbackModels {
+			ac.fallbackModels.Focus()
+		}
 	case fieldPrompt:
 		ac.prompt.Focus()
 	case fieldPromptAppend:
@@ -767,7 +1084,11 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		baseLine++ // agent header line
 		ac := w.agents[allAgents[i]]
 		if ac.expanded && ac.enabled {
-			baseLine += 43 // expanded form ~43 lines
+			formHeight := 43
+			if allAgents[i] == "hephaestus" {
+				formHeight = 44
+			}
+			baseLine += formHeight
 		}
 	}
 	baseLine++ // current agent header
@@ -775,36 +1096,37 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 
 	// Field offsets within the form
 	fieldOffsets := map[agentFormField]int{
-		fieldModel:            0,
-		fieldVariant:          1,
-		fieldCategory:         2,
-		fieldTemperature:      3,
-		fieldTopP:             4,
-		fieldSkills:           5,
-		fieldTools:            6,
-		fieldPrompt:           7,
-		fieldPromptAppend:     10,
-		fieldDisable:          13,
-		fieldDescription:      14,
-		fieldMode:             15,
-		fieldColor:            16,
-		fieldMaxTokens:        17,
-		fieldThinkingType:     18,
-		fieldThinkingBudget:   19,
-		fieldUltraworkModel:   20,
-		fieldUltraworkVariant: 21,
-		fieldReasoningEffort:  22,
-		fieldTextVerbosity:    23,
-		fieldProviderOptions:  24,
-		fieldPermEdit:         27,
-		fieldPermBash:         28,
-		fieldPermWebfetch:     29,
-		fieldPermTask:         30,
-		fieldPermDoomLoop:     31,
-		fieldPermExtDir:       32,
-		fieldFallbackModels:   33,
+		fieldModel:             0,
+		fieldVariant:           1,
+		fieldCategory:          2,
+		fieldTemperature:       3,
+		fieldTopP:              4,
+		fieldSkills:            5,
+		fieldTools:             6,
+		fieldPrompt:            7,
+		fieldPromptAppend:      10,
+		fieldDisable:           13,
+		fieldDescription:       14,
+		fieldMode:              15,
+		fieldColor:             16,
+		fieldMaxTokens:         17,
+		fieldThinkingType:      18,
+		fieldThinkingBudget:    19,
+		fieldUltraworkModel:    20,
+		fieldUltraworkVariant:  21,
+		fieldReasoningEffort:   22,
+		fieldTextVerbosity:     23,
+		fieldProviderOptions:   24,
+		fieldPermEdit:          27,
+		fieldPermBash:          28,
+		fieldPermWebfetch:      29,
+		fieldPermTask:          30,
+		fieldPermDoomLoop:      31,
+		fieldPermExtDir:        32,
+		fieldFallbackModels:    33,
 		fieldCompactionModel:   34,
 		fieldCompactionVariant: 35,
+		fieldAllowNonGpt:       36,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -843,8 +1165,17 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 		return w, nil
 
 	case ModelSelectedMsg:
-		ac.modelValue = msg.ModelID
-		ac.modelDisplay = msg.DisplayName
+		if ac.editingFallbackModels {
+			ac.fallbackEntries = append(ac.fallbackEntries, fallbackModelEntry{
+				model:        msg.ModelID,
+				modelDisplay: msg.DisplayName,
+			})
+			ac.fallbackFocusedIdx = len(ac.fallbackEntries) - 1
+			refreshFallbackRawInput(ac)
+		} else {
+			ac.modelValue = msg.ModelID
+			ac.modelDisplay = msg.DisplayName
+		}
 		ac.selectingModel = false
 		return w, nil
 
@@ -871,8 +1202,40 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			return w.handleSaveCustomModel(ac, msg)
 		}
 
+		if ac.editingProviderOpts {
+			return w.handleProviderOptsEditor(ac, msg)
+		}
+
+		if ac.editingFallbackModels {
+			return w.handleFallbackModelsEditor(ac, msg)
+		}
+
+		if ac.editingBashPerms || ac.bashConvertingToObj {
+			return w.handleBashPermsEditor(ac, msg)
+		}
+
 		// When in form editing mode
 		if w.inForm && ac.expanded {
+			lastField := w.lastFieldForCurrentAgent()
+			nextField := func() {
+				w.focusedField++
+				if w.focusedField > lastField {
+					w.focusedField = fieldModel
+				}
+				if w.focusedField == fieldAllowNonGpt && currentAgent != "hephaestus" {
+					w.focusedField = fieldModel
+				}
+			}
+			prevField := func() {
+				if w.focusedField > fieldModel {
+					w.focusedField--
+				} else {
+					w.focusedField = lastField
+				}
+				if w.focusedField == fieldAllowNonGpt && currentAgent != "hephaestus" {
+					w.focusedField = lastField
+				}
+			}
 			switch msg.String() {
 			case "esc":
 				w.inForm = false
@@ -880,39 +1243,25 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				w.viewport.SetContent(w.renderContent())
 				return w, nil
 			case "down", "j":
-				w.focusedField++
-				if w.focusedField > fieldCompactionVariant {
-					w.focusedField = fieldModel
-				}
+				nextField()
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "up", "k":
-				if w.focusedField > fieldModel {
-					w.focusedField--
-				} else {
-					w.focusedField = fieldCompactionVariant
-				}
+				prevField()
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "tab":
-				w.focusedField++
-				if w.focusedField > fieldCompactionVariant {
-					w.focusedField = fieldModel
-				}
+				nextField()
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
 			case "shift+tab":
-				if w.focusedField > fieldModel {
-					w.focusedField--
-				} else {
-					w.focusedField = fieldCompactionVariant
-				}
+				prevField()
 				w.updateFieldFocus(ac)
 				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
@@ -924,8 +1273,23 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					ac.modelSelector = NewModelSelector()
 					ac.modelSelector.SetSize(w.width, w.height)
 					return w, nil
+				case fieldFallbackModels:
+					ac.editingFallbackModels = true
+					if ac.fallbackFocusedIdx >= len(ac.fallbackEntries) && len(ac.fallbackEntries) > 0 {
+						ac.fallbackFocusedIdx = len(ac.fallbackEntries) - 1
+					}
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
+				case fieldProviderOptions:
+					ac.editingProviderOpts = true
+					ac.provOptFocusedIdx = 0
+					ac.provOptEditingVal = false
+					w.viewport.SetContent(w.renderContent())
+					return w, nil
 				case fieldDisable:
 					ac.disable = !ac.disable
+				case fieldAllowNonGpt:
+					ac.allowNonGpt = !ac.allowNonGpt
 				case fieldMode:
 					ac.modeIdx = (ac.modeIdx + 1) % len(agentModes)
 				case fieldThinkingType:
@@ -937,9 +1301,13 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				case fieldPermEdit:
 					ac.permEditIdx = (ac.permEditIdx + 1) % len(permissionValues)
 				case fieldPermBash:
-					// Only cycle if bash is a string (not object)
-					if _, isObject := ac.originalBash.(map[string]interface{}); !isObject {
-						ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
+					if len(ac.bashRuleKeys) > 0 {
+						ac.editingBashPerms = true
+						ac.bashRuleFocusedIdx = 0
+						ac.bashAddingRule = false
+						ac.bashConvertingToObj = false
+					} else {
+						ac.bashConvertingToObj = true
 					}
 				case fieldPermWebfetch:
 					ac.permWebfetchIdx = (ac.permWebfetchIdx + 1) % len(permissionValues)
@@ -976,6 +1344,21 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			case fieldFallbackModels:
 				ac.fallbackModels, cmd = ac.fallbackModels.Update(msg)
 				cmds = append(cmds, cmd)
+				trimmed := strings.TrimSpace(ac.fallbackModels.Value())
+				if trimmed == "" {
+					ac.fallbackEntries = nil
+					ac.fallbackFocusedIdx = 0
+				} else {
+					var parsed interface{}
+					if json.Unmarshal([]byte(trimmed), &parsed) == nil {
+						ac.fallbackEntries = parseFallbackEntries(parsed)
+						if len(ac.fallbackEntries) == 0 {
+							ac.fallbackFocusedIdx = 0
+						} else if ac.fallbackFocusedIdx >= len(ac.fallbackEntries) {
+							ac.fallbackFocusedIdx = len(ac.fallbackEntries) - 1
+						}
+					}
+				}
 			case fieldPrompt:
 				ac.prompt, cmd = ac.prompt.Update(msg)
 				cmds = append(cmds, cmd)
@@ -1169,8 +1552,8 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("model", fieldModel, modelDisplayValue))
 	lines = append(lines, renderField("variant", fieldVariant, ac.variant.View()))
 	lines = append(lines, renderField("category", fieldCategory, ac.category.View()))
-	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View()))
-	lines = append(lines, renderField("top_p", fieldTopP, ac.topP.View()))
+	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View())+validateAgentField("temperature", ac.temperature.Value()))
+	lines = append(lines, renderField("top_p", fieldTopP, ac.topP.View())+validateAgentField("top_p", ac.topP.Value()))
 	lines = append(lines, renderField("skills", fieldSkills, ac.skills.View()))
 	lines = append(lines, renderField("tools", fieldTools, ac.tools.View()))
 	lines = append(lines, renderField("prompt", fieldPrompt, ac.prompt.View()))
@@ -1178,7 +1561,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderBool("disable", fieldDisable, ac.disable))
 	lines = append(lines, renderField("description", fieldDescription, ac.description.View()))
 	lines = append(lines, renderDropdown("mode", fieldMode, agentModes, ac.modeIdx))
-	lines = append(lines, renderField("color", fieldColor, ac.color.View()))
+	lines = append(lines, renderField("color", fieldColor, ac.color.View())+validateAgentField("color", ac.color.Value()))
 	lines = append(lines, renderField("maxTokens", fieldMaxTokens, ac.maxTokens.View()))
 	lines = append(lines, renderDropdown("thinking", fieldThinkingType, thinkingTypes, ac.thinkingTypeIdx))
 	lines = append(lines, renderField("thinkBudget", fieldThinkingBudget, ac.thinkingBudget.View()))
@@ -1186,34 +1569,71 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("ultraVariant", fieldUltraworkVariant, ac.ultraworkVariant.View()))
 	lines = append(lines, renderDropdown("reasoning", fieldReasoningEffort, effortLevels, ac.reasoningEffortIdx))
 	lines = append(lines, renderDropdown("verbosity", fieldTextVerbosity, verbosityLevels, ac.textVerbosityIdx))
-	lines = append(lines, renderField("providerOpts", fieldProviderOptions, ac.providerOptionsDisplay+" (read-only)"))
+	if ac.editingProviderOpts {
+		lines = append(lines, renderField("providerOpts", fieldProviderOptions, "[editing]"))
+		if ac.provOptAddingKey {
+			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("new key: ")+ac.provOptNewKey.View())
+		} else {
+			if len(ac.provOptKeys) == 0 {
+				lines = append(lines, indent+"  "+wizAgentDimStyle.Render("(empty) press 'a' to add"))
+			}
+			for i, k := range ac.provOptKeys {
+				cursor := "  "
+				if i == ac.provOptFocusedIdx {
+					cursor = wizAgentCursorStyle.Render("> ")
+				}
+				val := ""
+				if i < len(ac.provOptValues) {
+					val = ac.provOptValues[i].View()
+				}
+				lines = append(lines, indent+cursor+wizAgentTextStyle.Render(k+": ")+val)
+			}
+			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("a:add d:del ↑↓:nav enter:edit esc:done"))
+		}
+	} else {
+		count := len(ac.provOptKeys)
+		if count > 0 {
+			lines = append(lines, renderField("providerOpts", fieldProviderOptions, fmt.Sprintf("%d options set [Enter to edit]", count)))
+		} else {
+			lines = append(lines, renderField("providerOpts", fieldProviderOptions, "(none) [Enter to edit]"))
+		}
+	}
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Permissions ──"))
 	lines = append(lines, renderDropdown("edit", fieldPermEdit, permissionValues, ac.permEditIdx))
 
-	// Bash permission - special handling for object type
-	bashValue := ""
-	switch v := ac.originalBash.(type) {
-	case map[string]interface{}:
-		bashValue = fmt.Sprintf("[object: %d rules]", len(v))
-	default:
-		if ac.permBashIdx > 0 && ac.permBashIdx < len(permissionValues) {
-			bashValue = permissionValues[ac.permBashIdx]
-		} else {
-			bashValue = "(none)"
+	// Bash permission - editable for both string and object modes
+	if ac.editingBashPerms {
+		lines = append(lines, renderField("bash", fieldPermBash, "[editing]"))
+		if len(ac.bashRuleKeys) == 0 && !ac.bashAddingRule {
+			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("(empty) press 'a' to add"))
 		}
+		for i, k := range ac.bashRuleKeys {
+			cursor := "  "
+			if i == ac.bashRuleFocusedIdx {
+				cursor = wizAgentCursorStyle.Render("> ")
+			}
+			perm := "(none)"
+			if i < len(ac.bashRulePermIdx) && ac.bashRulePermIdx[i] > 0 && ac.bashRulePermIdx[i] < len(permissionValues) {
+				perm = permissionValues[ac.bashRulePermIdx[i]]
+			}
+			lines = append(lines, indent+cursor+wizAgentTextStyle.Render(k+": ")+perm+" [←/→]")
+		}
+		if ac.bashAddingRule {
+			lines = append(lines, indent+"  "+wizAgentTextStyle.Render("New tool: ")+ac.bashRuleNewTool.View())
+		}
+		helpText := "a:add d:del c:to-string ↑↓:nav ←→:cycle esc:done"
+		if ac.bashAddingRule {
+			helpText = "enter:confirm esc:cancel"
+		}
+		lines = append(lines, indent+"  "+wizAgentDimStyle.Render(helpText))
+	} else if ac.bashConvertingToObj {
+		lines = append(lines, renderField("bash", fieldPermBash, "Convert to per-command rules? (y/n)"))
+	} else if len(ac.bashRuleKeys) > 0 {
+		lines = append(lines, renderField("bash", fieldPermBash, fmt.Sprintf("%d rules [Enter to edit]", len(ac.bashRuleKeys))))
+	} else {
+		lines = append(lines, renderDropdown("bash", fieldPermBash, permissionValues, ac.permBashIdx))
 	}
-	bashStyle := wizAgentDimStyle
-	bashCursor := "  "
-	if w.inForm && isActiveAgent && w.focusedField == fieldPermBash {
-		bashStyle = wizAgentSelectedStyle
-		bashCursor = wizAgentCursorStyle.Render("> ")
-	}
-	bashHint := " [←/→]"
-	if _, isObject := ac.originalBash.(map[string]interface{}); isObject {
-		bashHint = " (read-only)"
-	}
-	lines = append(lines, indent[:len(indent)-2]+bashCursor+bashStyle.Render(fmt.Sprintf(labelFmt, "bash"))+bashValue+bashHint)
 
 	lines = append(lines, renderDropdown("webfetch", fieldPermWebfetch, permissionValues, ac.permWebfetchIdx))
 	lines = append(lines, renderDropdown("task", fieldPermTask, permissionValues, ac.permTaskIdx))
@@ -1221,14 +1641,438 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderDropdown("external_dir", fieldPermExtDir, permissionValues, ac.permExtDirIdx))
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Fallback ──"))
-	lines = append(lines, renderField("fallback", fieldFallbackModels, ac.fallbackModels.View()))
+	if ac.editingFallbackModels {
+		lines = append(lines, renderField("fallback", fieldFallbackModels, "[editing]"))
+		if len(ac.fallbackEntries) == 0 {
+			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("(empty) press 'a' to add"))
+		}
+		for i, entry := range ac.fallbackEntries {
+			cursor := "  "
+			if i == ac.fallbackFocusedIdx {
+				cursor = wizAgentCursorStyle.Render("> ")
+			}
+			if i == ac.fallbackFocusedIdx && ac.fallbackEditingRaw {
+				lines = append(lines, indent+cursor+wizAgentTextStyle.Render("raw ")+ac.fallbackRawInput.View())
+				continue
+			}
+			if i == ac.fallbackFocusedIdx && ac.fallbackEditingField && ac.fallbackEditField == 1 {
+				lines = append(lines, indent+cursor+wizAgentTextStyle.Render(entry.modelDisplay+" • variant=")+ac.fallbackEditInput.View())
+				continue
+			}
+			lines = append(lines, indent+cursor+wizAgentTextStyle.Render(formatFallbackEntry(entry)))
+		}
+		helpText := "a:add d:del e:edit r:raw ↑↓:nav esc:done"
+		if ac.fallbackEditingField || ac.fallbackEditingRaw {
+			helpText = "enter:save esc:cancel"
+		}
+		lines = append(lines, indent+"  "+wizAgentDimStyle.Render(helpText))
+		if raw := strings.TrimSpace(ac.fallbackModels.Value()); raw != "" {
+			lines = append(lines, indent+"  "+wizAgentDimStyle.Render("raw: ")+raw)
+		}
+	} else if len(ac.fallbackEntries) > 0 {
+		lines = append(lines, renderField("fallback", fieldFallbackModels, fmt.Sprintf("%d models [Enter to edit]", len(ac.fallbackEntries))))
+	} else {
+		lines = append(lines, renderField("fallback", fieldFallbackModels, "(none) [Enter to edit]"))
+	}
 	lines = append(lines, "")
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Compaction ──"))
 	lines = append(lines, renderField("compModel", fieldCompactionModel, ac.compactionModel.View()))
 	lines = append(lines, renderField("compVariant", fieldCompactionVariant, ac.compactionVariant.View()))
+	if name == "hephaestus" {
+		lines = append(lines, renderBool("non_gpt", fieldAllowNonGpt, ac.allowNonGpt))
+	}
 	lines = append(lines, "")
 
 	return lines
+}
+
+func (w WizardAgents) handleFallbackModelsEditor(ac *agentConfig, msg tea.KeyMsg) (WizardAgents, tea.Cmd) {
+	if len(ac.fallbackEntries) == 0 {
+		ac.fallbackFocusedIdx = 0
+	} else if ac.fallbackFocusedIdx >= len(ac.fallbackEntries) {
+		ac.fallbackFocusedIdx = len(ac.fallbackEntries) - 1
+	}
+
+	if ac.fallbackEditingRaw {
+		if len(ac.fallbackEntries) > 0 && ac.fallbackFocusedIdx < len(ac.fallbackEntries) {
+			entry := &ac.fallbackEntries[ac.fallbackFocusedIdx]
+			switch msg.String() {
+			case "enter", "esc":
+				entry.rawJSON = ac.fallbackRawInput.Value()
+				ac.fallbackEditingRaw = false
+				ac.fallbackRawInput.Blur()
+				refreshFallbackRawInput(ac)
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			default:
+				var cmd tea.Cmd
+				ac.fallbackRawInput, cmd = ac.fallbackRawInput.Update(msg)
+				w.viewport.SetContent(w.renderContent())
+				return w, cmd
+			}
+		}
+		ac.fallbackEditingRaw = false
+		ac.fallbackRawInput.Blur()
+	}
+
+	if ac.fallbackEditingField {
+		if len(ac.fallbackEntries) > 0 && ac.fallbackFocusedIdx < len(ac.fallbackEntries) {
+			entry := &ac.fallbackEntries[ac.fallbackFocusedIdx]
+			switch msg.String() {
+			case "enter":
+				entry.variant = strings.TrimSpace(ac.fallbackEditInput.Value())
+				ac.fallbackEditingField = false
+				ac.fallbackEditInput.Blur()
+				ac.fallbackEditField = 2
+				refreshFallbackRawInput(ac)
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			case "esc":
+				ac.fallbackEditingField = false
+				ac.fallbackEditInput.Blur()
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			default:
+				var cmd tea.Cmd
+				ac.fallbackEditInput, cmd = ac.fallbackEditInput.Update(msg)
+				w.viewport.SetContent(w.renderContent())
+				return w, cmd
+			}
+		}
+		ac.fallbackEditingField = false
+		ac.fallbackEditInput.Blur()
+	}
+
+	switch msg.String() {
+	case "esc":
+		ac.fallbackEditingField = false
+		ac.fallbackEditingRaw = false
+		ac.fallbackEditInput.Blur()
+		ac.fallbackRawInput.Blur()
+		ac.editingFallbackModels = false
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "a":
+		ac.selectingModel = true
+		ac.modelSelector = NewModelSelector()
+		ac.modelSelector.SetSize(w.width, w.height)
+		return w, nil
+	case "d":
+		if len(ac.fallbackEntries) > 0 && ac.fallbackFocusedIdx < len(ac.fallbackEntries) {
+			ac.fallbackEntries = append(ac.fallbackEntries[:ac.fallbackFocusedIdx], ac.fallbackEntries[ac.fallbackFocusedIdx+1:]...)
+			if ac.fallbackFocusedIdx >= len(ac.fallbackEntries) && ac.fallbackFocusedIdx > 0 {
+				ac.fallbackFocusedIdx--
+			}
+			ac.fallbackEditingField = false
+			ac.fallbackEditingRaw = false
+			ac.fallbackEditInput.Blur()
+			ac.fallbackRawInput.Blur()
+			refreshFallbackRawInput(ac)
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "up", "k":
+		ac.fallbackEditingField = false
+		ac.fallbackEditingRaw = false
+		ac.fallbackEditInput.Blur()
+		ac.fallbackRawInput.Blur()
+		if ac.fallbackFocusedIdx > 0 {
+			ac.fallbackFocusedIdx--
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "down", "j":
+		ac.fallbackEditingField = false
+		ac.fallbackEditingRaw = false
+		ac.fallbackEditInput.Blur()
+		ac.fallbackRawInput.Blur()
+		if ac.fallbackFocusedIdx < len(ac.fallbackEntries)-1 {
+			ac.fallbackFocusedIdx++
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "e":
+		if len(ac.fallbackEntries) > 0 && ac.fallbackFocusedIdx < len(ac.fallbackEntries) {
+			entry := &ac.fallbackEntries[ac.fallbackFocusedIdx]
+			if entry.isRawJSON {
+				ac.fallbackEditingRaw = true
+				ac.fallbackRawInput.SetValue(entry.rawJSON)
+				ac.fallbackRawInput.Focus()
+				w.viewport.SetContent(w.renderContent())
+				return w, textinput.Blink
+			}
+			switch ac.fallbackEditField {
+			case 0:
+				if entry.model == "" {
+					ac.selectingModel = true
+					ac.modelSelector = NewModelSelector()
+					ac.modelSelector.SetSize(w.width, w.height)
+					return w, nil
+				}
+				ac.fallbackEditField = 1
+			case 1:
+				ac.fallbackEditingField = true
+				ac.fallbackEditInput.SetValue(entry.variant)
+				ac.fallbackEditInput.Focus()
+				w.viewport.SetContent(w.renderContent())
+				return w, textinput.Blink
+			case 2:
+				current := 0
+				for i, level := range effortLevels {
+					if level == entry.reasoningEffort {
+						current = i
+						break
+					}
+				}
+				entry.reasoningEffort = effortLevels[(current+1)%len(effortLevels)]
+				ac.fallbackEditField = 0
+			}
+			refreshFallbackRawInput(ac)
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "r":
+		if len(ac.fallbackEntries) > 0 && ac.fallbackFocusedIdx < len(ac.fallbackEntries) {
+			entry := &ac.fallbackEntries[ac.fallbackFocusedIdx]
+			if entry.isRawJSON {
+				ac.fallbackEditingRaw = true
+				ac.fallbackRawInput.SetValue(entry.rawJSON)
+				ac.fallbackRawInput.Focus()
+				w.viewport.SetContent(w.renderContent())
+				return w, textinput.Blink
+			} else {
+				payload := map[string]interface{}{"model": entry.model}
+				if entry.variant != "" {
+					payload["variant"] = entry.variant
+				}
+				if entry.reasoningEffort != "" {
+					payload["reasoningEffort"] = entry.reasoningEffort
+				}
+				entry.isRawJSON = true
+				if raw, err := json.Marshal(payload); err == nil {
+					entry.rawJSON = string(raw)
+				}
+			}
+			refreshFallbackRawInput(ac)
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	}
+
+	return w, nil
+}
+
+func (w WizardAgents) handleProviderOptsEditor(ac *agentConfig, msg tea.KeyMsg) (WizardAgents, tea.Cmd) {
+	if ac.provOptAddingKey {
+		switch msg.String() {
+		case "esc":
+			ac.provOptAddingKey = false
+			ac.provOptNewKey.Blur()
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		case "enter":
+			keyName := strings.TrimSpace(ac.provOptNewKey.Value())
+			if keyName != "" {
+				ac.provOptKeys = append(ac.provOptKeys, keyName)
+				v := textinput.New()
+				v.Width = 30
+				ac.provOptValues = append(ac.provOptValues, v)
+				ac.provOptFocusedIdx = len(ac.provOptKeys) - 1
+			}
+			ac.provOptAddingKey = false
+			ac.provOptNewKey.Blur()
+			ac.provOptNewKey.SetValue("")
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		default:
+			var cmd tea.Cmd
+			ac.provOptNewKey, cmd = ac.provOptNewKey.Update(msg)
+			w.viewport.SetContent(w.renderContent())
+			return w, cmd
+		}
+	}
+
+	if ac.provOptEditingVal {
+		switch msg.String() {
+		case "esc", "enter":
+			ac.provOptEditingVal = false
+			if ac.provOptFocusedIdx < len(ac.provOptValues) {
+				ac.provOptValues[ac.provOptFocusedIdx].Blur()
+			}
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		}
+		if ac.provOptFocusedIdx < len(ac.provOptValues) {
+			var cmd tea.Cmd
+			ac.provOptValues[ac.provOptFocusedIdx], cmd = ac.provOptValues[ac.provOptFocusedIdx].Update(msg)
+			w.viewport.SetContent(w.renderContent())
+			return w, cmd
+		}
+		return w, nil
+	}
+
+	switch msg.String() {
+	case "esc":
+		ac.editingProviderOpts = false
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "a":
+		ac.provOptAddingKey = true
+		ac.provOptNewKey = textinput.New()
+		ac.provOptNewKey.Width = 20
+		ac.provOptNewKey.Placeholder = "key name"
+		ac.provOptNewKey.Focus()
+		w.viewport.SetContent(w.renderContent())
+		return w, textinput.Blink
+	case "d":
+		if len(ac.provOptKeys) > 0 && ac.provOptFocusedIdx < len(ac.provOptKeys) {
+			ac.provOptKeys = append(ac.provOptKeys[:ac.provOptFocusedIdx], ac.provOptKeys[ac.provOptFocusedIdx+1:]...)
+			ac.provOptValues = append(ac.provOptValues[:ac.provOptFocusedIdx], ac.provOptValues[ac.provOptFocusedIdx+1:]...)
+			if ac.provOptFocusedIdx >= len(ac.provOptKeys) && ac.provOptFocusedIdx > 0 {
+				ac.provOptFocusedIdx--
+			}
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "up", "k":
+		if ac.provOptFocusedIdx > 0 {
+			ac.provOptFocusedIdx--
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "down", "j":
+		if ac.provOptFocusedIdx < len(ac.provOptKeys)-1 {
+			ac.provOptFocusedIdx++
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "enter":
+		if ac.provOptFocusedIdx < len(ac.provOptValues) {
+			ac.provOptEditingVal = true
+			ac.provOptValues[ac.provOptFocusedIdx].Focus()
+			w.viewport.SetContent(w.renderContent())
+			return w, textinput.Blink
+		}
+		return w, nil
+	}
+
+	return w, nil
+}
+
+func (w WizardAgents) handleBashPermsEditor(ac *agentConfig, msg tea.KeyMsg) (WizardAgents, tea.Cmd) {
+	if ac.bashConvertingToObj {
+		switch msg.String() {
+		case "y", "Y":
+			ac.bashConvertingToObj = false
+			permIdx := ac.permBashIdx
+			if permIdx <= 0 {
+				permIdx = 1
+			}
+			ac.bashRuleKeys = []string{"bash"}
+			ac.bashRulePermIdx = []int{permIdx}
+			ac.bashRuleFocusedIdx = 0
+			ac.editingBashPerms = true
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		case "n", "N", "esc":
+			ac.bashConvertingToObj = false
+			ac.permBashIdx = (ac.permBashIdx + 1) % len(permissionValues)
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		}
+		return w, nil
+	}
+
+	if ac.bashAddingRule {
+		switch msg.String() {
+		case "esc":
+			ac.bashAddingRule = false
+			ac.bashRuleNewTool.Blur()
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		case "enter":
+			name := strings.TrimSpace(ac.bashRuleNewTool.Value())
+			if name != "" {
+				ac.bashRuleKeys = append(ac.bashRuleKeys, name)
+				ac.bashRulePermIdx = append(ac.bashRulePermIdx, 1)
+				ac.bashRuleFocusedIdx = len(ac.bashRuleKeys) - 1
+			}
+			ac.bashAddingRule = false
+			ac.bashRuleNewTool.SetValue("")
+			ac.bashRuleNewTool.Blur()
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		}
+		var cmd tea.Cmd
+		ac.bashRuleNewTool, cmd = ac.bashRuleNewTool.Update(msg)
+		w.viewport.SetContent(w.renderContent())
+		return w, cmd
+	}
+
+	switch msg.String() {
+	case "esc":
+		ac.editingBashPerms = false
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "c":
+		ac.bashRuleKeys = nil
+		ac.bashRulePermIdx = nil
+		ac.editingBashPerms = false
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "a":
+		ac.bashAddingRule = true
+		ac.bashRuleNewTool.SetValue("")
+		ac.bashRuleNewTool.Focus()
+		w.viewport.SetContent(w.renderContent())
+		return w, textinput.Blink
+	case "d":
+		if len(ac.bashRuleKeys) > 0 && ac.bashRuleFocusedIdx < len(ac.bashRuleKeys) {
+			ac.bashRuleKeys = append(ac.bashRuleKeys[:ac.bashRuleFocusedIdx], ac.bashRuleKeys[ac.bashRuleFocusedIdx+1:]...)
+			ac.bashRulePermIdx = append(ac.bashRulePermIdx[:ac.bashRuleFocusedIdx], ac.bashRulePermIdx[ac.bashRuleFocusedIdx+1:]...)
+			if ac.bashRuleFocusedIdx >= len(ac.bashRuleKeys) && ac.bashRuleFocusedIdx > 0 {
+				ac.bashRuleFocusedIdx--
+			}
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "up", "k":
+		if ac.bashRuleFocusedIdx > 0 {
+			ac.bashRuleFocusedIdx--
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "down", "j":
+		if ac.bashRuleFocusedIdx < len(ac.bashRuleKeys)-1 {
+			ac.bashRuleFocusedIdx++
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "left", "h":
+		if ac.bashRuleFocusedIdx < len(ac.bashRulePermIdx) {
+			idx := ac.bashRulePermIdx[ac.bashRuleFocusedIdx]
+			idx--
+			if idx < 1 {
+				idx = len(permissionValues) - 1
+			}
+			ac.bashRulePermIdx[ac.bashRuleFocusedIdx] = idx
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "right", "l":
+		if ac.bashRuleFocusedIdx < len(ac.bashRulePermIdx) {
+			idx := ac.bashRulePermIdx[ac.bashRuleFocusedIdx]
+			idx++
+			if idx >= len(permissionValues) {
+				idx = 1
+			}
+			ac.bashRulePermIdx[ac.bashRuleFocusedIdx] = idx
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	}
+
+	return w, nil
 }
 
 func (w WizardAgents) handleSaveCustomModel(ac *agentConfig, msg tea.KeyMsg) (WizardAgents, tea.Cmd) {

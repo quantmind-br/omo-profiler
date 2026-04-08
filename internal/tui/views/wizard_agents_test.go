@@ -1,12 +1,16 @@
 package views
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 )
+
+func boolPtr(b bool) *bool { return &b }
 
 func TestParseMapStringBool(t *testing.T) {
 	tests := []struct {
@@ -526,6 +530,97 @@ func TestWizardAgentsView(t *testing.T) {
 	}
 }
 
+func roundTripFallbackModels(t *testing.T, input interface{}) interface{} {
+	t.Helper()
+
+	wa := NewWizardAgents()
+	wa.SetConfig(&config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model:          "test-model",
+				FallbackModels: input,
+			},
+		},
+	})
+
+	out := &config.Config{}
+	wa.Apply(out)
+	if out.Agents == nil || out.Agents["build"] == nil {
+		t.Fatal("expected build agent after round trip")
+	}
+	return out.Agents["build"].FallbackModels
+}
+
+func normalizeJSONValue(t *testing.T, value interface{}) interface{} {
+	t.Helper()
+	if value == nil {
+		return nil
+	}
+	b, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	var normalized interface{}
+	if err := json.Unmarshal(b, &normalized); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	return normalized
+}
+
+func TestFallbackModelsStringRoundTrip(t *testing.T) {
+	got := roundTripFallbackModels(t, "claude-sonnet-4")
+	if got != "claude-sonnet-4" {
+		t.Fatalf("expected string fallback preserved, got %#v", got)
+	}
+}
+
+func TestFallbackModelsArrayRoundTrip(t *testing.T) {
+	input := []interface{}{"model1", "model2"}
+	got := roundTripFallbackModels(t, input)
+	if !reflect.DeepEqual(normalizeJSONValue(t, got), normalizeJSONValue(t, input)) {
+		t.Fatalf("expected array fallback preserved, got %#v", got)
+	}
+}
+
+func TestFallbackModelsModelObjectRoundTrip(t *testing.T) {
+	input := []interface{}{
+		map[string]interface{}{
+			"model":           "model1",
+			"variant":         "fast",
+			"reasoningEffort": "high",
+		},
+	}
+	got := roundTripFallbackModels(t, input)
+	if !reflect.DeepEqual(normalizeJSONValue(t, got), normalizeJSONValue(t, input)) {
+		t.Fatalf("expected model object fallback preserved, got %#v", got)
+	}
+}
+
+func TestFallbackModelsComplexObjectPreserved(t *testing.T) {
+	input := []interface{}{
+		map[string]interface{}{
+			"model":           "model1",
+			"variant":         "fast",
+			"reasoningEffort": "high",
+			"temperature":     0.7,
+			"top_p":           0.9,
+			"maxTokens":       4096,
+			"thinking":        map[string]interface{}{"type": "enabled", "budgetTokens": 2048},
+		},
+	}
+	got := roundTripFallbackModels(t, input)
+	if !reflect.DeepEqual(normalizeJSONValue(t, got), normalizeJSONValue(t, input)) {
+		t.Fatalf("expected complex fallback preserved, got %#v", got)
+	}
+}
+
+func TestFallbackModelsEmptyRoundTrip(t *testing.T) {
+	got := roundTripFallbackModels(t, nil)
+	if got != nil {
+		t.Fatalf("expected nil fallback preserved, got %#v", got)
+	}
+}
+
 // === DATA PRESERVATION TESTS ===
 // These tests ensure data is NOT lost through SetConfig → Apply cycles
 
@@ -717,7 +812,7 @@ func TestAgentApplyPreservesProviderOptions(t *testing.T) {
 		Agents: map[string]*config.AgentConfig{
 			"build": {
 				Model:           "claude-sonnet-4",
-				ProviderOptions: map[string]interface{}{"custom_flag": true, "timeout": 30},
+				ProviderOptions: map[string]interface{}{"custom_flag": true, "timeout": float64(30)},
 			},
 		},
 	}
@@ -725,30 +820,83 @@ func TestAgentApplyPreservesProviderOptions(t *testing.T) {
 	wa := NewWizardAgents()
 	wa.SetConfig(cfg)
 
-	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
+	newCfg := &config.Config{}
 	wa.Apply(newCfg)
 
-	if _, ok := newCfg.Agents["build"]; !ok {
+	agentCfg, ok := newCfg.Agents["build"]
+	if !ok {
 		t.Fatal("expected 'build' agent to exist after Apply")
 	}
+	if agentCfg.ProviderOptions == nil {
+		t.Fatal("ProviderOptions: expected non-nil after Apply")
+	}
+	if agentCfg.ProviderOptions["custom_flag"] != true {
+		t.Errorf("ProviderOptions[custom_flag]: expected true, got %v", agentCfg.ProviderOptions["custom_flag"])
+	}
+	if agentCfg.ProviderOptions["timeout"] != float64(30) {
+		t.Errorf("ProviderOptions[timeout]: expected 30, got %v", agentCfg.ProviderOptions["timeout"])
+	}
+}
 
-	existingCfg := &config.Config{
+func TestAgentApplyProviderOptionsRoundTrip(t *testing.T) {
+	cfg := &config.Config{
 		Agents: map[string]*config.AgentConfig{
 			"build": {
-				ProviderOptions: map[string]interface{}{"custom_flag": true, "timeout": 30},
+				Model: "test-model",
+				ProviderOptions: map[string]interface{}{
+					"flag":    true,
+					"timeout": float64(30),
+					"name":    "test",
+				},
 			},
 		},
 	}
-	wa.Apply(existingCfg)
 
-	if existingCfg.Agents["build"].ProviderOptions == nil {
-		t.Fatal("ProviderOptions: expected to be preserved when Apply merges onto existing config")
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	freshCfg := &config.Config{}
+	wa.Apply(freshCfg)
+
+	agentCfg := freshCfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected 'build' agent to exist after Apply")
 	}
-	if existingCfg.Agents["build"].ProviderOptions["custom_flag"] != true {
-		t.Errorf("ProviderOptions[custom_flag]: expected true, got %v", existingCfg.Agents["build"].ProviderOptions["custom_flag"])
+	if agentCfg.ProviderOptions == nil {
+		t.Fatal("ProviderOptions: expected non-nil")
 	}
-	if existingCfg.Agents["build"].ProviderOptions["timeout"] != 30 {
-		t.Errorf("ProviderOptions[timeout]: expected 30, got %v", existingCfg.Agents["build"].ProviderOptions["timeout"])
+	if agentCfg.ProviderOptions["flag"] != true {
+		t.Errorf("ProviderOptions[flag]: expected true, got %v (type %T)", agentCfg.ProviderOptions["flag"], agentCfg.ProviderOptions["flag"])
+	}
+	if agentCfg.ProviderOptions["timeout"] != float64(30) {
+		t.Errorf("ProviderOptions[timeout]: expected 30, got %v (type %T)", agentCfg.ProviderOptions["timeout"], agentCfg.ProviderOptions["timeout"])
+	}
+	if agentCfg.ProviderOptions["name"] != "test" {
+		t.Errorf("ProviderOptions[name]: expected 'test', got %v", agentCfg.ProviderOptions["name"])
+	}
+}
+
+func TestAgentApplyProviderOptionsEmpty(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model: "test-model",
+			},
+		},
+	}
+
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	freshCfg := &config.Config{}
+	wa.Apply(freshCfg)
+
+	agentCfg := freshCfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected 'build' agent to exist after Apply")
+	}
+	if agentCfg.ProviderOptions != nil {
+		t.Errorf("ProviderOptions: expected nil when no options set, got %v", agentCfg.ProviderOptions)
 	}
 }
 
@@ -810,5 +958,320 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 	}
 	if agentCfg.TextVerbosity != "high" {
 		t.Errorf("TextVerbosity: expected 'high', got %q", agentCfg.TextVerbosity)
+	}
+}
+
+func TestAgentApplyAllowNonGptModelHephaestus(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"hephaestus": {
+				Model:            "test",
+				AllowNonGptModel: boolPtr(true),
+			},
+		},
+	}
+
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
+	wa.Apply(newCfg)
+
+	agentCfg := newCfg.Agents["hephaestus"]
+	if agentCfg == nil {
+		t.Fatal("expected hephaestus agent to exist after Apply")
+	}
+	if agentCfg.AllowNonGptModel == nil || !*agentCfg.AllowNonGptModel {
+		t.Fatalf("expected allow_non_gpt_model=true, got %v", agentCfg.AllowNonGptModel)
+	}
+}
+
+func TestAgentApplyAllowNonGptModelNonHephaestus(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model:            "test",
+				AllowNonGptModel: boolPtr(true),
+			},
+		},
+	}
+
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
+	wa.Apply(newCfg)
+
+	agentCfg := newCfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent to exist after Apply")
+	}
+	if agentCfg.AllowNonGptModel != nil {
+		t.Fatalf("expected allow_non_gpt_model=nil for non-hephaestus, got %v", agentCfg.AllowNonGptModel)
+	}
+}
+
+func TestReasoningEffortNewValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		effort string
+		idx    int
+	}{
+		{name: "none", effort: "none", idx: 1},
+		{name: "minimal", effort: "minimal", idx: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Agents: map[string]*config.AgentConfig{
+					"build": {ReasoningEffort: tt.effort},
+				},
+			}
+
+			wa := NewWizardAgents()
+			wa.SetConfig(cfg)
+
+			if got := wa.agents["build"].reasoningEffortIdx; got != tt.idx {
+				t.Fatalf("reasoningEffortIdx: expected %d for %q, got %d", tt.idx, tt.effort, got)
+			}
+
+			out := &config.Config{}
+			wa.Apply(out)
+
+			agentCfg := out.Agents["build"]
+			if agentCfg == nil {
+				t.Fatalf("expected build agent to exist after Apply")
+			}
+
+			if agentCfg.ReasoningEffort != tt.effort {
+				t.Fatalf("ReasoningEffort: expected %q, got %q", tt.effort, agentCfg.ReasoningEffort)
+			}
+		})
+	}
+}
+
+func TestAgentApplyBashObjectRoundTrip(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model: "test-model",
+				Permission: &config.PermissionConfig{
+					Bash: map[string]interface{}{"git": "allow", "rm": "deny"},
+				},
+			},
+		},
+	}
+
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	freshCfg := &config.Config{}
+	wa.Apply(freshCfg)
+
+	agentCfg := freshCfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected 'build' agent to exist after Apply")
+	}
+	if agentCfg.Permission == nil {
+		t.Fatal("Permission: expected non-nil")
+	}
+	bashMap, ok := agentCfg.Permission.Bash.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Permission.Bash: expected map[string]interface{}, got %T", agentCfg.Permission.Bash)
+	}
+	if bashMap["git"] != "allow" {
+		t.Errorf("Permission.Bash[git]: expected 'allow', got %v", bashMap["git"])
+	}
+	if bashMap["rm"] != "deny" {
+		t.Errorf("Permission.Bash[rm]: expected 'deny', got %v", bashMap["rm"])
+	}
+}
+
+func TestAgentApplyBashStringPreserved(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model: "test-model",
+				Permission: &config.PermissionConfig{
+					Bash: "ask",
+				},
+			},
+		},
+	}
+
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	freshCfg := &config.Config{}
+	wa.Apply(freshCfg)
+
+	agentCfg := freshCfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected 'build' agent to exist after Apply")
+	}
+	if agentCfg.Permission == nil {
+		t.Fatal("Permission: expected non-nil")
+	}
+	bashStr, ok := agentCfg.Permission.Bash.(string)
+	if !ok {
+		t.Fatalf("Permission.Bash: expected string, got %T", agentCfg.Permission.Bash)
+	}
+	if bashStr != "ask" {
+		t.Errorf("Permission.Bash: expected 'ask', got %q", bashStr)
+	}
+}
+
+func TestAllEffortLevelsRoundTrip(t *testing.T) {
+	for _, effort := range effortLevels {
+		t.Run(effort, func(t *testing.T) {
+			cfg := &config.Config{
+				Agents: map[string]*config.AgentConfig{
+					"build": {
+						Model:           "test",
+						ReasoningEffort: effort,
+					},
+				},
+			}
+			wa := NewWizardAgents()
+			wa.SetConfig(cfg)
+
+			out := &config.Config{}
+			wa.Apply(out)
+
+			agentCfg := out.Agents["build"]
+			if agentCfg == nil {
+				t.Fatal("expected build agent")
+			}
+			if agentCfg.ReasoningEffort != effort {
+				t.Errorf("expected %q, got %q", effort, agentCfg.ReasoningEffort)
+			}
+		})
+	}
+}
+
+func TestAllowNonGptModelFalseOnHephaestus(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"hephaestus": {
+				Model:            "test",
+				AllowNonGptModel: boolPtr(false),
+			},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	out := &config.Config{}
+	wa.Apply(out)
+
+	agentCfg := out.Agents["hephaestus"]
+	if agentCfg == nil {
+		t.Fatal("expected hephaestus agent")
+	}
+	if agentCfg.AllowNonGptModel != nil {
+		t.Errorf("expected nil for false allow_non_gpt_model, got %v", agentCfg.AllowNonGptModel)
+	}
+}
+
+func TestProviderOptionsUnicodeKeys(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model: "test",
+				ProviderOptions: map[string]interface{}{
+					"日本語":    "value1",
+					"emoji🎉": true,
+					"café":   float64(42),
+				},
+			},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	out := &config.Config{}
+	wa.Apply(out)
+
+	agentCfg := out.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent")
+	}
+	if agentCfg.ProviderOptions == nil {
+		t.Fatal("expected non-nil ProviderOptions")
+	}
+	if agentCfg.ProviderOptions["日本語"] != "value1" {
+		t.Errorf("expected 'value1' for unicode key, got %v", agentCfg.ProviderOptions["日本語"])
+	}
+	if agentCfg.ProviderOptions["emoji🎉"] != true {
+		t.Errorf("expected true for emoji key, got %v", agentCfg.ProviderOptions["emoji🎉"])
+	}
+	if agentCfg.ProviderOptions["café"] != float64(42) {
+		t.Errorf("expected 42 for accented key, got %v", agentCfg.ProviderOptions["café"])
+	}
+}
+
+func TestFallbackModelsEmptyArrayBecomesNil(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.agents["build"].enabled = true
+	wa.agents["build"].modelValue = "test"
+	wa.agents["build"].fallbackEntries = []fallbackModelEntry{}
+	wa.agents["build"].fallbackModels.SetValue("")
+
+	out := &config.Config{}
+	wa.Apply(out)
+
+	agentCfg := out.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent")
+	}
+	if agentCfg.FallbackModels != nil {
+		t.Errorf("expected nil for empty fallback entries, got %v", agentCfg.FallbackModels)
+	}
+}
+
+func TestBashPermissionObjectWithThreeRules(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model: "test",
+				Permission: &config.PermissionConfig{
+					Bash: map[string]interface{}{
+						"git":    "allow",
+						"rm":     "deny",
+						"docker": "ask",
+					},
+				},
+			},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg)
+
+	out := &config.Config{}
+	wa.Apply(out)
+
+	agentCfg := out.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent")
+	}
+	if agentCfg.Permission == nil {
+		t.Fatal("expected non-nil Permission")
+	}
+	bashMap, ok := agentCfg.Permission.Bash.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", agentCfg.Permission.Bash)
+	}
+	if len(bashMap) != 3 {
+		t.Errorf("expected 3 rules, got %d", len(bashMap))
+	}
+	if bashMap["git"] != "allow" {
+		t.Errorf("expected git=allow, got %v", bashMap["git"])
+	}
+	if bashMap["rm"] != "deny" {
+		t.Errorf("expected rm=deny, got %v", bashMap["rm"])
+	}
+	if bashMap["docker"] != "ask" {
+		t.Errorf("expected docker=ask, got %v", bashMap["docker"])
 	}
 }
