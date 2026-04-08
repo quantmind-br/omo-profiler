@@ -335,7 +335,7 @@ func TestWizardAgentsSetConfig(t *testing.T) {
 		},
 	}
 
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	// Check that build agent is enabled
 	if !wa.agents["build"].enabled {
@@ -376,7 +376,7 @@ func TestWizardAgentsApply(t *testing.T) {
 	wa.agents["build"].skills.SetValue("coding")
 
 	cfg := &config.Config{}
-	wa.Apply(cfg)
+	wa.Apply(cfg, nil)
 
 	if cfg.Agents == nil {
 		t.Fatal("expected Agents to be set")
@@ -541,10 +541,10 @@ func roundTripFallbackModels(t *testing.T, input interface{}) interface{} {
 				FallbackModels: input,
 			},
 		},
-	})
+	}, nil)
 
 	out := &config.Config{}
-	wa.Apply(out)
+	wa.Apply(out, nil)
 	if out.Agents == nil || out.Agents["build"] == nil {
 		t.Fatal("expected build agent after round trip")
 	}
@@ -664,10 +664,10 @@ func TestAgentApplyPreservesExistingFields(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg, ok := newCfg.Agents["build"]
 	if !ok {
@@ -753,10 +753,10 @@ func TestAgentApplyPreservesBashObjectPermission(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg, ok := newCfg.Agents["build"]
 	if !ok {
@@ -789,10 +789,10 @@ func TestAgentSetConfigPopulatesPromptTextareas(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg, ok := newCfg.Agents["build"]
 	if !ok {
@@ -818,10 +818,10 @@ func TestAgentApplyPreservesProviderOptions(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg, ok := newCfg.Agents["build"]
 	if !ok {
@@ -853,10 +853,10 @@ func TestAgentApplyProviderOptionsRoundTrip(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	freshCfg := &config.Config{}
-	wa.Apply(freshCfg)
+	wa.Apply(freshCfg, nil)
 
 	agentCfg := freshCfg.Agents["build"]
 	if agentCfg == nil {
@@ -886,10 +886,10 @@ func TestAgentApplyProviderOptionsEmpty(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	freshCfg := &config.Config{}
-	wa.Apply(freshCfg)
+	wa.Apply(freshCfg, nil)
 
 	agentCfg := freshCfg.Agents["build"]
 	if agentCfg == nil {
@@ -917,7 +917,7 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	existingCfg := &config.Config{
 		Agents: map[string]*config.AgentConfig{
@@ -929,7 +929,7 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 			},
 		},
 	}
-	wa.Apply(existingCfg)
+	wa.Apply(existingCfg, nil)
 
 	agentCfg := existingCfg.Agents["build"]
 	if agentCfg == nil {
@@ -972,10 +972,10 @@ func TestAgentApplyAllowNonGptModelHephaestus(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg := newCfg.Agents["hephaestus"]
 	if agentCfg == nil {
@@ -997,10 +997,10 @@ func TestAgentApplyAllowNonGptModelNonHephaestus(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	newCfg := &config.Config{Agents: make(map[string]*config.AgentConfig)}
-	wa.Apply(newCfg)
+	wa.Apply(newCfg, nil)
 
 	agentCfg := newCfg.Agents["build"]
 	if agentCfg == nil {
@@ -1030,14 +1030,14 @@ func TestReasoningEffortNewValues(t *testing.T) {
 			}
 
 			wa := NewWizardAgents()
-			wa.SetConfig(cfg)
+			wa.SetConfig(cfg, nil)
 
 			if got := wa.agents["build"].reasoningEffortIdx; got != tt.idx {
 				t.Fatalf("reasoningEffortIdx: expected %d for %q, got %d", tt.idx, tt.effort, got)
 			}
 
 			out := &config.Config{}
-			wa.Apply(out)
+			wa.Apply(out, nil)
 
 			agentCfg := out.Agents["build"]
 			if agentCfg == nil {
@@ -1064,10 +1064,10 @@ func TestAgentApplyBashObjectRoundTrip(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	freshCfg := &config.Config{}
-	wa.Apply(freshCfg)
+	wa.Apply(freshCfg, nil)
 
 	agentCfg := freshCfg.Agents["build"]
 	if agentCfg == nil {
@@ -1101,10 +1101,10 @@ func TestAgentApplyBashStringPreserved(t *testing.T) {
 	}
 
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	freshCfg := &config.Config{}
-	wa.Apply(freshCfg)
+	wa.Apply(freshCfg, nil)
 
 	agentCfg := freshCfg.Agents["build"]
 	if agentCfg == nil {
@@ -1134,10 +1134,10 @@ func TestAllEffortLevelsRoundTrip(t *testing.T) {
 				},
 			}
 			wa := NewWizardAgents()
-			wa.SetConfig(cfg)
+			wa.SetConfig(cfg, nil)
 
 			out := &config.Config{}
-			wa.Apply(out)
+			wa.Apply(out, nil)
 
 			agentCfg := out.Agents["build"]
 			if agentCfg == nil {
@@ -1160,10 +1160,10 @@ func TestAllowNonGptModelFalseOnHephaestus(t *testing.T) {
 		},
 	}
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	out := &config.Config{}
-	wa.Apply(out)
+	wa.Apply(out, nil)
 
 	agentCfg := out.Agents["hephaestus"]
 	if agentCfg == nil {
@@ -1191,10 +1191,10 @@ func TestProviderOptionsUnicodeKeys(t *testing.T) {
 		},
 	}
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	out := &config.Config{}
-	wa.Apply(out)
+	wa.Apply(out, nil)
 
 	agentCfg := out.Agents["build"]
 	if agentCfg == nil {
@@ -1222,7 +1222,7 @@ func TestFallbackModelsEmptyArrayBecomesNil(t *testing.T) {
 	wa.agents["build"].fallbackModels.SetValue("")
 
 	out := &config.Config{}
-	wa.Apply(out)
+	wa.Apply(out, nil)
 
 	agentCfg := out.Agents["build"]
 	if agentCfg == nil {
@@ -1249,10 +1249,10 @@ func TestBashPermissionObjectWithThreeRules(t *testing.T) {
 		},
 	}
 	wa := NewWizardAgents()
-	wa.SetConfig(cfg)
+	wa.SetConfig(cfg, nil)
 
 	out := &config.Config{}
-	wa.Apply(out)
+	wa.Apply(out, nil)
 
 	agentCfg := out.Agents["build"]
 	if agentCfg == nil {

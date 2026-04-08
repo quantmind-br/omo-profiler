@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
@@ -228,6 +229,7 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 // WizardCategories is step 3: Category configuration
 type WizardCategories struct {
 	categories   []*categoryConfig
+	selection    *profile.FieldSelection
 	cursor       int
 	inForm       bool
 	focusedField categoryFormField
@@ -284,7 +286,8 @@ func (w *WizardCategories) SetSize(width, height int) {
 	w.viewport.SetContent(w.renderContent())
 }
 
-func (w *WizardCategories) SetConfig(cfg *config.Config) {
+func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	w.categories = []*categoryConfig{}
 
 	if cfg.Categories == nil {
@@ -376,7 +379,8 @@ func (w *WizardCategories) SetConfig(cfg *config.Config) {
 	}
 }
 
-func (w *WizardCategories) Apply(cfg *config.Config) {
+func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	cfg.Categories = make(map[string]*config.CategoryConfig)
 
 	for _, cc := range w.categories {

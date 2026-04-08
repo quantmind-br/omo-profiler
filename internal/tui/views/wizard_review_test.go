@@ -3,8 +3,8 @@ package views
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/schema"
 )
@@ -75,7 +75,7 @@ func TestWizardReviewSetConfig(t *testing.T) {
 		// Use valid config structure
 	}
 
-	wr.SetConfig("test-profile", cfg)
+	wr.SetConfig("test-profile", cfg, nil)
 
 	if wr.profileName != "test-profile" {
 		t.Errorf("expected profile name 'test-profile', got '%s'", wr.profileName)
@@ -93,7 +93,7 @@ func TestWizardReviewSetConfig(t *testing.T) {
 func TestWizardReviewSetConfigNil(t *testing.T) {
 	wr := NewWizardReview()
 
-	wr.SetConfig("empty", nil)
+	wr.SetConfig("empty", nil, nil)
 
 	if wr.profileName != "empty" {
 		t.Errorf("expected profile name 'empty', got '%s'", wr.profileName)
@@ -115,15 +115,15 @@ func TestWizardReviewSetConfigNil(t *testing.T) {
 func TestWizardReviewValidateAndPreview(t *testing.T) {
 	coAuth := true
 	tests := []struct {
-		name     string
-		config   *config.Config
-		wantJSON string
+		name      string
+		config    *config.Config
+		wantJSON  string
 		wantValid bool
 	}{
 		{
-			name:     "nil config",
-			config:   nil,
-			wantJSON: "{}",
+			name:      "nil config",
+			config:    nil,
+			wantJSON:  "{}",
 			wantValid: true,
 		},
 		{
@@ -143,7 +143,7 @@ func TestWizardReviewValidateAndPreview(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			wr := NewWizardReview()
-			wr.SetConfig("test", tt.config)
+			wr.SetConfig("test", tt.config, nil)
 
 			if tt.wantJSON != "" && wr.jsonPreview != tt.wantJSON {
 				t.Errorf("expected jsonPreview %q, got %q", tt.wantJSON, wr.jsonPreview)
@@ -189,7 +189,7 @@ func TestWizardReviewUpdateSaveKey(t *testing.T) {
 			GitEnvPrefix:        "GIT_MASTER=1",
 		},
 	}
-	wr.SetConfig("test", cfg)
+	wr.SetConfig("test", cfg, nil)
 
 	// Test save when valid
 	msg := tea.KeyMsg{Type: tea.KeyEnter, Runes: []rune("enter")}
@@ -335,7 +335,7 @@ func TestWizardReviewViewWithValidConfig(t *testing.T) {
 			GitEnvPrefix:        "GIT_MASTER=1",
 		},
 	}
-	wr.SetConfig("test", cfg)
+	wr.SetConfig("test", cfg, nil)
 	wr.SetSize(80, 24)
 
 	view := wr.View()
@@ -400,7 +400,7 @@ func TestWizardReviewKeyMap(t *testing.T) {
 				t.Error("expected key binding to have a key")
 			}
 			if !contains(tt.binding.Help().Key, tt.expected) &&
-			   tt.binding.Help().Key != tt.expected {
+				tt.binding.Help().Key != tt.expected {
 				// Help key format may vary, just check it's not empty
 				t.Logf("%s key binding: %s", tt.name, tt.binding.Help().Key)
 			}

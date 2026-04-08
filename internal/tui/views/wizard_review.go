@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/schema"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
@@ -71,6 +72,7 @@ func newWizardReviewKeyMap() wizardReviewKeyMap {
 type WizardReview struct {
 	profileName    string
 	config         *config.Config
+	selection      *profile.FieldSelection
 	jsonPreview    string
 	validationErrs []schema.ValidationError
 	isValid        bool
@@ -107,9 +109,10 @@ func (w *WizardReview) SetSize(width, height int) {
 	}
 }
 
-func (w *WizardReview) SetConfig(name string, cfg *config.Config) {
+func (w *WizardReview) SetConfig(name string, cfg *config.Config, selection *profile.FieldSelection) {
 	w.profileName = name
 	w.config = cfg
+	w.selection = selection
 	w.validateAndPreview()
 }
 

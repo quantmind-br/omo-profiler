@@ -76,6 +76,7 @@ type Wizard struct {
 	profileName         string
 	originalProfileName string // for rename detection in edit mode
 	config              config.Config
+	selection           *profile.FieldSelection
 	editMode            bool // true when editing existing profile, false when creating new
 
 	// Sub-views for each step
@@ -96,11 +97,13 @@ type Wizard struct {
 func NewWizard() Wizard {
 	otherStep := NewWizardOther()
 	cfg := config.Config{}
-	otherStep.Apply(&cfg)
+	selection := profile.NewBlankSelection()
+	otherStep.Apply(&cfg, selection)
 
 	return Wizard{
 		step:           StepName,
 		config:         cfg,
+		selection:      selection,
 		editMode:       false,
 		nameStep:       NewWizardName(),
 		categoriesStep: NewWizardCategories(),
@@ -119,12 +122,13 @@ func NewWizardForEdit(p *profile.Profile) Wizard {
 	w.profileName = p.Name
 	w.originalProfileName = p.Name
 	w.config = p.Config
+	w.selection = profile.NewSelectionFromPresence(p.FieldPresence)
 	w.nameStep.SetName(p.Name)
-	w.categoriesStep.SetConfig(&w.config)
-	w.agentsStep.SetConfig(&w.config)
-	w.hooksStep.SetConfig(&w.config)
-	w.otherStep.SetConfig(&w.config)
-	w.reviewStep.SetConfig(p.Name, &w.config)
+	w.categoriesStep.SetConfig(&w.config, w.selection)
+	w.agentsStep.SetConfig(&w.config, w.selection)
+	w.hooksStep.SetConfig(&w.config, w.selection)
+	w.otherStep.SetConfig(&w.config, w.selection)
+	w.reviewStep.SetConfig(p.Name, &w.config, w.selection)
 	return w
 }
 
@@ -138,10 +142,11 @@ func NewWizardFromTemplate(templateName string) (Wizard, error) {
 	w := NewWizard()
 	w.editMode = false
 	w.config = template.Config
-	w.categoriesStep.SetConfig(&w.config)
-	w.agentsStep.SetConfig(&w.config)
-	w.hooksStep.SetConfig(&w.config)
-	w.otherStep.SetConfig(&w.config)
+	w.selection = profile.NewSelectionFromPresence(template.FieldPresence)
+	w.categoriesStep.SetConfig(&w.config, w.selection)
+	w.agentsStep.SetConfig(&w.config, w.selection)
+	w.hooksStep.SetConfig(&w.config, w.selection)
+	w.otherStep.SetConfig(&w.config, w.selection)
 	return w, nil
 }
 
@@ -256,31 +261,31 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 		}
 		w.profileName = w.nameStep.GetName()
 		w.step = StepCategories
-		w.categoriesStep.SetConfig(&w.config)
+		w.categoriesStep.SetConfig(&w.config, w.selection)
 		return w, w.categoriesStep.Init()
 
 	case StepCategories:
-		w.categoriesStep.Apply(&w.config)
+		w.categoriesStep.Apply(&w.config, w.selection)
 		w.step = StepAgents
-		w.agentsStep.SetConfig(&w.config)
+		w.agentsStep.SetConfig(&w.config, w.selection)
 		return w, w.agentsStep.Init()
 
 	case StepAgents:
-		w.agentsStep.Apply(&w.config)
+		w.agentsStep.Apply(&w.config, w.selection)
 		w.step = StepHooks
-		w.hooksStep.SetConfig(&w.config)
+		w.hooksStep.SetConfig(&w.config, w.selection)
 		return w, w.hooksStep.Init()
 
 	case StepHooks:
-		w.hooksStep.Apply(&w.config)
+		w.hooksStep.Apply(&w.config, w.selection)
 		w.step = StepOther
-		w.otherStep.SetConfig(&w.config)
+		w.otherStep.SetConfig(&w.config, w.selection)
 		return w, w.otherStep.Init()
 
 	case StepOther:
-		w.otherStep.Apply(&w.config)
+		w.otherStep.Apply(&w.config, w.selection)
 		w.step = StepReview
-		w.reviewStep.SetConfig(w.profileName, &w.config)
+		w.reviewStep.SetConfig(w.profileName, &w.config, w.selection)
 		return w, w.reviewStep.Init()
 
 	case StepReview:

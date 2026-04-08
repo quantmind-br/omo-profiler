@@ -80,7 +80,7 @@ func TestWizardHooksSetConfig(t *testing.T) {
 		},
 	}
 
-	wh.SetConfig(cfg)
+	wh.SetConfig(cfg, nil)
 
 	// Check that the specified hooks are disabled
 	if !wh.disabled["todo-continuation-enforcer"] {
@@ -109,7 +109,7 @@ func TestWizardHooksSetConfigResetsPreviousState(t *testing.T) {
 		DisabledHooks: []string{"context-window-monitor"},
 	}
 
-	wh.SetConfig(cfg)
+	wh.SetConfig(cfg, nil)
 
 	// Previous state should be reset
 	if wh.disabled["todo-continuation-enforcer"] {
@@ -134,7 +134,7 @@ func TestWizardHooksApply(t *testing.T) {
 	wh.disabled["session-recovery"] = true
 
 	cfg := &config.Config{}
-	wh.Apply(cfg)
+	wh.Apply(cfg, nil)
 
 	// Check DisabledHooks is set correctly
 	if len(cfg.DisabledHooks) != 2 {
@@ -154,7 +154,7 @@ func TestWizardHooksApplyNoneDisabled(t *testing.T) {
 	wh := NewWizardHooks()
 
 	cfg := &config.Config{}
-	wh.Apply(cfg)
+	wh.Apply(cfg, nil)
 
 	// When no hooks are disabled, DisabledHooks should be nil (not empty slice)
 	if cfg.DisabledHooks != nil {

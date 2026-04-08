@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/models"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
@@ -552,6 +553,7 @@ func newWizardAgentsKeyMap() wizardAgentsKeyMap {
 // WizardAgents is step 2: Agent configuration
 type WizardAgents struct {
 	agents       map[string]*agentConfig
+	selection    *profile.FieldSelection
 	cursor       int
 	focusedField agentFormField
 	inForm       bool // true when editing expanded agent form
@@ -622,7 +624,8 @@ func (w *WizardAgents) SetSize(width, height int) {
 	w.viewport.SetContent(w.renderContent())
 }
 
-func (w *WizardAgents) SetConfig(cfg *config.Config) {
+func (w *WizardAgents) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	if cfg.Agents == nil {
 		return
 	}
@@ -783,7 +786,8 @@ func (w *WizardAgents) SetConfig(cfg *config.Config) {
 	}
 }
 
-func (w *WizardAgents) Apply(cfg *config.Config) {
+func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	if cfg.Agents == nil {
 		cfg.Agents = make(map[string]*config.AgentConfig)
 	}

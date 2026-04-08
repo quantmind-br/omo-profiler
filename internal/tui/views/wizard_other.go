@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
@@ -261,6 +262,8 @@ func parsePositiveIntWithMinimum(input string, minimum int) *int {
 
 // WizardOther is step 4: Other settings
 type WizardOther struct {
+	selection *profile.FieldSelection
+
 	// Disabled lists
 	disabledMcps     textinput.Model
 	disabledAgents   map[string]bool
@@ -689,7 +692,8 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.viewport.SetContent(w.renderContent())
 }
 
-func (w *WizardOther) SetConfig(cfg *config.Config) {
+func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	// Disabled agents
 	for _, a := range cfg.DisabledAgents {
 		if _, ok := w.disabledAgents[a]; ok {
@@ -1089,7 +1093,8 @@ func (w *WizardOther) SetConfig(cfg *config.Config) {
 
 }
 
-func (w *WizardOther) Apply(cfg *config.Config) {
+func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	// Disabled agents
 	var agents []string
 	for _, a := range disableableAgents {

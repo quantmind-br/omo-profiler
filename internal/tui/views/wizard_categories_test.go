@@ -110,7 +110,7 @@ func TestWizardCategoriesSetConfig(t *testing.T) {
 		},
 	}
 
-	wc.SetConfig(cfg)
+	wc.SetConfig(cfg, nil)
 
 	if len(wc.categories) != 2 {
 		t.Errorf("expected 2 categories, got %d", len(wc.categories))
@@ -154,7 +154,7 @@ func TestWizardCategoriesSetConfigNil(t *testing.T) {
 
 	// Pass a config with nil Categories (not nil config itself)
 	cfg := &config.Config{}
-	wc.SetConfig(cfg)
+	wc.SetConfig(cfg, nil)
 
 	if len(wc.categories) != 0 {
 		t.Errorf("expected 0 categories for nil Categories, got %d", len(wc.categories))
@@ -165,7 +165,7 @@ func TestWizardCategoriesSetConfigNilCategories(t *testing.T) {
 	wc := NewWizardCategories()
 
 	cfg := &config.Config{}
-	wc.SetConfig(cfg)
+	wc.SetConfig(cfg, nil)
 
 	if len(wc.categories) != 0 {
 		t.Errorf("expected 0 categories for nil Categories, got %d", len(wc.categories))
@@ -184,7 +184,7 @@ func TestWizardCategoriesSetConfigWithTemperature(t *testing.T) {
 		},
 	}
 
-	wc.SetConfig(cfg)
+	wc.SetConfig(cfg, nil)
 
 	if wc.categories[0].temperature.Value() != "0.7" {
 		t.Errorf("expected temperature '0.7', got %q", wc.categories[0].temperature.Value())
@@ -204,7 +204,7 @@ func TestWizardCategoriesSetConfigWithThinking(t *testing.T) {
 		},
 	}
 
-	wc.SetConfig(cfg)
+	wc.SetConfig(cfg, nil)
 
 	if wc.categories[0].thinkingTypeIdx != 1 { // "enabled" is at index 1
 		t.Errorf("expected thinkingTypeIdx 1, got %d", wc.categories[0].thinkingTypeIdx)
@@ -222,7 +222,7 @@ func TestWizardCategoriesApply(t *testing.T) {
 	wc.categories = append(wc.categories, &newCat)
 
 	cfg := &config.Config{}
-	wc.Apply(cfg)
+	wc.Apply(cfg, nil)
 
 	if cfg.Categories == nil {
 		t.Fatal("expected Categories to be set")
@@ -256,7 +256,7 @@ func TestWizardCategoriesApplyEmptyName(t *testing.T) {
 	wc.categories = append(wc.categories, &newCat)
 
 	cfg := &config.Config{}
-	wc.Apply(cfg)
+	wc.Apply(cfg, nil)
 
 	// Should skip categories with empty names
 	if len(cfg.Categories) != 0 {
@@ -273,7 +273,7 @@ func TestWizardCategoriesApplyWithTemperature(t *testing.T) {
 	wc.categories = append(wc.categories, &newCat)
 
 	cfg := &config.Config{}
-	wc.Apply(cfg)
+	wc.Apply(cfg, nil)
 
 	catCfg := cfg.Categories["test"]
 	if catCfg.Temperature == nil {
@@ -292,7 +292,7 @@ func TestWizardCategoriesApplyWithIsUnstable(t *testing.T) {
 	wc.categories = append(wc.categories, &newCat)
 
 	cfg := &config.Config{}
-	wc.Apply(cfg)
+	wc.Apply(cfg, nil)
 
 	catCfg := cfg.Categories["test"]
 	if catCfg.IsUnstableAgent == nil {
@@ -321,14 +321,14 @@ func TestWizardCategoriesReasoningEffortNewValues(t *testing.T) {
 				},
 			}
 
-			wc.SetConfig(cfg)
+			wc.SetConfig(cfg, nil)
 
 			if got := wc.categories[0].reasoningEffortIdx; got != tt.idx {
 				t.Fatalf("reasoningEffortIdx: expected %d for %q, got %d", tt.idx, tt.effort, got)
 			}
 
 			out := &config.Config{}
-			wc.Apply(out)
+			wc.Apply(out, nil)
 
 			catCfg := out.Categories["test"]
 			if catCfg == nil {

@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
 
@@ -123,13 +124,14 @@ func newWizardHooksKeyMap() wizardHooksKeyMap {
 
 // WizardHooks is step 3: Hook configuration
 type WizardHooks struct {
-	disabled map[string]bool
-	cursor   int
-	viewport viewport.Model
-	ready    bool
-	width    int
-	height   int
-	keys     wizardHooksKeyMap
+	disabled  map[string]bool
+	selection *profile.FieldSelection
+	cursor    int
+	viewport  viewport.Model
+	ready     bool
+	width     int
+	height    int
+	keys      wizardHooksKeyMap
 }
 
 func NewWizardHooks() WizardHooks {
@@ -165,7 +167,8 @@ func (w *WizardHooks) SetSize(width, height int) {
 	w.viewport.SetContent(w.renderContent())
 }
 
-func (w *WizardHooks) SetConfig(cfg *config.Config) {
+func (w *WizardHooks) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	// Reset all to enabled
 	for hook := range w.disabled {
 		w.disabled[hook] = false
@@ -178,7 +181,8 @@ func (w *WizardHooks) SetConfig(cfg *config.Config) {
 	}
 }
 
-func (w *WizardHooks) Apply(cfg *config.Config) {
+func (w *WizardHooks) Apply(cfg *config.Config, selection *profile.FieldSelection) {
+	w.selection = selection
 	var disabled []string
 	for _, hook := range allHooks {
 		if w.disabled[hook] {
