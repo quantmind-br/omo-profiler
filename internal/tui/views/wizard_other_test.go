@@ -3,6 +3,10 @@ package views
 import (
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
 func TestParseMapStringInt(t *testing.T) {
@@ -190,5 +194,96 @@ func TestParseSerializeMapStringIntRoundTrip(t *testing.T) {
 		if parsed[k] != v {
 			t.Errorf("round trip: key %q: expected %d, got %d", k, v, parsed[k])
 		}
+	}
+}
+
+func TestWizardOtherLoadsCheckboxStateFromJSONPresence(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewSelectionFromPresence(map[string]bool{"experimental": true})
+	cfg := &config.Config{Experimental: &config.ExperimentalConfig{AggressiveTruncation: boolPtr(true)}}
+
+	w.SetConfig(cfg, selection)
+	w.currentSection = sectionExperimental
+	w.sectionExpanded[sectionExperimental] = true
+
+	content := w.renderSubSection(sectionExperimental)
+	joined := strings.Join(content, "\n")
+	if !strings.Contains(joined, "aggressive_truncation: [on]") {
+		t.Fatalf("expected boolean field value toggle, got %q", joined)
+	}
+	if !strings.Contains(joined, "[✓]") {
+		t.Fatalf("expected selected checkbox, got %q", joined)
+	}
+}
+
+func TestWizardOtherBooleanFieldSeparatesInclusionAndValue(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("experimental.aggressive_truncation", true)
+	w.selection = selection
+	w.currentSection = sectionExperimental
+	w.sectionExpanded[sectionExperimental] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.expAggressiveTrunc {
+		t.Fatal("expected inclusion toggle to leave boolean value unchanged")
+	}
+	if updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected inclusion toggle to deselect field")
+	}
+
+	updated.selection.SetSelected("experimental.aggressive_truncation", true)
+	updated.subValueFocused = true
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.expAggressiveTrunc {
+		t.Fatal("expected value toggle to update boolean value")
+	}
+	if !updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected value toggle to leave inclusion selected")
+	}
+}
+
+func TestWizardOtherApplyWritesOnlySelectedFields(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("experimental.auto_resume", true)
+	selection.SetSelected("tmux.layout", true)
+
+	w.expAutoResume = false
+	w.expAggressiveTrunc = true
+	w.tmuxLayoutIdx = 2
+	w.tmuxEnabled = true
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	if cfg.Experimental == nil || cfg.Experimental.AutoResume == nil || *cfg.Experimental.AutoResume {
+		t.Fatalf("expected selected false boolean to persist, got %#v", cfg.Experimental)
+	}
+	if cfg.Experimental.AggressiveTruncation != nil {
+		t.Fatalf("expected unselected experimental field to be omitted, got %#v", cfg.Experimental)
+	}
+	if cfg.Tmux == nil || cfg.Tmux.Layout != tmuxLayouts[2] {
+		t.Fatalf("expected selected tmux layout to persist, got %#v", cfg.Tmux)
+	}
+	if cfg.Tmux.Enabled != nil {
+		t.Fatalf("expected unselected tmux.enabled to be omitted, got %#v", cfg.Tmux)
+	}
+}
+
+func TestWizardOtherUntouchedSectionsRemainOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.expPluginLoadTimeoutMs.SetValue("30000")
+	w.ccPluginsOverride.SetValue("serena:true")
+	w.tmuxMainPaneSize.SetValue("0.75")
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	if cfg.Experimental != nil || cfg.ClaudeCode != nil || cfg.Tmux != nil {
+		t.Fatalf("expected untouched sections to remain omitted, got experimental=%#v claude_code=%#v tmux=%#v", cfg.Experimental, cfg.ClaudeCode, cfg.Tmux)
 	}
 }

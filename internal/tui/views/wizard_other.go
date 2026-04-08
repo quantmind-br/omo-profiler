@@ -117,6 +117,30 @@ var tmuxIsolations = []string{"", "inline", "window", "session"}
 var websearchProviders = []string{"", "exa", "tavily"}
 var ralphLoopStrategies = []string{"", "reset", "continue"}
 
+const (
+	disabledMcpsFieldPath               = "disabled_mcps"
+	disabledAgentsFieldPath             = "disabled_agents"
+	disabledSkillsFieldPath             = "disabled_skills"
+	disabledCommandsFieldPath           = "disabled_commands"
+	disabledToolsFieldPath              = "disabled_tools"
+	autoUpdateFieldPath                 = "auto_update"
+	hashlineEditFieldPath               = "hashline_edit"
+	modelFallbackFieldPath              = "model_fallback"
+	newTaskSystemEnabledFieldPath       = "new_task_system_enabled"
+	defaultRunAgentFieldPath            = "default_run_agent"
+	runtimeFallbackFieldPath            = "runtime_fallback"
+	skillsFieldPath                     = "skills"
+	startWorkAutoCommitFieldPath        = "start_work.auto_commit"
+	browserProviderFieldPath            = "browser_automation_engine.provider"
+	websearchProviderFieldPath          = "websearch.provider"
+	commentCheckerCustomPromptFieldPath = "comment_checker.custom_prompt"
+	babysittingTimeoutFieldPath         = "babysitting.timeout_ms"
+	openclawEnabledFieldPath            = "openclaw.enabled"
+	openclawGatewaysFieldPath           = "openclaw.gateways.*.type"
+	openclawHooksFieldPath              = "openclaw.hooks.*.enabled"
+	openclawReplyListenerFieldPath      = "openclaw.reply_listener.discord_bot_token"
+)
+
 // Sections in the other settings
 type otherSection int
 
@@ -260,6 +284,316 @@ func parsePositiveIntWithMinimum(input string, minimum int) *int {
 	return value
 }
 
+func wizardOtherBoolPtr(v bool) *bool {
+	return &v
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
+func float64Ptr(v float64) *float64 {
+	return &v
+}
+
+func emptySliceIfSelected(selected bool, values []string) []string {
+	if !selected {
+		return nil
+	}
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
+func emptyMapStringBoolIfSelected(selected bool, values map[string]bool) map[string]bool {
+	if !selected {
+		return nil
+	}
+	if values == nil {
+		return map[string]bool{}
+	}
+	return values
+}
+
+func (w WizardOther) fieldSelected(path string) bool {
+	if w.selection == nil {
+		return true
+	}
+	return w.selection.IsSelected(path)
+}
+
+func (w *WizardOther) toggleFieldSelection(path string) {
+	if w.selection == nil {
+		return
+	}
+	w.selection.SetSelected(path, !w.selection.IsSelected(path))
+}
+
+func (w WizardOther) selectedWithPrefix(prefix string) bool {
+	if w.selection == nil {
+		return false
+	}
+	for _, path := range w.selection.SelectedPaths() {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w WizardOther) expHasData() bool {
+	if w.selection == nil {
+		return w.expAggressiveTrunc || w.expAutoResume ||
+			w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
+			w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
+			w.expDisableOmoEnv || w.expModelFallbackTitle || w.expMaxTools.Value() != "" ||
+			w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
+			w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
+			w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
+			w.dcpSupersedeWritesAggressive || w.dcpPurgeErrorsEnabled ||
+			w.dcpPurgeErrorsTurns.Value() != ""
+	}
+	return w.selectedWithPrefix("experimental.")
+}
+
+func (w WizardOther) ccHasData() bool {
+	if w.selection == nil {
+		return w.ccMcp || w.ccCommands || w.ccSkills || w.ccAgents || w.ccHooks || w.ccPlugins || w.ccPluginsOverride.Value() != ""
+	}
+	return w.selectedWithPrefix("claude_code.")
+}
+
+func (w WizardOther) saHasData() bool {
+	if w.selection == nil {
+		return w.saDisabled || w.saDefaultBuilderEnabled || w.saPlannerEnabled || w.saReplacePlan || w.saTDD
+	}
+	return w.selectedWithPrefix("sisyphus_agent.")
+}
+
+func (w WizardOther) rlHasData() bool {
+	if w.selection == nil {
+		return w.rlEnabled || w.rlDefaultMaxIterations.Value() != "" || w.rlStateDir.Value() != "" || w.rlDefaultStrategyIdx > 0
+	}
+	return w.selectedWithPrefix("ralph_loop.")
+}
+
+func (w WizardOther) btHasData() bool {
+	if w.selection == nil {
+		return w.btDefaultConcurrency.Value() != "" || w.btProviderConcurrency.Value() != "" || w.btModelConcurrency.Value() != "" ||
+			w.btMaxDepth.Value() != "" || w.btMaxDescendants.Value() != "" || w.btStaleTimeoutMs.Value() != "" ||
+			w.btMessageStalenessTimeoutMs.Value() != "" || w.btTaskTtlMs.Value() != "" || w.btSessionGoneTimeoutMs.Value() != "" ||
+			w.btSyncPollTimeoutMs.Value() != "" || w.btMaxToolCalls.Value() != "" || w.btCircuitBreakerEnabled ||
+			w.btCircuitBreakerMaxCalls.Value() != "" || w.btCircuitBreakerConsecutive.Value() != ""
+	}
+	return w.selectedWithPrefix("background_task.")
+}
+
+func (w WizardOther) tmuxHasData() bool {
+	if w.selection == nil {
+		return w.tmuxEnabled || w.tmuxLayoutIdx > 0 || w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" ||
+			w.tmuxAgentPaneMinWidth.Value() != "" || w.tmuxIsolationIdx > 0
+	}
+	return w.selectedWithPrefix("tmux.")
+}
+
+func (w WizardOther) sisyphusHasData() bool {
+	if w.selection == nil {
+		return w.sisyphusTasksStoragePath.Value() != "" || w.sisyphusTasksTaskListID.Value() != "" || w.sisyphusTasksClaudeCodeCompat
+	}
+	return w.selectedWithPrefix("sisyphus.tasks.")
+}
+
+func (w WizardOther) modelCapabilitiesHasData() bool {
+	if w.selection == nil {
+		return w.mcEnabled || w.mcAutoRefreshOnStart || strings.TrimSpace(w.mcRefreshTimeoutMs.Value()) != "" || strings.TrimSpace(w.mcSourceURL.Value()) != ""
+	}
+	return w.selectedWithPrefix("model_capabilities.")
+}
+
+func (w WizardOther) openclawHasData() bool {
+	if w.selection == nil {
+		return strings.TrimSpace(w.openclawEditor.Value()) != ""
+	}
+	return w.selectedWithPrefix("openclaw.")
+}
+
+func (w WizardOther) topLevelFieldPath(section otherSection) string {
+	switch section {
+	case sectionDisabledMcps:
+		return disabledMcpsFieldPath
+	case sectionDisabledAgents:
+		return disabledAgentsFieldPath
+	case sectionDisabledSkills:
+		return disabledSkillsFieldPath
+	case sectionDisabledCommands:
+		return disabledCommandsFieldPath
+	case sectionDisabledTools:
+		return disabledToolsFieldPath
+	case sectionAutoUpdate:
+		return autoUpdateFieldPath
+	case sectionNewTaskSystemEnabled:
+		return newTaskSystemEnabledFieldPath
+	case sectionHashlineEdit:
+		return hashlineEditFieldPath
+	case sectionModelFallback:
+		return modelFallbackFieldPath
+	case sectionDefaultRunAgent:
+		return defaultRunAgentFieldPath
+	case sectionRuntimeFallback:
+		return runtimeFallbackFieldPath
+	case sectionSkillsJson:
+		return skillsFieldPath
+	default:
+		return ""
+	}
+}
+
+func (w WizardOther) isSimpleBooleanSection(section otherSection) bool {
+	switch section {
+	case sectionAutoUpdate, sectionNewTaskSystemEnabled, sectionHashlineEdit, sectionModelFallback:
+		return true
+	default:
+		return false
+	}
+}
+
+func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
+	switch section {
+	case sectionExperimental:
+		paths := []string{
+			"experimental.aggressive_truncation",
+			"experimental.auto_resume",
+			"experimental.truncate_all_tool_outputs",
+			"experimental.dynamic_context_pruning.enabled",
+			"experimental.dynamic_context_pruning.notification",
+			"experimental.dynamic_context_pruning.turn_protection.enabled",
+			"experimental.dynamic_context_pruning.turn_protection.turns",
+			"experimental.dynamic_context_pruning.protected_tools",
+			"experimental.dynamic_context_pruning.strategies.deduplication.enabled",
+			"experimental.dynamic_context_pruning.strategies.supersede_writes.enabled",
+			"experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive",
+			"experimental.dynamic_context_pruning.strategies.purge_errors.enabled",
+			"experimental.dynamic_context_pruning.strategies.purge_errors.turns",
+			"experimental.preemptive_compaction",
+			"experimental.task_system",
+			"experimental.plugin_load_timeout_ms",
+			"experimental.safe_hook_creation",
+			"experimental.hashline_edit",
+			"experimental.disable_omo_env",
+			"experimental.model_fallback_title",
+			"experimental.max_tools",
+		}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionClaudeCode:
+		paths := []string{"claude_code.mcp", "claude_code.commands", "claude_code.skills", "claude_code.agents", "claude_code.hooks", "claude_code.plugins", "claude_code.plugins_override"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionSisyphusAgent:
+		paths := []string{"sisyphus_agent.disabled", "sisyphus_agent.default_builder_enabled", "sisyphus_agent.planner_enabled", "sisyphus_agent.replace_plan", "sisyphus_agent.tdd"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionRalphLoop:
+		paths := []string{"ralph_loop.enabled", "ralph_loop.default_max_iterations", "ralph_loop.state_dir", "ralph_loop.default_strategy"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionBackgroundTask:
+		paths := []string{"background_task.provider_concurrency", "background_task.model_concurrency", "background_task.default_concurrency", "background_task.stale_timeout_ms", "background_task.message_staleness_timeout_ms", "background_task.sync_poll_timeout_ms", "background_task.max_depth", "background_task.max_descendants", "background_task.task_ttl_ms", "background_task.session_gone_timeout_ms", "background_task.max_tool_calls", "background_task.circuit_breaker.enabled", "background_task.circuit_breaker.max_tool_calls", "background_task.circuit_breaker.consecutive_threshold"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionNotification:
+		if idx == 0 {
+			return "notification.force_enable"
+		}
+	case sectionGitMaster:
+		paths := []string{"git_master.commit_footer", "git_master.commit_footer", "git_master.include_co_authored_by", "git_master.git_env_prefix"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionCommentChecker:
+		if idx == 0 {
+			return commentCheckerCustomPromptFieldPath
+		}
+	case sectionBabysitting:
+		if idx == 0 {
+			return babysittingTimeoutFieldPath
+		}
+	case sectionBrowserAutomationEngine:
+		if idx == 0 {
+			return browserProviderFieldPath
+		}
+	case sectionTmux:
+		paths := []string{"tmux.enabled", "tmux.layout", "tmux.main_pane_size", "tmux.main_pane_min_width", "tmux.agent_pane_min_width", "tmux.isolation"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionWebsearch:
+		if idx == 0 {
+			return websearchProviderFieldPath
+		}
+	case sectionSisyphus:
+		paths := []string{"sisyphus.tasks.storage_path", "sisyphus.tasks.task_list_id", "sisyphus.tasks.claude_code_compat"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionStartWork:
+		if idx == 0 {
+			return startWorkAutoCommitFieldPath
+		}
+	case sectionModelCapabilities:
+		paths := []string{"model_capabilities.enabled", "model_capabilities.auto_refresh_on_start", "model_capabilities.refresh_timeout_ms", "model_capabilities.source_url"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionOpenclaw:
+		paths := []string{openclawEnabledFieldPath, openclawGatewaysFieldPath, openclawHooksFieldPath, openclawReplyListenerFieldPath}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	}
+	return ""
+}
+
+func (w WizardOther) isBooleanField(section otherSection, idx int) bool {
+	path := w.subSectionFieldPath(section, idx)
+	switch path {
+	case "experimental.aggressive_truncation", "experimental.auto_resume", "experimental.truncate_all_tool_outputs",
+		"experimental.dynamic_context_pruning.enabled", "experimental.dynamic_context_pruning.turn_protection.enabled",
+		"experimental.dynamic_context_pruning.strategies.deduplication.enabled",
+		"experimental.dynamic_context_pruning.strategies.supersede_writes.enabled",
+		"experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive",
+		"experimental.dynamic_context_pruning.strategies.purge_errors.enabled", "experimental.preemptive_compaction",
+		"experimental.task_system", "experimental.safe_hook_creation", "experimental.hashline_edit",
+		"experimental.disable_omo_env", "experimental.model_fallback_title", "claude_code.mcp", "claude_code.commands",
+		"claude_code.skills", "claude_code.agents", "claude_code.hooks", "claude_code.plugins",
+		"sisyphus_agent.disabled", "sisyphus_agent.default_builder_enabled", "sisyphus_agent.planner_enabled",
+		"sisyphus_agent.replace_plan", "sisyphus_agent.tdd", "ralph_loop.enabled", "notification.force_enable",
+		"git_master.commit_footer", "git_master.include_co_authored_by", "tmux.enabled",
+		"sisyphus.tasks.claude_code_compat", startWorkAutoCommitFieldPath,
+		"model_capabilities.enabled", "model_capabilities.auto_refresh_on_start", openclawEnabledFieldPath:
+		return true
+	default:
+		return false
+	}
+}
+
+func onOff(v bool) string {
+	if v {
+		return "[on]"
+	}
+	return "[off]"
+}
+
 // WizardOther is step 4: Other settings
 type WizardOther struct {
 	selection *profile.FieldSelection
@@ -391,15 +725,17 @@ type WizardOther struct {
 	skillsEditor          textarea.Model
 
 	// UI State
-	currentSection  otherSection
-	sectionExpanded map[otherSection]bool
-	subCursor       int
-	inSubSection    bool
-	viewport        viewport.Model
-	ready           bool
-	width           int
-	height          int
-	keys            wizardOtherKeyMap
+	currentSection     otherSection
+	sectionExpanded    map[otherSection]bool
+	subCursor          int
+	inSubSection       bool
+	subValueFocused    bool
+	simpleValueFocused bool
+	viewport           viewport.Model
+	ready              bool
+	width              int
+	height             int
+	keys               wizardOtherKeyMap
 }
 
 func NewWizardOther() WizardOther {
@@ -1095,492 +1431,480 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 
 func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
-	// Disabled agents
-	var agents []string
-	for _, a := range disableableAgents {
-		if w.disabledAgents[a] {
-			agents = append(agents, a)
+
+	cfg.DisabledAgents = nil
+	if w.fieldSelected(disabledAgentsFieldPath) {
+		var agents []string
+		for _, a := range disableableAgents {
+			if w.disabledAgents[a] {
+				agents = append(agents, a)
+			}
 		}
-	}
-	cfg.DisabledAgents = agents
-	if len(cfg.DisabledAgents) == 0 {
-		cfg.DisabledAgents = nil
+		cfg.DisabledAgents = emptySliceIfSelected(true, agents)
 	}
 
-	// Disabled skills
-	var skills []string
-	for _, s := range disableableSkills {
-		if w.disabledSkills[s] {
-			skills = append(skills, s)
+	cfg.DisabledSkills = nil
+	if w.fieldSelected(disabledSkillsFieldPath) {
+		var skills []string
+		for _, s := range disableableSkills {
+			if w.disabledSkills[s] {
+				skills = append(skills, s)
+			}
 		}
-	}
-	cfg.DisabledSkills = skills
-	if len(cfg.DisabledSkills) == 0 {
-		cfg.DisabledSkills = nil
+		cfg.DisabledSkills = emptySliceIfSelected(true, skills)
 	}
 
-	// Disabled commands
-	var commands []string
-	for _, c := range disableableCommands {
-		if w.disabledCommands[c] {
-			commands = append(commands, c)
+	cfg.DisabledCommands = nil
+	if w.fieldSelected(disabledCommandsFieldPath) {
+		var commands []string
+		for _, c := range disableableCommands {
+			if w.disabledCommands[c] {
+				commands = append(commands, c)
+			}
 		}
-	}
-	cfg.DisabledCommands = commands
-	if len(cfg.DisabledCommands) == 0 {
-		cfg.DisabledCommands = nil
+		cfg.DisabledCommands = emptySliceIfSelected(true, commands)
 	}
 
-	// Disabled MCPs
-	if v := w.disabledMcps.Value(); v != "" {
+	cfg.DisabledMCPs = nil
+	if w.fieldSelected(disabledMcpsFieldPath) {
 		var mcps []string
-		for _, m := range strings.Split(v, ",") {
+		for _, m := range strings.Split(w.disabledMcps.Value(), ",") {
 			if s := strings.TrimSpace(m); s != "" {
 				mcps = append(mcps, s)
 			}
 		}
-		cfg.DisabledMCPs = mcps
-	}
-	if len(cfg.DisabledMCPs) == 0 {
-		cfg.DisabledMCPs = nil
+		cfg.DisabledMCPs = emptySliceIfSelected(true, mcps)
 	}
 
-	// Disabled Tools
-	if v := w.disabledTools.Value(); v != "" {
+	cfg.DisabledTools = nil
+	if w.fieldSelected(disabledToolsFieldPath) {
 		var tools []string
-		for _, t := range strings.Split(v, ",") {
+		for _, t := range strings.Split(w.disabledTools.Value(), ",") {
 			if s := strings.TrimSpace(t); s != "" {
 				tools = append(tools, s)
 			}
 		}
-		cfg.DisabledTools = tools
-	}
-	if len(cfg.DisabledTools) == 0 {
-		cfg.DisabledTools = nil
+		cfg.DisabledTools = emptySliceIfSelected(true, tools)
 	}
 
-	// Auto update
-	if w.autoUpdate {
-		cfg.AutoUpdate = &w.autoUpdate
+	cfg.AutoUpdate = nil
+	if w.fieldSelected(autoUpdateFieldPath) {
+		cfg.AutoUpdate = wizardOtherBoolPtr(w.autoUpdate)
 	}
 
-	if w.hashlineEdit {
-		cfg.HashlineEdit = &w.hashlineEdit
+	cfg.HashlineEdit = nil
+	if w.fieldSelected(hashlineEditFieldPath) {
+		cfg.HashlineEdit = wizardOtherBoolPtr(w.hashlineEdit)
 	}
 
-	if w.modelFallback {
-		cfg.ModelFallback = &w.modelFallback
+	cfg.ModelFallback = nil
+	if w.fieldSelected(modelFallbackFieldPath) {
+		cfg.ModelFallback = wizardOtherBoolPtr(w.modelFallback)
 	}
 
-	if w.startWorkAutoCommit {
-		cfg.StartWork = &config.StartWorkConfig{AutoCommit: &w.startWorkAutoCommit}
+	cfg.StartWork = nil
+	if w.fieldSelected(startWorkAutoCommitFieldPath) {
+		cfg.StartWork = &config.StartWorkConfig{AutoCommit: wizardOtherBoolPtr(w.startWorkAutoCommit)}
 	}
 
-	// Experimental - only set if any flag is true or DCP has value
-	expHasData := w.expAggressiveTrunc || w.expAutoResume ||
-		w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
-		w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
-		w.expDisableOmoEnv || w.expModelFallbackTitle || w.expMaxTools.Value() != "" ||
-		w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
-		w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
-		w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
-		w.dcpSupersedeWritesAggressive || w.dcpPurgeErrorsEnabled ||
-		w.dcpPurgeErrorsTurns.Value() != ""
-	if expHasData {
-		cfg.Experimental = &config.ExperimentalConfig{}
-		if w.expAggressiveTrunc {
-			cfg.Experimental.AggressiveTruncation = &w.expAggressiveTrunc
+	cfg.Experimental = nil
+	if w.expHasData() {
+		exp := &config.ExperimentalConfig{}
+		if w.fieldSelected("experimental.aggressive_truncation") {
+			exp.AggressiveTruncation = wizardOtherBoolPtr(w.expAggressiveTrunc)
 		}
-		if w.expAutoResume {
-			cfg.Experimental.AutoResume = &w.expAutoResume
+		if w.fieldSelected("experimental.auto_resume") {
+			exp.AutoResume = wizardOtherBoolPtr(w.expAutoResume)
 		}
-		if w.expTruncateAllOutputs {
-			cfg.Experimental.TruncateAllToolOutputs = &w.expTruncateAllOutputs
+		if w.fieldSelected("experimental.truncate_all_tool_outputs") {
+			exp.TruncateAllToolOutputs = wizardOtherBoolPtr(w.expTruncateAllOutputs)
 		}
-		if w.expPreemptiveCompaction {
-			cfg.Experimental.PreemptiveCompaction = &w.expPreemptiveCompaction
+		if w.fieldSelected("experimental.preemptive_compaction") {
+			exp.PreemptiveCompaction = wizardOtherBoolPtr(w.expPreemptiveCompaction)
 		}
-		if w.expTaskSystem {
-			cfg.Experimental.TaskSystem = &w.expTaskSystem
+		if w.fieldSelected("experimental.task_system") {
+			exp.TaskSystem = wizardOtherBoolPtr(w.expTaskSystem)
 		}
-		if v := w.expPluginLoadTimeoutMs.Value(); v != "" {
-			if i, err := strconv.Atoi(v); err == nil && i > 0 {
-				cfg.Experimental.PluginLoadTimeoutMs = &i
+		if w.fieldSelected("experimental.plugin_load_timeout_ms") {
+			if i, err := strconv.Atoi(strings.TrimSpace(w.expPluginLoadTimeoutMs.Value())); err == nil && i > 0 {
+				exp.PluginLoadTimeoutMs = intPtr(i)
 			}
 		}
-		if w.expSafeHookCreation {
-			cfg.Experimental.SafeHookCreation = &w.expSafeHookCreation
+		if w.fieldSelected("experimental.safe_hook_creation") {
+			exp.SafeHookCreation = wizardOtherBoolPtr(w.expSafeHookCreation)
 		}
-		if w.expHashlineEdit {
-			cfg.Experimental.HashlineEdit = &w.expHashlineEdit
+		if w.fieldSelected("experimental.hashline_edit") {
+			exp.HashlineEdit = wizardOtherBoolPtr(w.expHashlineEdit)
 		}
-		if w.expDisableOmoEnv {
-			cfg.Experimental.DisableOmoEnv = &w.expDisableOmoEnv
+		if w.fieldSelected("experimental.disable_omo_env") {
+			exp.DisableOmoEnv = wizardOtherBoolPtr(w.expDisableOmoEnv)
 		}
-		if w.expModelFallbackTitle {
-			cfg.Experimental.ModelFallbackTitle = &w.expModelFallbackTitle
+		if w.fieldSelected("experimental.model_fallback_title") {
+			exp.ModelFallbackTitle = wizardOtherBoolPtr(w.expModelFallbackTitle)
 		}
-		if v := parsePositiveInt64(w.expMaxTools.Value()); v != nil {
-			cfg.Experimental.MaxTools = v
-		}
-
-		dcpHasData := w.dcpEnabled || w.dcpNotificationIdx > 0 || w.dcpTurnProtEnabled ||
-			w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" ||
-			w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled ||
-			w.dcpSupersedeWritesAggressive || w.dcpPurgeErrorsEnabled ||
-			w.dcpPurgeErrorsTurns.Value() != ""
-		if dcpHasData {
-			cfg.Experimental.DynamicContextPruning = &config.DynamicContextPruningConfig{}
-			dcp := cfg.Experimental.DynamicContextPruning
-
-			if w.dcpEnabled {
-				dcp.Enabled = &w.dcpEnabled
+		if w.fieldSelected("experimental.max_tools") {
+			if v := parsePositiveInt64(w.expMaxTools.Value()); v != nil {
+				exp.MaxTools = v
 			}
-			if w.dcpNotificationIdx > 0 {
+		}
+		if w.selectedWithPrefix("experimental.dynamic_context_pruning.") {
+			dcp := &config.DynamicContextPruningConfig{}
+			if w.fieldSelected("experimental.dynamic_context_pruning.enabled") {
+				dcp.Enabled = wizardOtherBoolPtr(w.dcpEnabled)
+			}
+			if w.fieldSelected("experimental.dynamic_context_pruning.notification") {
 				dcp.Notification = dcpNotificationValues[w.dcpNotificationIdx]
 			}
-
-			if w.dcpTurnProtEnabled || w.dcpTurnProtTurns.Value() != "" || w.dcpProtectedTools.Value() != "" {
+			if w.fieldSelected("experimental.dynamic_context_pruning.turn_protection.enabled") || w.fieldSelected("experimental.dynamic_context_pruning.turn_protection.turns") {
 				dcp.TurnProtection = &config.TurnProtectionConfig{}
-				if w.dcpTurnProtEnabled {
-					dcp.TurnProtection.Enabled = &w.dcpTurnProtEnabled
+				if w.fieldSelected("experimental.dynamic_context_pruning.turn_protection.enabled") {
+					dcp.TurnProtection.Enabled = wizardOtherBoolPtr(w.dcpTurnProtEnabled)
 				}
-				if v := w.dcpTurnProtTurns.Value(); v != "" {
-					if i, err := strconv.Atoi(v); err == nil {
-						dcp.TurnProtection.Turns = &i
-					}
-				}
-				if v := w.dcpProtectedTools.Value(); v != "" {
-					var tools []string
-					for _, t := range strings.Split(v, ",") {
-						if s := strings.TrimSpace(t); s != "" {
-							tools = append(tools, s)
-						}
-					}
-					if len(tools) > 0 {
-						dcp.ProtectedTools = tools
+				if w.fieldSelected("experimental.dynamic_context_pruning.turn_protection.turns") {
+					if i, err := strconv.Atoi(strings.TrimSpace(w.dcpTurnProtTurns.Value())); err == nil {
+						dcp.TurnProtection.Turns = intPtr(i)
 					}
 				}
 			}
-
-			if w.dcpDeduplicationEnabled || w.dcpSupersedeWritesEnabled || w.dcpSupersedeWritesAggressive || w.dcpPurgeErrorsEnabled || w.dcpPurgeErrorsTurns.Value() != "" {
+			if w.fieldSelected("experimental.dynamic_context_pruning.protected_tools") {
+				var tools []string
+				for _, t := range strings.Split(w.dcpProtectedTools.Value(), ",") {
+					if s := strings.TrimSpace(t); s != "" {
+						tools = append(tools, s)
+					}
+				}
+				dcp.ProtectedTools = emptySliceIfSelected(true, tools)
+			}
+			if w.selectedWithPrefix("experimental.dynamic_context_pruning.strategies.") {
 				dcp.Strategies = &config.StrategiesConfig{}
-				if w.dcpDeduplicationEnabled {
-					dcp.Strategies.Deduplication = &config.DeduplicationConfig{Enabled: &w.dcpDeduplicationEnabled}
+				if w.fieldSelected("experimental.dynamic_context_pruning.strategies.deduplication.enabled") {
+					dcp.Strategies.Deduplication = &config.DeduplicationConfig{Enabled: wizardOtherBoolPtr(w.dcpDeduplicationEnabled)}
 				}
-				if w.dcpSupersedeWritesEnabled || w.dcpSupersedeWritesAggressive {
+				if w.fieldSelected("experimental.dynamic_context_pruning.strategies.supersede_writes.enabled") || w.fieldSelected("experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive") {
 					dcp.Strategies.SupersedeWrites = &config.SupersedeWritesConfig{}
-					if w.dcpSupersedeWritesEnabled {
-						dcp.Strategies.SupersedeWrites.Enabled = &w.dcpSupersedeWritesEnabled
+					if w.fieldSelected("experimental.dynamic_context_pruning.strategies.supersede_writes.enabled") {
+						dcp.Strategies.SupersedeWrites.Enabled = wizardOtherBoolPtr(w.dcpSupersedeWritesEnabled)
 					}
-					if w.dcpSupersedeWritesAggressive {
-						dcp.Strategies.SupersedeWrites.Aggressive = &w.dcpSupersedeWritesAggressive
+					if w.fieldSelected("experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive") {
+						dcp.Strategies.SupersedeWrites.Aggressive = wizardOtherBoolPtr(w.dcpSupersedeWritesAggressive)
 					}
 				}
-				if w.dcpPurgeErrorsEnabled || w.dcpPurgeErrorsTurns.Value() != "" {
+				if w.fieldSelected("experimental.dynamic_context_pruning.strategies.purge_errors.enabled") || w.fieldSelected("experimental.dynamic_context_pruning.strategies.purge_errors.turns") {
 					dcp.Strategies.PurgeErrors = &config.PurgeErrorsConfig{}
-					if w.dcpPurgeErrorsEnabled {
-						dcp.Strategies.PurgeErrors.Enabled = &w.dcpPurgeErrorsEnabled
+					if w.fieldSelected("experimental.dynamic_context_pruning.strategies.purge_errors.enabled") {
+						dcp.Strategies.PurgeErrors.Enabled = wizardOtherBoolPtr(w.dcpPurgeErrorsEnabled)
 					}
-					if v := w.dcpPurgeErrorsTurns.Value(); v != "" {
-						if i, err := strconv.Atoi(v); err == nil {
-							dcp.Strategies.PurgeErrors.Turns = &i
+					if w.fieldSelected("experimental.dynamic_context_pruning.strategies.purge_errors.turns") {
+						if i, err := strconv.Atoi(strings.TrimSpace(w.dcpPurgeErrorsTurns.Value())); err == nil {
+							dcp.Strategies.PurgeErrors.Turns = intPtr(i)
 						}
 					}
 				}
 			}
+			exp.DynamicContextPruning = dcp
 		}
+		cfg.Experimental = exp
 	}
 
-	// Claude Code - only set if any flag is true or plugins_override has value
-	ccHasData := w.ccMcp || w.ccCommands || w.ccSkills || w.ccAgents || w.ccHooks || w.ccPlugins ||
-		w.ccPluginsOverride.Value() != ""
-	if ccHasData {
-		cfg.ClaudeCode = &config.ClaudeCodeConfig{}
-		if w.ccMcp {
-			cfg.ClaudeCode.MCP = &w.ccMcp
+	cfg.ClaudeCode = nil
+	if w.ccHasData() {
+		cc := &config.ClaudeCodeConfig{}
+		if w.fieldSelected("claude_code.mcp") {
+			cc.MCP = wizardOtherBoolPtr(w.ccMcp)
 		}
-		if w.ccCommands {
-			cfg.ClaudeCode.Commands = &w.ccCommands
+		if w.fieldSelected("claude_code.commands") {
+			cc.Commands = wizardOtherBoolPtr(w.ccCommands)
 		}
-		if w.ccSkills {
-			cfg.ClaudeCode.Skills = &w.ccSkills
+		if w.fieldSelected("claude_code.skills") {
+			cc.Skills = wizardOtherBoolPtr(w.ccSkills)
 		}
-		if w.ccAgents {
-			cfg.ClaudeCode.Agents = &w.ccAgents
+		if w.fieldSelected("claude_code.agents") {
+			cc.Agents = wizardOtherBoolPtr(w.ccAgents)
 		}
-		if w.ccHooks {
-			cfg.ClaudeCode.Hooks = &w.ccHooks
+		if w.fieldSelected("claude_code.hooks") {
+			cc.Hooks = wizardOtherBoolPtr(w.ccHooks)
 		}
-		if w.ccPlugins {
-			cfg.ClaudeCode.Plugins = &w.ccPlugins
+		if w.fieldSelected("claude_code.plugins") {
+			cc.Plugins = wizardOtherBoolPtr(w.ccPlugins)
 		}
-		if v := w.ccPluginsOverride.Value(); v != "" {
-			cfg.ClaudeCode.PluginsOverride = parseMapStringBool(v)
+		if w.fieldSelected("claude_code.plugins_override") {
+			cc.PluginsOverride = emptyMapStringBoolIfSelected(true, parseMapStringBool(strings.TrimSpace(w.ccPluginsOverride.Value())))
 		}
+		cfg.ClaudeCode = cc
 	}
 
-	// Sisyphus Agent - only set if any flag is true
-	if w.saDisabled || w.saDefaultBuilderEnabled || w.saPlannerEnabled || w.saReplacePlan || w.saTDD {
-		cfg.SisyphusAgent = &config.SisyphusAgentConfig{}
-		if w.saDisabled {
-			cfg.SisyphusAgent.Disabled = &w.saDisabled
+	cfg.SisyphusAgent = nil
+	if w.saHasData() {
+		sa := &config.SisyphusAgentConfig{}
+		if w.fieldSelected("sisyphus_agent.disabled") {
+			sa.Disabled = wizardOtherBoolPtr(w.saDisabled)
 		}
-		if w.saDefaultBuilderEnabled {
-			cfg.SisyphusAgent.DefaultBuilderEnabled = &w.saDefaultBuilderEnabled
+		if w.fieldSelected("sisyphus_agent.default_builder_enabled") {
+			sa.DefaultBuilderEnabled = wizardOtherBoolPtr(w.saDefaultBuilderEnabled)
 		}
-		if w.saPlannerEnabled {
-			cfg.SisyphusAgent.PlannerEnabled = &w.saPlannerEnabled
+		if w.fieldSelected("sisyphus_agent.planner_enabled") {
+			sa.PlannerEnabled = wizardOtherBoolPtr(w.saPlannerEnabled)
 		}
-		if w.saReplacePlan {
-			cfg.SisyphusAgent.ReplacePlan = &w.saReplacePlan
+		if w.fieldSelected("sisyphus_agent.replace_plan") {
+			sa.ReplacePlan = wizardOtherBoolPtr(w.saReplacePlan)
 		}
-		if w.saTDD {
-			cfg.SisyphusAgent.TDD = &w.saTDD
+		if w.fieldSelected("sisyphus_agent.tdd") {
+			sa.TDD = wizardOtherBoolPtr(w.saTDD)
 		}
+		cfg.SisyphusAgent = sa
 	}
 
-	// Ralph Loop
-	if w.rlEnabled || w.rlDefaultMaxIterations.Value() != "" || w.rlStateDir.Value() != "" || w.rlDefaultStrategyIdx > 0 {
-		cfg.RalphLoop = &config.RalphLoopConfig{}
-		if w.rlEnabled {
-			cfg.RalphLoop.Enabled = &w.rlEnabled
+	cfg.RalphLoop = nil
+	if w.rlHasData() {
+		rl := &config.RalphLoopConfig{}
+		if w.fieldSelected("ralph_loop.enabled") {
+			rl.Enabled = wizardOtherBoolPtr(w.rlEnabled)
 		}
-		if v := w.rlDefaultMaxIterations.Value(); v != "" {
-			var i int
-			_, _ = fmt.Sscanf(v, "%d", &i)
-			if i > 0 {
-				cfg.RalphLoop.DefaultMaxIterations = &i
+		if w.fieldSelected("ralph_loop.default_max_iterations") {
+			if i, err := strconv.Atoi(strings.TrimSpace(w.rlDefaultMaxIterations.Value())); err == nil && i > 0 {
+				rl.DefaultMaxIterations = intPtr(i)
 			}
 		}
-		if v := w.rlStateDir.Value(); v != "" {
-			cfg.RalphLoop.StateDir = v
+		if w.fieldSelected("ralph_loop.state_dir") {
+			rl.StateDir = strings.TrimSpace(w.rlStateDir.Value())
 		}
-		if w.rlDefaultStrategyIdx > 0 {
-			cfg.RalphLoop.DefaultStrategy = ralphLoopStrategies[w.rlDefaultStrategyIdx]
+		if w.fieldSelected("ralph_loop.default_strategy") {
+			rl.DefaultStrategy = ralphLoopStrategies[w.rlDefaultStrategyIdx]
 		}
+		cfg.RalphLoop = rl
 	}
 
-	// Background Task
-	btHasData := w.btDefaultConcurrency.Value() != "" ||
-		w.btProviderConcurrency.Value() != "" ||
-		w.btModelConcurrency.Value() != "" ||
-		w.btMaxDepth.Value() != "" ||
-		w.btMaxDescendants.Value() != "" ||
-		w.btStaleTimeoutMs.Value() != "" ||
-		w.btMessageStalenessTimeoutMs.Value() != "" ||
-		w.btTaskTtlMs.Value() != "" ||
-		w.btSessionGoneTimeoutMs.Value() != "" ||
-		w.btSyncPollTimeoutMs.Value() != "" ||
-		w.btMaxToolCalls.Value() != "" ||
-		w.btCircuitBreakerEnabled ||
-		w.btCircuitBreakerMaxCalls.Value() != "" ||
-		w.btCircuitBreakerConsecutive.Value() != ""
-	if btHasData {
-		cfg.BackgroundTask = &config.BackgroundTaskConfig{}
-		if v := w.btDefaultConcurrency.Value(); v != "" {
-			var i int
-			_, _ = fmt.Sscanf(v, "%d", &i)
-			if i > 0 {
-				cfg.BackgroundTask.DefaultConcurrency = &i
+	cfg.BackgroundTask = nil
+	if w.btHasData() {
+		bt := &config.BackgroundTaskConfig{}
+		if w.fieldSelected("background_task.default_concurrency") {
+			if i, err := strconv.Atoi(strings.TrimSpace(w.btDefaultConcurrency.Value())); err == nil && i > 0 {
+				bt.DefaultConcurrency = intPtr(i)
 			}
 		}
-		if v := w.btProviderConcurrency.Value(); v != "" {
-			cfg.BackgroundTask.ProviderConcurrency = parseMapStringInt(v)
-		}
-		if v := w.btModelConcurrency.Value(); v != "" {
-			cfg.BackgroundTask.ModelConcurrency = parseMapStringInt(v)
-		}
-		if v := parsePositiveInt64(w.btMaxDepth.Value()); v != nil {
-			cfg.BackgroundTask.MaxDepth = v
-		}
-		if v := parsePositiveInt64(w.btMaxDescendants.Value()); v != nil {
-			cfg.BackgroundTask.MaxDescendants = v
-		}
-		if v := parsePositiveIntWithMinimum(w.btStaleTimeoutMs.Value(), 60000); v != nil {
-			cfg.BackgroundTask.StaleTimeoutMs = v
-		}
-		if v := parsePositiveIntWithMinimum(w.btMessageStalenessTimeoutMs.Value(), 60000); v != nil {
-			cfg.BackgroundTask.MessageStalenessTimeoutMs = v
-		}
-		if v := parsePositiveIntWithMinimum(w.btTaskTtlMs.Value(), 300000); v != nil {
-			cfg.BackgroundTask.TaskTtlMs = v
-		}
-		if v := parsePositiveIntWithMinimum(w.btSessionGoneTimeoutMs.Value(), 10000); v != nil {
-			cfg.BackgroundTask.SessionGoneTimeoutMs = v
-		}
-		if v := parsePositiveIntWithMinimum(w.btSyncPollTimeoutMs.Value(), 60000); v != nil {
-			cfg.BackgroundTask.SyncPollTimeoutMs = v
-		}
-		if v := parsePositiveInt64(w.btMaxToolCalls.Value()); v != nil {
-			cfg.BackgroundTask.MaxToolCalls = v
-		}
-		cbHasData := w.btCircuitBreakerEnabled ||
-			w.btCircuitBreakerMaxCalls.Value() != "" ||
-			w.btCircuitBreakerConsecutive.Value() != ""
-		if cbHasData {
-			cfg.BackgroundTask.CircuitBreaker = &config.BackgroundCircuitBreaker{}
-			if w.btCircuitBreakerEnabled {
-				cfg.BackgroundTask.CircuitBreaker.Enabled = &w.btCircuitBreakerEnabled
-			}
-			if v := parsePositiveInt64(w.btCircuitBreakerMaxCalls.Value()); v != nil {
-				cfg.BackgroundTask.CircuitBreaker.MaxToolCalls = v
-			}
-			if v := parsePositiveInt64(w.btCircuitBreakerConsecutive.Value()); v != nil {
-				cfg.BackgroundTask.CircuitBreaker.ConsecutiveThreshold = v
+		if w.fieldSelected("background_task.provider_concurrency") {
+			bt.ProviderConcurrency = parseMapStringInt(strings.TrimSpace(w.btProviderConcurrency.Value()))
+			if bt.ProviderConcurrency == nil {
+				bt.ProviderConcurrency = map[string]int{}
 			}
 		}
-	}
-
-	// Notification
-	if w.notifForceEnable {
-		cfg.Notification = &config.NotificationConfig{
-			ForceEnable: &w.notifForceEnable,
-		}
-	}
-
-	// Git Master
-	gmCommitFooterText := strings.TrimSpace(w.gmCommitFooterText.Value())
-	gmGitEnvPrefix := strings.TrimSpace(w.gmGitEnvPrefix.Value())
-	if w.gmCommitFooter || gmCommitFooterText != "" || w.gmIncludeCoAuthoredBy || gmGitEnvPrefix != "" {
-		cfg.GitMaster = &config.GitMasterConfig{}
-		if gmCommitFooterText != "" {
-			cfg.GitMaster.CommitFooter = gmCommitFooterText
-		} else if w.gmCommitFooter {
-			cfg.GitMaster.CommitFooter = w.gmCommitFooter
-		}
-		if w.gmIncludeCoAuthoredBy {
-			cfg.GitMaster.IncludeCoAuthoredBy = &w.gmIncludeCoAuthoredBy
-		}
-		if gmGitEnvPrefix != "" {
-			cfg.GitMaster.GitEnvPrefix = gmGitEnvPrefix
-		}
-	}
-
-	// Comment Checker
-	if v := w.ccCustomPrompt.Value(); v != "" {
-		cfg.CommentChecker = &config.CommentCheckerConfig{
-			CustomPrompt: v,
-		}
-	}
-
-	// Babysitting
-	if v := w.babysittingTimeoutMs.Value(); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-			cfg.Babysitting = &config.BabysittingConfig{TimeoutMs: &f}
-		}
-	}
-
-	// Browser Automation Engine
-	if w.browserProviderIdx > 0 {
-		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{
-			Provider: browserProviders[w.browserProviderIdx],
-		}
-	}
-
-	// Tmux
-	tmuxHasData := w.tmuxEnabled || w.tmuxLayoutIdx > 0 ||
-		w.tmuxMainPaneSize.Value() != "" || w.tmuxMainPaneMinWidth.Value() != "" || w.tmuxAgentPaneMinWidth.Value() != "" ||
-		w.tmuxIsolationIdx > 0
-	if tmuxHasData {
-		cfg.Tmux = &config.TmuxConfig{}
-		if w.tmuxEnabled {
-			cfg.Tmux.Enabled = &w.tmuxEnabled
-		}
-		if w.tmuxLayoutIdx > 0 {
-			cfg.Tmux.Layout = tmuxLayouts[w.tmuxLayoutIdx]
-		}
-		if v := w.tmuxMainPaneSize.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-				cfg.Tmux.MainPaneSize = &f
+		if w.fieldSelected("background_task.model_concurrency") {
+			bt.ModelConcurrency = parseMapStringInt(strings.TrimSpace(w.btModelConcurrency.Value()))
+			if bt.ModelConcurrency == nil {
+				bt.ModelConcurrency = map[string]int{}
 			}
 		}
-		if v := w.tmuxMainPaneMinWidth.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-				cfg.Tmux.MainPaneMinWidth = &f
+		if w.fieldSelected("background_task.max_depth") {
+			bt.MaxDepth = parsePositiveInt64(w.btMaxDepth.Value())
+		}
+		if w.fieldSelected("background_task.max_descendants") {
+			bt.MaxDescendants = parsePositiveInt64(w.btMaxDescendants.Value())
+		}
+		if w.fieldSelected("background_task.stale_timeout_ms") {
+			bt.StaleTimeoutMs = parsePositiveIntWithMinimum(w.btStaleTimeoutMs.Value(), 60000)
+		}
+		if w.fieldSelected("background_task.message_staleness_timeout_ms") {
+			bt.MessageStalenessTimeoutMs = parsePositiveIntWithMinimum(w.btMessageStalenessTimeoutMs.Value(), 60000)
+		}
+		if w.fieldSelected("background_task.task_ttl_ms") {
+			bt.TaskTtlMs = parsePositiveIntWithMinimum(w.btTaskTtlMs.Value(), 300000)
+		}
+		if w.fieldSelected("background_task.session_gone_timeout_ms") {
+			bt.SessionGoneTimeoutMs = parsePositiveIntWithMinimum(w.btSessionGoneTimeoutMs.Value(), 10000)
+		}
+		if w.fieldSelected("background_task.sync_poll_timeout_ms") {
+			bt.SyncPollTimeoutMs = parsePositiveIntWithMinimum(w.btSyncPollTimeoutMs.Value(), 60000)
+		}
+		if w.fieldSelected("background_task.max_tool_calls") {
+			bt.MaxToolCalls = parsePositiveInt64(w.btMaxToolCalls.Value())
+		}
+		if w.selectedWithPrefix("background_task.circuit_breaker.") {
+			cb := &config.BackgroundCircuitBreaker{}
+			if w.fieldSelected("background_task.circuit_breaker.enabled") {
+				cb.Enabled = wizardOtherBoolPtr(w.btCircuitBreakerEnabled)
+			}
+			if w.fieldSelected("background_task.circuit_breaker.max_tool_calls") {
+				cb.MaxToolCalls = parsePositiveInt64(w.btCircuitBreakerMaxCalls.Value())
+			}
+			if w.fieldSelected("background_task.circuit_breaker.consecutive_threshold") {
+				cb.ConsecutiveThreshold = parsePositiveInt64(w.btCircuitBreakerConsecutive.Value())
+			}
+			bt.CircuitBreaker = cb
+		}
+		cfg.BackgroundTask = bt
+	}
+
+	cfg.Notification = nil
+	if w.fieldSelected("notification.force_enable") {
+		cfg.Notification = &config.NotificationConfig{ForceEnable: wizardOtherBoolPtr(w.notifForceEnable)}
+	}
+
+	cfg.GitMaster = nil
+	if w.selectedWithPrefix("git_master.") || (w.selection == nil && (w.gmCommitFooter || strings.TrimSpace(w.gmCommitFooterText.Value()) != "" || w.gmIncludeCoAuthoredBy || strings.TrimSpace(w.gmGitEnvPrefix.Value()) != "")) {
+		gm := &config.GitMasterConfig{}
+		if w.fieldSelected("git_master.commit_footer") {
+			if text := strings.TrimSpace(w.gmCommitFooterText.Value()); text != "" {
+				gm.CommitFooter = text
+			} else {
+				gm.CommitFooter = w.gmCommitFooter
 			}
 		}
-		if v := w.tmuxAgentPaneMinWidth.Value(); v != "" {
-			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-				cfg.Tmux.AgentPaneMinWidth = &f
+		if w.fieldSelected("git_master.include_co_authored_by") {
+			gm.IncludeCoAuthoredBy = wizardOtherBoolPtr(w.gmIncludeCoAuthoredBy)
+		}
+		if w.fieldSelected("git_master.git_env_prefix") {
+			gm.GitEnvPrefix = strings.TrimSpace(w.gmGitEnvPrefix.Value())
+		}
+		cfg.GitMaster = gm
+	}
+
+	cfg.CommentChecker = nil
+	if w.fieldSelected(commentCheckerCustomPromptFieldPath) {
+		cfg.CommentChecker = &config.CommentCheckerConfig{CustomPrompt: w.ccCustomPrompt.Value()}
+	}
+
+	cfg.Babysitting = nil
+	if w.fieldSelected(babysittingTimeoutFieldPath) {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(w.babysittingTimeoutMs.Value()), 64); err == nil && f > 0 {
+			cfg.Babysitting = &config.BabysittingConfig{TimeoutMs: float64Ptr(f)}
+		} else if w.selection != nil {
+			cfg.Babysitting = &config.BabysittingConfig{}
+		}
+	}
+
+	cfg.BrowserAutomationEngine = nil
+	if w.fieldSelected(browserProviderFieldPath) {
+		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{Provider: browserProviders[w.browserProviderIdx]}
+	}
+
+	cfg.Tmux = nil
+	if w.tmuxHasData() {
+		tmux := &config.TmuxConfig{}
+		if w.fieldSelected("tmux.enabled") {
+			tmux.Enabled = wizardOtherBoolPtr(w.tmuxEnabled)
+		}
+		if w.fieldSelected("tmux.layout") {
+			tmux.Layout = tmuxLayouts[w.tmuxLayoutIdx]
+		}
+		if w.fieldSelected("tmux.main_pane_size") {
+			if f, err := strconv.ParseFloat(strings.TrimSpace(w.tmuxMainPaneSize.Value()), 64); err == nil && f > 0 {
+				tmux.MainPaneSize = float64Ptr(f)
 			}
 		}
-		if w.tmuxIsolationIdx > 0 {
-			cfg.Tmux.Isolation = tmuxIsolations[w.tmuxIsolationIdx]
+		if w.fieldSelected("tmux.main_pane_min_width") {
+			if f, err := strconv.ParseFloat(strings.TrimSpace(w.tmuxMainPaneMinWidth.Value()), 64); err == nil && f > 0 {
+				tmux.MainPaneMinWidth = float64Ptr(f)
+			}
 		}
+		if w.fieldSelected("tmux.agent_pane_min_width") {
+			if f, err := strconv.ParseFloat(strings.TrimSpace(w.tmuxAgentPaneMinWidth.Value()), 64); err == nil && f > 0 {
+				tmux.AgentPaneMinWidth = float64Ptr(f)
+			}
+		}
+		if w.fieldSelected("tmux.isolation") {
+			tmux.Isolation = tmuxIsolations[w.tmuxIsolationIdx]
+		}
+		cfg.Tmux = tmux
 	}
 
-	// Websearch
-	if w.websearchProviderIdx > 0 {
-		cfg.Websearch = &config.WebsearchConfig{
-			Provider: websearchProviders[w.websearchProviderIdx],
-		}
+	cfg.Websearch = nil
+	if w.fieldSelected(websearchProviderFieldPath) {
+		cfg.Websearch = &config.WebsearchConfig{Provider: websearchProviders[w.websearchProviderIdx]}
 	}
 
-	// Sisyphus
-	sisyphusHasData := w.sisyphusTasksStoragePath.Value() != "" ||
-		w.sisyphusTasksTaskListID.Value() != "" || w.sisyphusTasksClaudeCodeCompat
-	if sisyphusHasData {
-		cfg.Sisyphus = &config.SisyphusConfig{Tasks: &config.SisyphusTasksConfig{}}
-		if v := w.sisyphusTasksStoragePath.Value(); v != "" {
-			cfg.Sisyphus.Tasks.StoragePath = v
+	cfg.Sisyphus = nil
+	if w.sisyphusHasData() {
+		tasks := &config.SisyphusTasksConfig{}
+		if w.fieldSelected("sisyphus.tasks.storage_path") {
+			tasks.StoragePath = strings.TrimSpace(w.sisyphusTasksStoragePath.Value())
 		}
-		if v := w.sisyphusTasksTaskListID.Value(); v != "" {
-			cfg.Sisyphus.Tasks.TaskListID = v
+		if w.fieldSelected("sisyphus.tasks.task_list_id") {
+			tasks.TaskListID = strings.TrimSpace(w.sisyphusTasksTaskListID.Value())
 		}
-		if w.sisyphusTasksClaudeCodeCompat {
-			cfg.Sisyphus.Tasks.ClaudeCodeCompat = &w.sisyphusTasksClaudeCodeCompat
+		if w.fieldSelected("sisyphus.tasks.claude_code_compat") {
+			tasks.ClaudeCodeCompat = wizardOtherBoolPtr(w.sisyphusTasksClaudeCodeCompat)
 		}
+		cfg.Sisyphus = &config.SisyphusConfig{Tasks: tasks}
 	}
 
-	// New Task System Enabled
-	if w.newTaskSystemEnabled {
-		cfg.NewTaskSystemEnabled = &w.newTaskSystemEnabled
+	cfg.NewTaskSystemEnabled = nil
+	if w.fieldSelected(newTaskSystemEnabledFieldPath) {
+		cfg.NewTaskSystemEnabled = wizardOtherBoolPtr(w.newTaskSystemEnabled)
 	}
 
-	// Default Run Agent
-	cfg.DefaultRunAgent = strings.TrimSpace(w.defaultRunAgent.Value())
-
-	modelCapabilitiesHasData := w.mcEnabled || w.mcAutoRefreshOnStart ||
-		strings.TrimSpace(w.mcRefreshTimeoutMs.Value()) != "" || strings.TrimSpace(w.mcSourceURL.Value()) != ""
-	if modelCapabilitiesHasData {
-		cfg.ModelCapabilities = &config.ModelCapabilitiesConfig{}
-		if w.mcEnabled {
-			cfg.ModelCapabilities.Enabled = &w.mcEnabled
-		}
-		if w.mcAutoRefreshOnStart {
-			cfg.ModelCapabilities.AutoRefreshOnStart = &w.mcAutoRefreshOnStart
-		}
-		if v := parsePositiveInt64(w.mcRefreshTimeoutMs.Value()); v != nil {
-			cfg.ModelCapabilities.RefreshTimeoutMs = v
-		}
-		if v := strings.TrimSpace(w.mcSourceURL.Value()); v != "" {
-			cfg.ModelCapabilities.SourceURL = v
-		}
+	cfg.DefaultRunAgent = ""
+	if w.fieldSelected(defaultRunAgentFieldPath) {
+		cfg.DefaultRunAgent = strings.TrimSpace(w.defaultRunAgent.Value())
 	}
 
-	if v := strings.TrimSpace(w.openclawEditor.Value()); v != "" {
+	cfg.ModelCapabilities = nil
+	if w.modelCapabilitiesHasData() {
+		mc := &config.ModelCapabilitiesConfig{}
+		if w.fieldSelected("model_capabilities.enabled") {
+			mc.Enabled = wizardOtherBoolPtr(w.mcEnabled)
+		}
+		if w.fieldSelected("model_capabilities.auto_refresh_on_start") {
+			mc.AutoRefreshOnStart = wizardOtherBoolPtr(w.mcAutoRefreshOnStart)
+		}
+		if w.fieldSelected("model_capabilities.refresh_timeout_ms") {
+			mc.RefreshTimeoutMs = parsePositiveInt64(w.mcRefreshTimeoutMs.Value())
+		}
+		if w.fieldSelected("model_capabilities.source_url") {
+			mc.SourceURL = strings.TrimSpace(w.mcSourceURL.Value())
+		}
+		cfg.ModelCapabilities = mc
+	}
+
+	cfg.Openclaw = nil
+	if strings.TrimSpace(w.openclawEditor.Value()) != "" {
 		var parsed config.OpenclawConfig
-		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-			cfg.Openclaw = &parsed
+		if err := json.Unmarshal([]byte(w.openclawEditor.Value()), &parsed); err == nil && w.openclawHasData() {
+			openclaw := &config.OpenclawConfig{}
+			if w.fieldSelected(openclawEnabledFieldPath) {
+				if parsed.Enabled != nil {
+					openclaw.Enabled = wizardOtherBoolPtr(*parsed.Enabled)
+				} else if w.selection != nil {
+					openclaw.Enabled = wizardOtherBoolPtr(false)
+				}
+			}
+			if w.fieldSelected(openclawGatewaysFieldPath) {
+				if parsed.Gateways != nil {
+					openclaw.Gateways = parsed.Gateways
+				} else {
+					openclaw.Gateways = map[string]*config.OpenclawGateway{}
+				}
+			}
+			if w.fieldSelected(openclawHooksFieldPath) {
+				if parsed.Hooks != nil {
+					openclaw.Hooks = parsed.Hooks
+				} else {
+					openclaw.Hooks = map[string]*config.OpenclawHook{}
+				}
+			}
+			if w.fieldSelected(openclawReplyListenerFieldPath) {
+				if parsed.ReplyListener != nil {
+					openclaw.ReplyListener = parsed.ReplyListener
+				} else {
+					openclaw.ReplyListener = &config.OpenclawReplyListenerConfig{}
+				}
+			}
+			cfg.Openclaw = openclaw
 		}
-	} else {
-		cfg.Openclaw = nil
 	}
 
-	if v := w.runtimeFallbackEditor.Value(); strings.TrimSpace(v) != "" {
-		cfg.RuntimeFallback = json.RawMessage(v)
-	} else {
-		cfg.RuntimeFallback = nil
+	cfg.RuntimeFallback = nil
+	if w.fieldSelected(runtimeFallbackFieldPath) {
+		if v := strings.TrimSpace(w.runtimeFallbackEditor.Value()); v != "" {
+			cfg.RuntimeFallback = json.RawMessage(v)
+		}
 	}
 
-	// Skills JSON
-	if v := w.skillsEditor.Value(); strings.TrimSpace(v) != "" {
-		cfg.Skills = json.RawMessage(v)
-	} else {
-		cfg.Skills = nil
+	cfg.Skills = nil
+	if w.fieldSelected(skillsFieldPath) {
+		if v := strings.TrimSpace(w.skillsEditor.Value()); v != "" {
+			cfg.Skills = json.RawMessage(v)
+		}
 	}
-
 }
 
 func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
@@ -1592,6 +1916,38 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 		return w, nil
 
 	case tea.KeyMsg:
+		if w.inSubSection && !w.subValueFocused {
+			switch msg.String() {
+			case "esc", "tab":
+				w.inSubSection = false
+				w.subValueFocused = false
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			case "up", "k":
+				if w.subCursor > 0 {
+					w.subCursor--
+				}
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			case "down", "j":
+				w.subCursor++
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			case " ":
+				w.toggleSubItem()
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			case "enter", "right", "l":
+				path := w.subSectionFieldPath(w.currentSection, w.subCursor)
+				if path == "" && !(w.currentSection == sectionOpenclaw && w.subCursor == 4) && !(w.currentSection == sectionRuntimeFallback && w.subCursor == 1) && !(w.currentSection == sectionSkillsJson && w.subCursor == 1) {
+					return w, nil
+				}
+				w.subValueFocused = true
+				w.viewport.SetContent(w.renderContent())
+				return w, nil
+			}
+		}
+
 		if w.inSubSection {
 			if w.currentSection == sectionExperimental && w.subCursor == 6 {
 				switch msg.String() {
@@ -2845,7 +3201,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionOpenclaw {
+			if w.currentSection == sectionOpenclaw && w.subCursor == 4 {
 				switch msg.String() {
 				case "esc":
 					w.openclawEditor.Blur()
@@ -2864,7 +3220,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionRuntimeFallback {
+			if w.currentSection == sectionRuntimeFallback && w.subCursor == 1 {
 				switch msg.String() {
 				case "esc":
 					w.runtimeFallbackEditor.Blur()
@@ -2883,7 +3239,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionSkillsJson {
+			if w.currentSection == sectionSkillsJson && w.subCursor == 1 {
 				switch msg.String() {
 				case "esc":
 					w.skillsEditor.Blur()
@@ -2923,10 +3279,12 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, w.keys.Up):
+			w.simpleValueFocused = false
 			if w.currentSection > 0 {
 				w.currentSection--
 			}
 		case key.Matches(msg, w.keys.Down):
+			w.simpleValueFocused = false
 			if w.currentSection < sectionSkillsJson {
 				w.currentSection++
 			}
@@ -2937,14 +3295,24 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			if w.sectionExpanded[w.currentSection] {
 				w.inSubSection = true
 				w.subCursor = 0
+				w.subValueFocused = false
 			}
 		case key.Matches(msg, w.keys.Right):
+			if w.isSimpleBooleanSection(w.currentSection) {
+				w.simpleValueFocused = true
+				break
+			}
 			if !w.inSubSection && !w.sectionExpanded[w.currentSection] {
 				w.sectionExpanded[w.currentSection] = true
 				w.inSubSection = true
 				w.subCursor = 0
+				w.subValueFocused = false
 			}
 		case key.Matches(msg, w.keys.Left):
+			if w.isSimpleBooleanSection(w.currentSection) {
+				w.simpleValueFocused = false
+				break
+			}
 			if !w.inSubSection && w.sectionExpanded[w.currentSection] {
 				w.sectionExpanded[w.currentSection] = false
 			}
@@ -2965,31 +3333,56 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 func (w *WizardOther) toggleSection() {
 	switch w.currentSection {
 	case sectionAutoUpdate:
-		w.autoUpdate = !w.autoUpdate
+		if w.simpleValueFocused {
+			w.autoUpdate = !w.autoUpdate
+		} else {
+			w.toggleFieldSelection(autoUpdateFieldPath)
+		}
 	case sectionNewTaskSystemEnabled:
-		w.newTaskSystemEnabled = !w.newTaskSystemEnabled
+		if w.simpleValueFocused {
+			w.newTaskSystemEnabled = !w.newTaskSystemEnabled
+		} else {
+			w.toggleFieldSelection(newTaskSystemEnabledFieldPath)
+		}
 	case sectionHashlineEdit:
-		w.hashlineEdit = !w.hashlineEdit
+		if w.simpleValueFocused {
+			w.hashlineEdit = !w.hashlineEdit
+		} else {
+			w.toggleFieldSelection(hashlineEditFieldPath)
+		}
 	case sectionModelFallback:
-		w.modelFallback = !w.modelFallback
+		if w.simpleValueFocused {
+			w.modelFallback = !w.modelFallback
+		} else {
+			w.toggleFieldSelection(modelFallbackFieldPath)
+		}
 	}
 }
 
 func (w *WizardOther) toggleSubItem() {
+	path := w.subSectionFieldPath(w.currentSection, w.subCursor)
+	if path != "" && !w.subValueFocused {
+		w.toggleFieldSelection(path)
+		return
+	}
+
 	switch w.currentSection {
 	case sectionDisabledAgents:
-		if w.subCursor < len(disableableAgents) {
-			agent := disableableAgents[w.subCursor]
+		idx := w.subCursor - 1
+		if idx >= 0 && idx < len(disableableAgents) {
+			agent := disableableAgents[idx]
 			w.disabledAgents[agent] = !w.disabledAgents[agent]
 		}
 	case sectionDisabledSkills:
-		if w.subCursor < len(disableableSkills) {
-			skill := disableableSkills[w.subCursor]
+		idx := w.subCursor - 1
+		if idx >= 0 && idx < len(disableableSkills) {
+			skill := disableableSkills[idx]
 			w.disabledSkills[skill] = !w.disabledSkills[skill]
 		}
 	case sectionDisabledCommands:
-		if w.subCursor < len(disableableCommands) {
-			cmd := disableableCommands[w.subCursor]
+		idx := w.subCursor - 1
+		if idx >= 0 && idx < len(disableableCommands) {
+			cmd := disableableCommands[idx]
 			w.disabledCommands[cmd] = !w.disabledCommands[cmd]
 		}
 	case sectionExperimental:
@@ -3002,11 +3395,8 @@ func (w *WizardOther) toggleSubItem() {
 			w.expTruncateAllOutputs = !w.expTruncateAllOutputs
 		case 3:
 			w.dcpEnabled = !w.dcpEnabled
-		case 4:
 		case 5:
 			w.dcpTurnProtEnabled = !w.dcpTurnProtEnabled
-		case 6:
-		case 7:
 		case 8:
 			w.dcpDeduplicationEnabled = !w.dcpDeduplicationEnabled
 		case 9:
@@ -3015,13 +3405,10 @@ func (w *WizardOther) toggleSubItem() {
 			w.dcpSupersedeWritesAggressive = !w.dcpSupersedeWritesAggressive
 		case 11:
 			w.dcpPurgeErrorsEnabled = !w.dcpPurgeErrorsEnabled
-		case 12:
 		case 13:
 			w.expPreemptiveCompaction = !w.expPreemptiveCompaction
 		case 14:
 			w.expTaskSystem = !w.expTaskSystem
-		case 15:
-			// plugin_load_timeout_ms textinput - handled in Update()
 		case 16:
 			w.expSafeHookCreation = !w.expSafeHookCreation
 		case 17:
@@ -3045,8 +3432,6 @@ func (w *WizardOther) toggleSubItem() {
 			w.ccHooks = !w.ccHooks
 		case 5:
 			w.ccPlugins = !w.ccPlugins
-		case 6:
-			// plugins_override textinput - handled in Update()
 		}
 	case sectionSisyphusAgent:
 		switch w.subCursor {
@@ -3073,33 +3458,20 @@ func (w *WizardOther) toggleSubItem() {
 		switch w.subCursor {
 		case 0:
 			w.gmCommitFooter = !w.gmCommitFooter
-		case 1:
-			// commit_footer text input handled in Update()
 		case 2:
 			w.gmIncludeCoAuthoredBy = !w.gmIncludeCoAuthoredBy
-		case 3:
-			// git_env_prefix text input handled in Update()
-		}
-	case sectionBrowserAutomationEngine:
-		if w.subCursor == 0 {
-			w.browserProviderIdx = (w.browserProviderIdx + 1) % len(browserProviders)
 		}
 	case sectionTmux:
-		switch w.subCursor {
-		case 0:
-			w.tmuxEnabled = !w.tmuxEnabled
-		case 1:
-			w.tmuxLayoutIdx = (w.tmuxLayoutIdx + 1) % len(tmuxLayouts)
-		case 5:
-			w.tmuxIsolationIdx = (w.tmuxIsolationIdx + 1) % len(tmuxIsolations)
-		}
-	case sectionWebsearch:
 		if w.subCursor == 0 {
-			w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviders)
+			w.tmuxEnabled = !w.tmuxEnabled
 		}
 	case sectionSisyphus:
 		if w.subCursor == 2 {
 			w.sisyphusTasksClaudeCodeCompat = !w.sisyphusTasksClaudeCodeCompat
+		}
+	case sectionStartWork:
+		if w.subCursor == 0 {
+			w.startWorkAutoCommit = !w.startWorkAutoCommit
 		}
 	case sectionModelCapabilities:
 		switch w.subCursor {
@@ -3107,6 +3479,16 @@ func (w *WizardOther) toggleSubItem() {
 			w.mcEnabled = !w.mcEnabled
 		case 1:
 			w.mcAutoRefreshOnStart = !w.mcAutoRefreshOnStart
+		}
+	case sectionOpenclaw:
+		if w.subCursor == 0 {
+			var parsed config.OpenclawConfig
+			if err := json.Unmarshal([]byte(w.openclawEditor.Value()), &parsed); err == nil && parsed.Enabled != nil {
+				parsed.Enabled = wizardOtherBoolPtr(!*parsed.Enabled)
+				if raw, err := json.MarshalIndent(parsed, "", "  "); err == nil {
+					w.openclawEditor.SetValue(string(raw))
+				}
+			}
 		}
 	}
 }
@@ -3116,13 +3498,10 @@ func (w WizardOther) renderContent() string {
 
 	selectedStyle := wizOtherSelectedStyle
 	enabledStyle := wizOtherEnabledStyle
-	disabledStyle := wizOtherDisabledStyle
-	dimStyle := wizOtherDimStyle
 	labelStyle := wizOtherLabelStyle
 
 	for i, name := range otherSectionNames {
 		section := otherSection(i)
-
 		cursor := "  "
 		if section == w.currentSection && !w.inSubSection {
 			cursor = selectedStyle.Render("> ")
@@ -3133,546 +3512,224 @@ func (w WizardOther) renderContent() string {
 			expandIcon = "▼"
 		}
 
-		// Simple sections without expansion
-		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled || section == sectionHashlineEdit || section == sectionModelFallback {
+		if path := w.topLevelFieldPath(section); path != "" {
 			checkbox := "[ ]"
-			checked := false
-			switch section {
-			case sectionAutoUpdate:
-				checked = w.autoUpdate
-			case sectionNewTaskSystemEnabled:
-				checked = w.newTaskSystemEnabled
-			case sectionHashlineEdit:
-				checked = w.hashlineEdit
-			case sectionModelFallback:
-				checked = w.modelFallback
-			}
-			if checked {
+			if w.fieldSelected(path) {
 				checkbox = enabledStyle.Render("[✓]")
 			}
-			line := fmt.Sprintf("%s%s %s", cursor, checkbox, labelStyle.Render(name))
-			lines = append(lines, line)
-			continue
+			value := ""
+			switch section {
+			case sectionAutoUpdate:
+				value = onOff(w.autoUpdate)
+			case sectionNewTaskSystemEnabled:
+				value = onOff(w.newTaskSystemEnabled)
+			case sectionHashlineEdit:
+				value = onOff(w.hashlineEdit)
+			case sectionModelFallback:
+				value = onOff(w.modelFallback)
+			}
+			if value != "" {
+				line := fmt.Sprintf("%s%s %s: %s", cursor, checkbox, labelStyle.Render(name), value)
+				lines = append(lines, line)
+				continue
+			}
 		}
 
 		line := fmt.Sprintf("%s%s %s", cursor, expandIcon, labelStyle.Render(name))
 		lines = append(lines, line)
-
-		// Render expanded content
 		if w.sectionExpanded[section] {
-			subLines := w.renderSubSection(section)
-			lines = append(lines, subLines...)
+			lines = append(lines, w.renderSubSection(section)...)
 		}
 	}
 
-	_ = dimStyle
-	_ = disabledStyle
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (w WizardOther) renderSubSection(section otherSection) []string {
 	var lines []string
 	indent := "      "
-
 	selectedStyle := wizOtherSelectedStyle
 	enabledStyle := wizOtherEnabledStyle
-	disabledStyle := wizOtherDisabledStyle
-	dimStyle := wizOtherDimStyle
+	labelStyle := wizOtherLabelStyle
+	valueStyle := wizOtherDimStyle
 
-	renderCheckbox := func(idx int, label string, checked bool) string {
+	rowPrefix := func(idx int) string {
 		cursor := "  "
 		if w.inSubSection && w.currentSection == section && w.subCursor == idx {
 			cursor = selectedStyle.Render("> ")
 		}
-
-		checkbox := "[ ]"
-		if checked {
-			checkbox = enabledStyle.Render("[✓]")
-		}
-
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == idx {
-			style = wizOtherLabelStyle
-		}
-
-		return indent + cursor + checkbox + " " + style.Render(label)
+		return indent + cursor
 	}
 
-	_ = disabledStyle
+	renderInclude := func(idx int, path, label string) string {
+		checkbox := "[ ]"
+		if w.fieldSelected(path) {
+			checkbox = enabledStyle.Render("[✓]")
+		}
+		style := valueStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == idx && !w.subValueFocused {
+			style = labelStyle
+		}
+		return rowPrefix(idx) + checkbox + " " + style.Render(label)
+	}
+
+	renderBoolField := func(idx int, path, label string, value bool) string {
+		checkbox := "[ ]"
+		if w.fieldSelected(path) {
+			checkbox = enabledStyle.Render("[✓]")
+		}
+		style := valueStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == idx && !w.subValueFocused {
+			style = labelStyle
+		}
+		valueRender := onOff(value)
+		if w.inSubSection && w.currentSection == section && w.subCursor == idx && w.subValueFocused {
+			valueRender = labelStyle.Render(valueRender)
+		}
+		return rowPrefix(idx) + checkbox + " " + style.Render(label+": ") + valueRender
+	}
+
+	renderValueField := func(idx int, path, label, value string) string {
+		checkbox := "[ ]"
+		if w.fieldSelected(path) {
+			checkbox = enabledStyle.Render("[✓]")
+		}
+		style := valueStyle
+		if w.inSubSection && w.currentSection == section && w.subCursor == idx && !w.subValueFocused {
+			style = labelStyle
+		}
+		valueRender := value
+		if w.inSubSection && w.currentSection == section && w.subCursor == idx && w.subValueFocused {
+			valueRender = labelStyle.Render(value)
+		}
+		return rowPrefix(idx) + checkbox + " " + style.Render(label+": ") + valueRender
+	}
 
 	switch section {
 	case sectionDisabledMcps:
-		lines = append(lines, indent+"  "+w.disabledMcps.View())
-
+		lines = append(lines, renderInclude(0, disabledMcpsFieldPath, "disabled_mcps"))
+		lines = append(lines, renderValueField(1, disabledMcpsFieldPath, "values", w.disabledMcps.View()))
 	case sectionDisabledAgents:
+		lines = append(lines, renderInclude(0, disabledAgentsFieldPath, "disabled_agents"))
 		for i, agent := range disableableAgents {
-			lines = append(lines, renderCheckbox(i, agent, w.disabledAgents[agent]))
+			lines = append(lines, renderValueField(i+1, disabledAgentsFieldPath, agent, onOff(w.disabledAgents[agent])))
 		}
-
 	case sectionDisabledSkills:
+		lines = append(lines, renderInclude(0, disabledSkillsFieldPath, "disabled_skills"))
 		for i, skill := range disableableSkills {
-			lines = append(lines, renderCheckbox(i, skill, w.disabledSkills[skill]))
+			lines = append(lines, renderValueField(i+1, disabledSkillsFieldPath, skill, onOff(w.disabledSkills[skill])))
 		}
-
 	case sectionDisabledCommands:
+		lines = append(lines, renderInclude(0, disabledCommandsFieldPath, "disabled_commands"))
 		for i, cmd := range disableableCommands {
-			lines = append(lines, renderCheckbox(i, cmd, w.disabledCommands[cmd]))
+			lines = append(lines, renderValueField(i+1, disabledCommandsFieldPath, cmd, onOff(w.disabledCommands[cmd])))
 		}
-
 	case sectionDisabledTools:
-		lines = append(lines, indent+"  "+w.disabledTools.View())
-
+		lines = append(lines, renderInclude(0, disabledToolsFieldPath, "disabled_tools"))
+		lines = append(lines, renderValueField(1, disabledToolsFieldPath, "values", w.disabledTools.View()))
 	case sectionExperimental:
-		lines = append(lines, renderCheckbox(0, "aggressive_truncation", w.expAggressiveTrunc))
-		lines = append(lines, renderCheckbox(1, "auto_resume", w.expAutoResume))
-		lines = append(lines, renderCheckbox(2, "truncate_all_tool_outputs", w.expTruncateAllOutputs))
-
-		lines = append(lines, renderCheckbox(3, "dcp_enabled", w.dcpEnabled))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("dcp_notification: ")+dcpNotificationValues[w.dcpNotificationIdx])
-
-		lines = append(lines, renderCheckbox(5, "dcp_turn_protection_enabled", w.dcpTurnProtEnabled))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("dcp_turn_protection_turns: ")+w.dcpTurnProtTurns.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("dcp_protected_tools: ")+w.dcpProtectedTools.View())
-
-		lines = append(lines, renderCheckbox(8, "dcp_deduplication_enabled", w.dcpDeduplicationEnabled))
-		lines = append(lines, renderCheckbox(9, "dcp_supersede_writes_enabled", w.dcpSupersedeWritesEnabled))
-		lines = append(lines, renderCheckbox(10, "dcp_supersede_writes_aggressive", w.dcpSupersedeWritesAggressive))
-		lines = append(lines, renderCheckbox(11, "dcp_purge_errors_enabled", w.dcpPurgeErrorsEnabled))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("dcp_purge_errors_turns: ")+w.dcpPurgeErrorsTurns.View())
-
-		lines = append(lines, renderCheckbox(13, "preemptive_compaction", w.expPreemptiveCompaction))
-		lines = append(lines, renderCheckbox(14, "task_system", w.expTaskSystem))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 15 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("plugin_load_timeout_ms: ")+w.expPluginLoadTimeoutMs.View())
-
-		lines = append(lines, renderCheckbox(16, "safe_hook_creation", w.expSafeHookCreation))
-		lines = append(lines, renderCheckbox(17, "hashline_edit", w.expHashlineEdit))
-		lines = append(lines, renderCheckbox(18, "disable_omo_env", w.expDisableOmoEnv))
-		lines = append(lines, renderCheckbox(19, "model_fallback_title", w.expModelFallbackTitle))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 20 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 20 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("max_tools: ")+w.expMaxTools.View())
-
+		lines = append(lines, renderBoolField(0, "experimental.aggressive_truncation", "aggressive_truncation", w.expAggressiveTrunc))
+		lines = append(lines, renderBoolField(1, "experimental.auto_resume", "auto_resume", w.expAutoResume))
+		lines = append(lines, renderBoolField(2, "experimental.truncate_all_tool_outputs", "truncate_all_tool_outputs", w.expTruncateAllOutputs))
+		lines = append(lines, renderBoolField(3, "experimental.dynamic_context_pruning.enabled", "dynamic_context_pruning.enabled", w.dcpEnabled))
+		lines = append(lines, renderValueField(4, "experimental.dynamic_context_pruning.notification", "dynamic_context_pruning.notification", dcpNotificationValues[w.dcpNotificationIdx]))
+		lines = append(lines, renderBoolField(5, "experimental.dynamic_context_pruning.turn_protection.enabled", "dynamic_context_pruning.turn_protection.enabled", w.dcpTurnProtEnabled))
+		lines = append(lines, renderValueField(6, "experimental.dynamic_context_pruning.turn_protection.turns", "dynamic_context_pruning.turn_protection.turns", w.dcpTurnProtTurns.View()))
+		lines = append(lines, renderValueField(7, "experimental.dynamic_context_pruning.protected_tools", "dynamic_context_pruning.protected_tools", w.dcpProtectedTools.View()))
+		lines = append(lines, renderBoolField(8, "experimental.dynamic_context_pruning.strategies.deduplication.enabled", "dynamic_context_pruning.strategies.deduplication.enabled", w.dcpDeduplicationEnabled))
+		lines = append(lines, renderBoolField(9, "experimental.dynamic_context_pruning.strategies.supersede_writes.enabled", "dynamic_context_pruning.strategies.supersede_writes.enabled", w.dcpSupersedeWritesEnabled))
+		lines = append(lines, renderBoolField(10, "experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive", "dynamic_context_pruning.strategies.supersede_writes.aggressive", w.dcpSupersedeWritesAggressive))
+		lines = append(lines, renderBoolField(11, "experimental.dynamic_context_pruning.strategies.purge_errors.enabled", "dynamic_context_pruning.strategies.purge_errors.enabled", w.dcpPurgeErrorsEnabled))
+		lines = append(lines, renderValueField(12, "experimental.dynamic_context_pruning.strategies.purge_errors.turns", "dynamic_context_pruning.strategies.purge_errors.turns", w.dcpPurgeErrorsTurns.View()))
+		lines = append(lines, renderBoolField(13, "experimental.preemptive_compaction", "preemptive_compaction", w.expPreemptiveCompaction))
+		lines = append(lines, renderBoolField(14, "experimental.task_system", "task_system", w.expTaskSystem))
+		lines = append(lines, renderValueField(15, "experimental.plugin_load_timeout_ms", "plugin_load_timeout_ms", w.expPluginLoadTimeoutMs.View()))
+		lines = append(lines, renderBoolField(16, "experimental.safe_hook_creation", "safe_hook_creation", w.expSafeHookCreation))
+		lines = append(lines, renderBoolField(17, "experimental.hashline_edit", "hashline_edit", w.expHashlineEdit))
+		lines = append(lines, renderBoolField(18, "experimental.disable_omo_env", "disable_omo_env", w.expDisableOmoEnv))
+		lines = append(lines, renderBoolField(19, "experimental.model_fallback_title", "model_fallback_title", w.expModelFallbackTitle))
+		lines = append(lines, renderValueField(20, "experimental.max_tools", "max_tools", w.expMaxTools.View()))
 	case sectionClaudeCode:
-		lines = append(lines, renderCheckbox(0, "mcp", w.ccMcp))
-		lines = append(lines, renderCheckbox(1, "commands", w.ccCommands))
-		lines = append(lines, renderCheckbox(2, "skills", w.ccSkills))
-		lines = append(lines, renderCheckbox(3, "agents", w.ccAgents))
-		lines = append(lines, renderCheckbox(4, "hooks", w.ccHooks))
-		lines = append(lines, renderCheckbox(5, "plugins", w.ccPlugins))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("plugins_override: ")+w.ccPluginsOverride.View())
-
+		lines = append(lines, renderBoolField(0, "claude_code.mcp", "mcp", w.ccMcp))
+		lines = append(lines, renderBoolField(1, "claude_code.commands", "commands", w.ccCommands))
+		lines = append(lines, renderBoolField(2, "claude_code.skills", "skills", w.ccSkills))
+		lines = append(lines, renderBoolField(3, "claude_code.agents", "agents", w.ccAgents))
+		lines = append(lines, renderBoolField(4, "claude_code.hooks", "hooks", w.ccHooks))
+		lines = append(lines, renderBoolField(5, "claude_code.plugins", "plugins", w.ccPlugins))
+		lines = append(lines, renderValueField(6, "claude_code.plugins_override", "plugins_override", w.ccPluginsOverride.View()))
 	case sectionSisyphusAgent:
-		lines = append(lines, renderCheckbox(0, "disabled", w.saDisabled))
-		lines = append(lines, renderCheckbox(1, "default_builder_enabled", w.saDefaultBuilderEnabled))
-		lines = append(lines, renderCheckbox(2, "planner_enabled", w.saPlannerEnabled))
-		lines = append(lines, renderCheckbox(3, "replace_plan", w.saReplacePlan))
-		lines = append(lines, renderCheckbox(4, "tdd", w.saTDD))
-
+		lines = append(lines, renderBoolField(0, "sisyphus_agent.disabled", "disabled", w.saDisabled))
+		lines = append(lines, renderBoolField(1, "sisyphus_agent.default_builder_enabled", "default_builder_enabled", w.saDefaultBuilderEnabled))
+		lines = append(lines, renderBoolField(2, "sisyphus_agent.planner_enabled", "planner_enabled", w.saPlannerEnabled))
+		lines = append(lines, renderBoolField(3, "sisyphus_agent.replace_plan", "replace_plan", w.saReplacePlan))
+		lines = append(lines, renderBoolField(4, "sisyphus_agent.tdd", "tdd", w.saTDD))
 	case sectionRalphLoop:
-		lines = append(lines, renderCheckbox(0, "enabled", w.rlEnabled))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("max_iterations: ")+w.rlDefaultMaxIterations.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("state_dir: ")+w.rlStateDir.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("default_strategy: ")+ralphLoopStrategies[w.rlDefaultStrategyIdx])
-
+		lines = append(lines, renderBoolField(0, "ralph_loop.enabled", "enabled", w.rlEnabled))
+		lines = append(lines, renderValueField(1, "ralph_loop.default_max_iterations", "default_max_iterations", w.rlDefaultMaxIterations.View()))
+		lines = append(lines, renderValueField(2, "ralph_loop.state_dir", "state_dir", w.rlStateDir.View()))
+		lines = append(lines, renderValueField(3, "ralph_loop.default_strategy", "default_strategy", ralphLoopStrategies[w.rlDefaultStrategyIdx]))
 	case sectionBackgroundTask:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("provider_concurrency: ")+w.btProviderConcurrency.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("model_concurrency: ")+w.btModelConcurrency.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("default_concurrency: ")+w.btDefaultConcurrency.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("stale_timeout_ms: ")+w.btStaleTimeoutMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("message_staleness_timeout_ms: ")+w.btMessageStalenessTimeoutMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("sync_poll_timeout_ms: ")+w.btSyncPollTimeoutMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 6 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("max_depth: ")+w.btMaxDepth.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 7 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("max_descendants: ")+w.btMaxDescendants.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 8 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 8 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("task_ttl_ms: ")+w.btTaskTtlMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 9 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("session_gone_timeout_ms: ")+w.btSessionGoneTimeoutMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 10 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("max_tool_calls: ")+w.btMaxToolCalls.View())
-
-		lines = append(lines, renderCheckbox(11, "circuit_breaker.enabled", w.btCircuitBreakerEnabled))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 12 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("circuit_breaker.max_tool_calls: ")+w.btCircuitBreakerMaxCalls.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 13 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 13 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("circuit_breaker.consecutive_threshold: ")+w.btCircuitBreakerConsecutive.View())
-
+		lines = append(lines, renderValueField(0, "background_task.provider_concurrency", "provider_concurrency", w.btProviderConcurrency.View()))
+		lines = append(lines, renderValueField(1, "background_task.model_concurrency", "model_concurrency", w.btModelConcurrency.View()))
+		lines = append(lines, renderValueField(2, "background_task.default_concurrency", "default_concurrency", w.btDefaultConcurrency.View()))
+		lines = append(lines, renderValueField(3, "background_task.stale_timeout_ms", "stale_timeout_ms", w.btStaleTimeoutMs.View()))
+		lines = append(lines, renderValueField(4, "background_task.message_staleness_timeout_ms", "message_staleness_timeout_ms", w.btMessageStalenessTimeoutMs.View()))
+		lines = append(lines, renderValueField(5, "background_task.sync_poll_timeout_ms", "sync_poll_timeout_ms", w.btSyncPollTimeoutMs.View()))
+		lines = append(lines, renderValueField(6, "background_task.max_depth", "max_depth", w.btMaxDepth.View()))
+		lines = append(lines, renderValueField(7, "background_task.max_descendants", "max_descendants", w.btMaxDescendants.View()))
+		lines = append(lines, renderValueField(8, "background_task.task_ttl_ms", "task_ttl_ms", w.btTaskTtlMs.View()))
+		lines = append(lines, renderValueField(9, "background_task.session_gone_timeout_ms", "session_gone_timeout_ms", w.btSessionGoneTimeoutMs.View()))
+		lines = append(lines, renderValueField(10, "background_task.max_tool_calls", "max_tool_calls", w.btMaxToolCalls.View()))
+		lines = append(lines, renderBoolField(11, "background_task.circuit_breaker.enabled", "circuit_breaker.enabled", w.btCircuitBreakerEnabled))
+		lines = append(lines, renderValueField(12, "background_task.circuit_breaker.max_tool_calls", "circuit_breaker.max_tool_calls", w.btCircuitBreakerMaxCalls.View()))
+		lines = append(lines, renderValueField(13, "background_task.circuit_breaker.consecutive_threshold", "circuit_breaker.consecutive_threshold", w.btCircuitBreakerConsecutive.View()))
 	case sectionNotification:
-		lines = append(lines, renderCheckbox(0, "force_enable", w.notifForceEnable))
-
+		lines = append(lines, renderBoolField(0, "notification.force_enable", "force_enable", w.notifForceEnable))
 	case sectionGitMaster:
-		lines = append(lines, renderCheckbox(0, "commit_footer", w.gmCommitFooter))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("commit_footer_text: ")+w.gmCommitFooterText.View())
-
-		lines = append(lines, renderCheckbox(2, "include_co_authored_by", w.gmIncludeCoAuthoredBy))
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("git_env_prefix: ")+w.gmGitEnvPrefix.View())
-
+		lines = append(lines, renderBoolField(0, "git_master.commit_footer", "commit_footer", w.gmCommitFooter))
+		lines = append(lines, renderValueField(1, "git_master.commit_footer", "commit_footer_text", w.gmCommitFooterText.View()))
+		lines = append(lines, renderBoolField(2, "git_master.include_co_authored_by", "include_co_authored_by", w.gmIncludeCoAuthoredBy))
+		lines = append(lines, renderValueField(3, "git_master.git_env_prefix", "git_env_prefix", w.gmGitEnvPrefix.View()))
 	case sectionCommentChecker:
-		lines = append(lines, indent+"  custom_prompt: "+w.ccCustomPrompt.View())
-
+		lines = append(lines, renderValueField(0, commentCheckerCustomPromptFieldPath, "custom_prompt", w.ccCustomPrompt.View()))
 	case sectionBabysitting:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("timeout_ms: ")+w.babysittingTimeoutMs.View())
-
+		lines = append(lines, renderValueField(0, babysittingTimeoutFieldPath, "timeout_ms", w.babysittingTimeoutMs.View()))
 	case sectionBrowserAutomationEngine:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("provider: ")+browserProviders[w.browserProviderIdx])
-
+		lines = append(lines, renderValueField(0, browserProviderFieldPath, "provider", browserProviders[w.browserProviderIdx]))
 	case sectionTmux:
-		lines = append(lines, renderCheckbox(0, "enabled", w.tmuxEnabled))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("layout: ")+tmuxLayouts[w.tmuxLayoutIdx])
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("main_pane_size: ")+w.tmuxMainPaneSize.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("main_pane_min_width: ")+w.tmuxMainPaneMinWidth.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 4 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("agent_pane_min_width: ")+w.tmuxAgentPaneMinWidth.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 5 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("isolation: ")+tmuxIsolations[w.tmuxIsolationIdx])
-
+		lines = append(lines, renderBoolField(0, "tmux.enabled", "enabled", w.tmuxEnabled))
+		lines = append(lines, renderValueField(1, "tmux.layout", "layout", tmuxLayouts[w.tmuxLayoutIdx]))
+		lines = append(lines, renderValueField(2, "tmux.main_pane_size", "main_pane_size", w.tmuxMainPaneSize.View()))
+		lines = append(lines, renderValueField(3, "tmux.main_pane_min_width", "main_pane_min_width", w.tmuxMainPaneMinWidth.View()))
+		lines = append(lines, renderValueField(4, "tmux.agent_pane_min_width", "agent_pane_min_width", w.tmuxAgentPaneMinWidth.View()))
+		lines = append(lines, renderValueField(5, "tmux.isolation", "isolation", tmuxIsolations[w.tmuxIsolationIdx]))
 	case sectionWebsearch:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("provider: ")+websearchProviders[w.websearchProviderIdx])
-
+		lines = append(lines, renderValueField(0, websearchProviderFieldPath, "provider", websearchProviders[w.websearchProviderIdx]))
 	case sectionSisyphus:
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 0 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("tasks.storage_path: ")+w.sisyphusTasksStoragePath.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 1 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("tasks.task_list_id: ")+w.sisyphusTasksTaskListID.View())
-
-		lines = append(lines, renderCheckbox(2, "tasks.claude_code_compat", w.sisyphusTasksClaudeCodeCompat))
-
+		lines = append(lines, renderValueField(0, "sisyphus.tasks.storage_path", "tasks.storage_path", w.sisyphusTasksStoragePath.View()))
+		lines = append(lines, renderValueField(1, "sisyphus.tasks.task_list_id", "tasks.task_list_id", w.sisyphusTasksTaskListID.View()))
+		lines = append(lines, renderBoolField(2, "sisyphus.tasks.claude_code_compat", "tasks.claude_code_compat", w.sisyphusTasksClaudeCodeCompat))
 	case sectionDefaultRunAgent:
-		lines = append(lines, indent+"  value: "+w.defaultRunAgent.View())
-
+		lines = append(lines, renderValueField(0, defaultRunAgentFieldPath, "value", w.defaultRunAgent.View()))
 	case sectionStartWork:
-		lines = append(lines, renderCheckbox(0, "auto_commit", w.startWorkAutoCommit))
-
+		lines = append(lines, renderBoolField(0, startWorkAutoCommitFieldPath, "auto_commit", w.startWorkAutoCommit))
 	case sectionModelCapabilities:
-		lines = append(lines, renderCheckbox(0, "enabled", w.mcEnabled))
-		lines = append(lines, renderCheckbox(1, "auto_refresh_on_start", w.mcAutoRefreshOnStart))
-
-		cursor := "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style := dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 2 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("refresh_timeout_ms: ")+w.mcRefreshTimeoutMs.View())
-
-		cursor = "  "
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			cursor = selectedStyle.Render("> ")
-		}
-		style = dimStyle
-		if w.inSubSection && w.currentSection == section && w.subCursor == 3 {
-			style = wizOtherLabelStyle
-		}
-		lines = append(lines, indent+cursor+style.Render("source_url: ")+w.mcSourceURL.View())
-
+		lines = append(lines, renderBoolField(0, "model_capabilities.enabled", "enabled", w.mcEnabled))
+		lines = append(lines, renderBoolField(1, "model_capabilities.auto_refresh_on_start", "auto_refresh_on_start", w.mcAutoRefreshOnStart))
+		lines = append(lines, renderValueField(2, "model_capabilities.refresh_timeout_ms", "refresh_timeout_ms", w.mcRefreshTimeoutMs.View()))
+		lines = append(lines, renderValueField(3, "model_capabilities.source_url", "source_url", w.mcSourceURL.View()))
 	case sectionOpenclaw:
-		lines = append(lines, indent+w.openclawEditor.View())
-
+		lines = append(lines, renderBoolField(0, openclawEnabledFieldPath, "enabled", strings.Contains(w.openclawEditor.Value(), `"enabled": true`)))
+		lines = append(lines, renderInclude(1, openclawGatewaysFieldPath, "gateways"))
+		lines = append(lines, renderInclude(2, openclawHooksFieldPath, "hooks"))
+		lines = append(lines, renderInclude(3, openclawReplyListenerFieldPath, "reply_listener"))
+		lines = append(lines, rowPrefix(4)+w.openclawEditor.View())
 	case sectionRuntimeFallback:
-		lines = append(lines, indent+w.runtimeFallbackEditor.View())
-
+		lines = append(lines, renderInclude(0, runtimeFallbackFieldPath, "runtime_fallback"))
+		lines = append(lines, rowPrefix(1)+w.runtimeFallbackEditor.View())
 	case sectionSkillsJson:
-		lines = append(lines, indent+w.skillsEditor.View())
+		lines = append(lines, renderInclude(0, skillsFieldPath, "skills"))
+		lines = append(lines, rowPrefix(1)+w.skillsEditor.View())
 	}
 
 	lines = append(lines, "")
