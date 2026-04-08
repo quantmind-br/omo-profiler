@@ -1178,10 +1178,12 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 			ac.modelDisplay = msg.DisplayName
 		}
 		ac.selectingModel = false
+		w.viewport.SetContent(w.renderContent())
 		return w, nil
 
 	case ModelSelectorCancelMsg:
 		ac.selectingModel = false
+		w.viewport.SetContent(w.renderContent())
 		return w, nil
 
 	case PromptSaveCustomMsg:
