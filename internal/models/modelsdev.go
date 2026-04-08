@@ -47,7 +47,7 @@ func FetchModelsDevRegistry() (*ModelsDevResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch models.dev API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("models.dev API returned status %d", resp.StatusCode)

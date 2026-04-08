@@ -426,10 +426,10 @@ func (m *ModelRegistry) validateAndSave() error {
 	provider := strings.TrimSpace(m.providerInput.Value())
 
 	if displayName == "" {
-		return fmt.Errorf("Display name is required")
+		return fmt.Errorf("display name is required")
 	}
 	if modelId == "" {
-		return fmt.Errorf("Model ID is required")
+		return fmt.Errorf("model ID is required")
 	}
 
 	newModel := models.RegisteredModel{
@@ -441,14 +441,14 @@ func (m *ModelRegistry) validateAndSave() error {
 	if m.editMode {
 		if err := m.registry.Update(m.editingId, newModel); err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("Model with ID '%s' already exists", modelId)
+				return fmt.Errorf("model with ID '%s' already exists", modelId)
 			}
 			return err
 		}
 	} else {
 		if err := m.registry.Add(newModel); err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("Model with ID '%s' already exists", modelId)
+				return fmt.Errorf("model with ID '%s' already exists", modelId)
 			}
 			return err
 		}

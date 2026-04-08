@@ -3132,13 +3132,14 @@ func (w WizardOther) renderContent() string {
 		if section == sectionAutoUpdate || section == sectionNewTaskSystemEnabled || section == sectionHashlineEdit || section == sectionModelFallback {
 			checkbox := "[ ]"
 			checked := false
-			if section == sectionAutoUpdate {
+			switch section {
+			case sectionAutoUpdate:
 				checked = w.autoUpdate
-			} else if section == sectionNewTaskSystemEnabled {
+			case sectionNewTaskSystemEnabled:
 				checked = w.newTaskSystemEnabled
-			} else if section == sectionHashlineEdit {
+			case sectionHashlineEdit:
 				checked = w.hashlineEdit
-			} else if section == sectionModelFallback {
+			case sectionModelFallback:
 				checked = w.modelFallback
 			}
 			if checked {

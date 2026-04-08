@@ -623,7 +623,7 @@ func TestModelRegistryValidateAndSaveMissingDisplayName(t *testing.T) {
 		t.Error("expected error when display name is missing")
 	}
 
-	if !strings.Contains(err.Error(), "Display name") {
+	if !strings.Contains(err.Error(), "display name") {
 		t.Errorf("expected error about display name, got %q", err.Error())
 	}
 }
@@ -640,7 +640,7 @@ func TestModelRegistryValidateAndSaveMissingModelID(t *testing.T) {
 		t.Error("expected error when model ID is missing")
 	}
 
-	if !strings.Contains(err.Error(), "Model ID") {
+	if !strings.Contains(err.Error(), "model ID") {
 		t.Errorf("expected error about model ID, got %q", err.Error())
 	}
 }

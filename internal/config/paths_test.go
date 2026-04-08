@@ -77,8 +77,12 @@ func TestConfigFile(t *testing.T) {
 		SetBaseDir(tmpDir)
 
 		dir := filepath.Join(tmpDir, ".config", "opencode")
-		os.MkdirAll(dir, 0755)
-		os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("MkdirAll failed: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
 
 		got := ConfigFile()
 		expected := filepath.Join(dir, ConfigBasename)
@@ -93,8 +97,12 @@ func TestConfigFile(t *testing.T) {
 		SetBaseDir(tmpDir)
 
 		dir := filepath.Join(tmpDir, ".config", "opencode")
-		os.MkdirAll(dir, 0755)
-		os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("MkdirAll failed: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
 
 		got := ConfigFile()
 		expected := filepath.Join(dir, LegacyConfigBasename)
@@ -109,9 +117,15 @@ func TestConfigFile(t *testing.T) {
 		SetBaseDir(tmpDir)
 
 		dir := filepath.Join(tmpDir, ".config", "opencode")
-		os.MkdirAll(dir, 0755)
-		os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644)
-		os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("MkdirAll failed: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
 
 		got := ConfigFile()
 		expected := filepath.Join(dir, ConfigBasename)
