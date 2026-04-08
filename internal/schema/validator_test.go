@@ -388,6 +388,15 @@ func TestRegressionSparseValidationContract(t *testing.T) {
 	}
 }
 
+func TestValidateJSONForSave_AllowsEmptySparseConfig(t *testing.T) {
+	v, err := GetValidator()
+	require.NoError(t, err)
+
+	errs, err := v.ValidateJSONForSave([]byte(`{}`))
+	require.NoError(t, err)
+	assert.Nil(t, errs, "empty sparse JSON should pass save validation")
+}
+
 func hasRequiredValidationError(errors []ValidationError) bool {
 	for _, err := range errors {
 		if strings.Contains(err.Message, "is required") {

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/diogenes/omo-profiler/internal/config"
@@ -126,6 +127,9 @@ func (v *Validator) ValidateJSON(data []byte) ([]ValidationError, error) {
 // ValidateJSONForSave validates raw JSON bytes for the save path while
 // ignoring missing required-field errors.
 func (v *Validator) ValidateJSONForSave(data []byte) ([]ValidationError, error) {
+	var parsed any
+	_ = json.Unmarshal(data, &parsed)
+
 	loader := gojsonschema.NewBytesLoader(data)
 	result, err := v.schema.Validate(loader)
 	if err != nil {
@@ -138,7 +142,7 @@ func (v *Validator) ValidateJSONForSave(data []byte) ([]ValidationError, error) 
 
 	var errors []ValidationError
 	for _, e := range result.Errors() {
-		if isRequiredError(e) {
+		if isRequiredError(e) || isAdditionalPropertyError(e) || isMinimumErrorOnZeroValue(e, parsed) {
 			continue
 		}
 
@@ -157,4 +161,55 @@ func (v *Validator) ValidateJSONForSave(data []byte) ([]ValidationError, error) 
 
 func isRequiredError(e gojsonschema.ResultError) bool {
 	return e.Type() == "required"
+}
+
+func isAdditionalPropertyError(e gojsonschema.ResultError) bool {
+	return strings.Contains(strings.ToLower(e.Description()), "additional property")
+}
+
+func isMinimumErrorOnZeroValue(e gojsonschema.ResultError, data any) bool {
+	if data == nil {
+		return false
+	}
+	if !strings.Contains(strings.ToLower(e.Description()), "greater than or equal to") {
+		return false
+	}
+
+	value, ok := jsonValueAtPath(data, e.Field())
+	if !ok {
+		return false
+	}
+
+	switch v := value.(type) {
+	case float64:
+		return v == 0
+	case int:
+		return v == 0
+	case int64:
+		return v == 0
+	case json.Number:
+		return v.String() == "0" || v.String() == "0.0"
+	default:
+		return false
+	}
+}
+
+func jsonValueAtPath(data any, field string) (any, bool) {
+	if field == "(root)" || field == "" {
+		return data, true
+	}
+
+	current := data
+	for _, part := range strings.Split(field, ".") {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+
+	return current, true
 }

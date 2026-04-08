@@ -337,6 +337,19 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 				return wizardSaveDoneMsg{err: err}
 			}
 
+			validator, err := schema.GetValidator()
+			if err != nil {
+				return wizardSaveDoneMsg{err: err}
+			}
+
+			validationErrors, err := validator.ValidateJSONForSave(data)
+			if err != nil {
+				return wizardSaveDoneMsg{err: err}
+			}
+			if len(validationErrors) > 0 {
+				return wizardSaveDoneMsg{err: fmt.Errorf("validation failed: %s", validationErrors[0].Error())}
+			}
+
 			if err := config.EnsureDirs(); err != nil {
 				return wizardSaveDoneMsg{err: err}
 			}

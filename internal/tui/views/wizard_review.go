@@ -142,7 +142,7 @@ func (w *WizardReview) validateAndPreview() {
 		return
 	}
 
-	errs, err := validator.ValidateForSave(w.config)
+	errs, err := validator.ValidateJSONForSave(jsonData)
 	if err != nil {
 		w.validationErrs = nil
 		w.isValid = true // Validation error, assume valid

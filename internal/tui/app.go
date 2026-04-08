@@ -557,7 +557,7 @@ func (a App) doImportProfile(sourcePath string) tea.Cmd {
 			return importProfileDoneMsg{err: err}
 		}
 
-		validationErrors, err := validator.ValidateJSON(data)
+		validationErrors, err := validator.ValidateJSONForSave(data)
 		if err != nil {
 			return importProfileDoneMsg{err: err}
 		}

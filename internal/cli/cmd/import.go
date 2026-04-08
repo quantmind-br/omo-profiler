@@ -45,7 +45,7 @@ var ImportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		validationErrors, err := validator.ValidateJSON(data)
+		validationErrors, err := validator.ValidateJSONForSave(data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: validation failed: %v\n", err)
 			os.Exit(2)
