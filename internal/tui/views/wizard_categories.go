@@ -267,6 +267,23 @@ func NewWizardCategories() WizardCategories {
 	}
 }
 
+func (w *WizardCategories) populateDefaults(selection *profile.FieldSelection) {
+	w.selection = selection
+	w.categories = []*categoryConfig{}
+	for _, def := range defaultCategories {
+		cc := newCategoryConfig()
+		cc.name = def.Name
+		cc.nameInput.SetValue(def.Name)
+		cc.description.SetValue(def.Description)
+		cc.promptAppend.SetValue(def.PromptAppend)
+		w.categories = append(w.categories, &cc)
+	}
+	if selection != nil {
+		selection.SetSelected("categories.*.description", true)
+		selection.SetSelected("categories.*.prompt_append", true)
+	}
+}
+
 func (w WizardCategories) Init() tea.Cmd {
 	return nil
 }
@@ -309,11 +326,14 @@ func (w *WizardCategories) SetSize(width, height int) {
 func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
 	w.canonicalizeSelectionPaths()
-	w.categories = []*categoryConfig{}
 
 	if cfg.Categories == nil {
+		if len(w.categories) == 0 {
+			w.populateDefaults(selection)
+		}
 		return
 	}
+	w.categories = []*categoryConfig{}
 
 	for name, catCfg := range cfg.Categories {
 		cc := newCategoryConfig()

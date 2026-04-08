@@ -154,12 +154,12 @@ func TestWizardCategoriesSetConfig(t *testing.T) {
 func TestWizardCategoriesSetConfigNil(t *testing.T) {
 	wc := NewWizardCategories()
 
-	// Pass a config with nil Categories (not nil config itself)
+	// Pass a config with nil Categories — should populate defaults
 	cfg := &config.Config{}
 	wc.SetConfig(cfg, nil)
 
-	if len(wc.categories) != 0 {
-		t.Errorf("expected 0 categories for nil Categories, got %d", len(wc.categories))
+	if len(wc.categories) != len(defaultCategories) {
+		t.Errorf("expected %d default categories for nil Categories, got %d", len(defaultCategories), len(wc.categories))
 	}
 }
 
@@ -169,8 +169,8 @@ func TestWizardCategoriesSetConfigNilCategories(t *testing.T) {
 	cfg := &config.Config{}
 	wc.SetConfig(cfg, nil)
 
-	if len(wc.categories) != 0 {
-		t.Errorf("expected 0 categories for nil Categories, got %d", len(wc.categories))
+	if len(wc.categories) != len(defaultCategories) {
+		t.Errorf("expected %d default categories for nil Categories, got %d", len(defaultCategories), len(wc.categories))
 	}
 }
 
