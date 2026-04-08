@@ -3356,10 +3356,30 @@ func (w *WizardOther) toggleSection() {
 		} else {
 			w.toggleFieldSelection(modelFallbackFieldPath)
 		}
+	case sectionDisabledMcps:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledMcps))
+	case sectionDisabledAgents:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledAgents))
+	case sectionDisabledSkills:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledSkills))
+	case sectionDisabledCommands:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledCommands))
+	case sectionDisabledTools:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledTools))
 	}
 }
 
 func (w *WizardOther) toggleSubItem() {
+	// Handle Row 0 inclusion toggle for disabled-list sections
+	if w.subCursor == 0 {
+		switch w.currentSection {
+		case sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills,
+			sectionDisabledCommands, sectionDisabledTools:
+			w.toggleFieldSelection(w.topLevelFieldPath(w.currentSection))
+			return
+		}
+	}
+
 	path := w.subSectionFieldPath(w.currentSection, w.subCursor)
 	if path != "" && !w.subValueFocused {
 		w.toggleFieldSelection(path)

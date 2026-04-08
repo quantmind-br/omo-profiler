@@ -1,12 +1,15 @@
 package views
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseMapStringInt(t *testing.T) {
@@ -285,5 +288,183 @@ func TestWizardOtherUntouchedSectionsRemainOmitted(t *testing.T) {
 
 	if cfg.Experimental != nil || cfg.ClaudeCode != nil || cfg.Tmux != nil {
 		t.Fatalf("expected untouched sections to remain omitted, got experimental=%#v claude_code=%#v tmux=%#v", cfg.Experimental, cfg.ClaudeCode, cfg.Tmux)
+	}
+}
+
+func setupWizardOtherWithSelection(t *testing.T, paths ...string) WizardOther {
+	t.Helper()
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	for _, path := range paths {
+		selection.SetSelected(path, true)
+	}
+	w.selection = selection
+	return w
+}
+
+func applyAndMarshal(t *testing.T, w WizardOther, selection *profile.FieldSelection) map[string]interface{} {
+	t.Helper()
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+	data, err := profile.MarshalSparse(cfg, selection, nil)
+	require.NoError(t, err, "MarshalSparse should not error")
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err, "JSON unmarshal should not error")
+	return result
+}
+
+func assertJSONContains(t *testing.T, jsonMap map[string]interface{}, key string) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			_, exists := current[part]
+			assert.True(t, exists, "expected key %q to exist", key)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected %q to be a nested object, got %T", part, current[part])
+		}
+		current = next
+	}
+}
+
+func assertJSONOmits(t *testing.T, jsonMap map[string]interface{}, key string) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			_, exists := current[part]
+			assert.False(t, exists, "expected key %q to NOT exist", key)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			return
+		}
+		current = next
+	}
+}
+
+func assertJSONEquals(t *testing.T, jsonMap map[string]interface{}, key string, expected interface{}) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			actual, exists := current[part]
+			require.True(t, exists, "expected key %q to exist", key)
+			assert.Equal(t, expected, actual, "expected key %q to equal %v", key, expected)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected %q to be a nested object, got %T", part, current[part])
+		}
+		current = next
+	}
+}
+
+func TestWizardOtherDisabledAgentsInclusionToggle(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.selection = selection
+	w.currentSection = sectionDisabledAgents
+	w.sectionExpanded[sectionDisabledAgents] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_agents") {
+		t.Fatal("expected disabled_agents to be selected after Row 0 toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("disabled_agents") {
+		t.Fatal("expected disabled_agents to be deselected after second toggle")
+	}
+}
+
+func TestWizardOtherDisabledSkillsInclusionToggle(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.selection = selection
+	w.currentSection = sectionDisabledSkills
+	w.sectionExpanded[sectionDisabledSkills] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_skills") {
+		t.Fatal("expected disabled_skills to be selected after Row 0 toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("disabled_skills") {
+		t.Fatal("expected disabled_skills to be deselected after second toggle")
+	}
+}
+
+func TestWizardOtherDisabledCommandsInclusionToggle(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.selection = selection
+	w.currentSection = sectionDisabledCommands
+	w.sectionExpanded[sectionDisabledCommands] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_commands") {
+		t.Fatal("expected disabled_commands to be selected after Row 0 toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("disabled_commands") {
+		t.Fatal("expected disabled_commands to be deselected after second toggle")
+	}
+}
+
+func TestWizardOtherDisabledMcpsInclusionToggle(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.selection = selection
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_mcps") {
+		t.Fatal("expected disabled_mcps to be selected after Row 0 toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("disabled_mcps") {
+		t.Fatal("expected disabled_mcps to be deselected after second toggle")
+	}
+}
+
+func TestWizardOtherDisabledToolsInclusionToggle(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	w.selection = selection
+	w.currentSection = sectionDisabledTools
+	w.sectionExpanded[sectionDisabledTools] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_tools") {
+		t.Fatal("expected disabled_tools to be selected after Row 0 toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("disabled_tools") {
+		t.Fatal("expected disabled_tools to be deselected after second toggle")
 	}
 }
