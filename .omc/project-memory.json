@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1774893730169,
+  "lastScanned": 1775051071412,
   "projectRoot": "/home/diogo/dev/omo-profiler",
   "techStack": {
     "languages": [
@@ -53,14 +53,14 @@
       "path": "cmd",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1774893730167,
+      "lastAccessed": 1775051071411,
       "keyFiles": []
     },
     "diff.md": {
       "path": "diff.md",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1774893730168,
+      "lastAccessed": 1775051071411,
       "keyFiles": [
         "schema-diff.md"
       ]
@@ -69,14 +69,36 @@
       "path": "internal",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1774893730168,
+      "lastAccessed": 1775051071411,
       "keyFiles": []
+    },
+    "oh-my-openagent": {
+      "path": "oh-my-openagent",
+      "purpose": null,
+      "fileCount": 17,
+      "lastAccessed": 1775051071411,
+      "keyFiles": [
+        "AGENTS.md",
+        "CLA.md",
+        "CONTRIBUTING.md",
+        "LICENSE.md",
+        "README.ja.md"
+      ]
+    },
+    "template": {
+      "path": "template",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775051071411,
+      "keyFiles": [
+        "oh-my-openagent.json"
+      ]
     },
     "internal/config": {
       "path": "internal/config",
       "purpose": "Configuration files",
       "fileCount": 5,
-      "lastAccessed": 1774893730168,
+      "lastAccessed": 1775051071412,
       "keyFiles": [
         "AGENTS.md",
         "paths.go",
@@ -87,7 +109,7 @@
       "path": "internal/models",
       "purpose": "Data models",
       "fileCount": 5,
-      "lastAccessed": 1774893730168,
+      "lastAccessed": 1775051071412,
       "keyFiles": [
         "AGENTS.md",
         "models.go",
