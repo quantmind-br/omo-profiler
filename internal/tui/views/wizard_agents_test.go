@@ -8,9 +8,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
 func boolPtr(b bool) *bool { return &b }
+
+func findLineContaining(lines []string, needle string) string {
+	for _, line := range lines {
+		if strings.Contains(line, needle) {
+			return line
+		}
+	}
+	return ""
+}
 
 func TestParseMapStringBool(t *testing.T) {
 	tests := []struct {
@@ -407,6 +417,155 @@ func TestWizardAgentsApply(t *testing.T) {
 		t.Error("expected Temperature to be set")
 	} else if *agentCfg.Temperature != 0.7 {
 		t.Errorf("expected temperature 0.7, got %f", *agentCfg.Temperature)
+	}
+}
+
+func TestWizardAgentsLoadsCheckboxStateFromJSONPresence(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(100, 40)
+
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("agents.*.model", true)
+	selection.SetSelected("agents.*.providerOptions", true)
+
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Model:           "claude-sonnet-4",
+				ProviderOptions: map[string]interface{}{"timeout": float64(30)},
+			},
+		},
+	}
+
+	wa.SetConfig(cfg, selection)
+	wa.agents["build"].expanded = true
+
+	lines := wa.renderAgentForm("build", wa.agents["build"])
+	if !strings.Contains(lines[1], "[✓]") || !strings.Contains(lines[1], "claude-sonnet-4") {
+		t.Fatalf("expected model line to show selected checkbox, got %q", lines[1])
+	}
+	if !strings.Contains(lines[2], "[ ]") || !strings.Contains(lines[2], "variant") {
+		t.Fatalf("expected variant line to show unselected checkbox, got %q", lines[2])
+	}
+	providerLine := findLineContaining(lines, "providerOpts")
+	if providerLine == "" || !strings.Contains(providerLine, "[✓]") {
+		t.Fatalf("expected providerOpts line to show selected checkbox, got %q", providerLine)
+	}
+}
+
+func TestWizardAgentsApplyWritesOnlySelectedFields(t *testing.T) {
+	wa := NewWizardAgents()
+
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("agents.*.model", true)
+	selection.SetSelected("agents.*.maxTokens", true)
+	selection.SetSelected("agents.*.permission.task", true)
+
+	wa.agents["build"].enabled = true
+	wa.agents["build"].modelValue = "claude-sonnet-4"
+	wa.agents["build"].variant.SetValue("v1")
+	wa.agents["build"].maxTokens.SetValue("4096")
+	wa.agents["build"].prompt.SetValue("leave me out")
+	wa.agents["build"].permTaskIdx = 2
+
+	cfg := &config.Config{}
+	wa.Apply(cfg, selection)
+
+	agentCfg := cfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent to be written")
+	}
+	if agentCfg.Model != "claude-sonnet-4" {
+		t.Fatalf("expected selected model to be written, got %q", agentCfg.Model)
+	}
+	if agentCfg.MaxTokens == nil || *agentCfg.MaxTokens != 4096 {
+		t.Fatalf("expected selected maxTokens to be written, got %v", agentCfg.MaxTokens)
+	}
+	if agentCfg.Permission == nil || agentCfg.Permission.Task != "allow" {
+		t.Fatalf("expected selected permission.task to be written, got %#v", agentCfg.Permission)
+	}
+	if agentCfg.Variant != "" {
+		t.Fatalf("expected unselected variant to be omitted, got %q", agentCfg.Variant)
+	}
+	if agentCfg.Prompt != "" {
+		t.Fatalf("expected unselected prompt to be omitted, got %q", agentCfg.Prompt)
+	}
+	if agentCfg.Permission.Edit != "" {
+		t.Fatalf("expected unselected permission.edit to be omitted, got %q", agentCfg.Permission.Edit)
+	}
+}
+
+func TestWizardAgentsApplyOmitsAgentsWithZeroSelectedFields(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.agents["build"].enabled = true
+	wa.agents["build"].modelValue = "claude-sonnet-4"
+
+	cfg := &config.Config{}
+	wa.Apply(cfg, profile.NewBlankSelection())
+
+	if cfg.Agents != nil {
+		t.Fatalf("expected agents to be omitted when no fields are selected, got %#v", cfg.Agents)
+	}
+}
+
+func TestWizardAgentsDoesNotMaterializeEmptyStrings(t *testing.T) {
+	wa := NewWizardAgents()
+
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("agents.*.model", true)
+
+	wa.agents["build"].enabled = true
+	wa.agents["build"].modelValue = "claude-sonnet-4"
+	wa.agents["build"].variant.SetValue("keep-me")
+	wa.agents["build"].description.SetValue("keep this text")
+	wa.agents["build"].promptAppend.SetValue("keep this too")
+	wa.agents["build"].modeIdx = 1
+
+	cfg := &config.Config{}
+	wa.Apply(cfg, selection)
+
+	agentCfg := cfg.Agents["build"]
+	if agentCfg == nil {
+		t.Fatal("expected build agent to be written")
+	}
+	if agentCfg.Variant != "" {
+		t.Fatalf("expected unchecked variant to stay omitted, got %q", agentCfg.Variant)
+	}
+	if agentCfg.Description != "" {
+		t.Fatalf("expected unchecked description to stay omitted, got %q", agentCfg.Description)
+	}
+	if agentCfg.PromptAppend != "" {
+		t.Fatalf("expected unchecked prompt_append to stay omitted, got %q", agentCfg.PromptAppend)
+	}
+	if agentCfg.Mode != "" {
+		t.Fatalf("expected unchecked mode to stay omitted, got %q", agentCfg.Mode)
+	}
+}
+
+func TestWizardAgentsCheckboxToggleRetainsAgentFieldValues(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	selection := profile.NewBlankSelection()
+	wa.selection = selection
+	wa.agents["build"].enabled = true
+	wa.agents["build"].expanded = true
+	wa.agents["build"].description.SetValue("keep this value")
+	wa.inForm = true
+	wa.focusedField = fieldDescription
+	wa.viewport.SetContent(wa.renderContent())
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")}
+	updated, cmd := wa.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command when toggling inclusion checkbox with space")
+	}
+	if !updated.selection.IsSelected("agents.*.description") {
+		t.Fatal("expected space to toggle description selection on")
+	}
+	if updated.agents["build"].description.Value() != "keep this value" {
+		t.Fatalf("expected description value to be retained, got %q", updated.agents["build"].description.Value())
 	}
 }
 

@@ -626,6 +626,7 @@ func (w *WizardAgents) SetSize(width, height int) {
 
 func (w *WizardAgents) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
+	w.canonicalizeSelectionPaths()
 	if cfg.Agents == nil {
 		return
 	}
@@ -788,6 +789,222 @@ func (w *WizardAgents) SetConfig(cfg *config.Config, selection *profile.FieldSel
 
 func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
+	w.canonicalizeSelectionPaths()
+
+	if selection == nil {
+		w.applyAllAgentFields(cfg)
+		return
+	}
+
+	if !w.hasSelectedAgentFields() {
+		cfg.Agents = nil
+		return
+	}
+
+	cfg.Agents = make(map[string]*config.AgentConfig)
+
+	for name, ac := range w.agents {
+		if !ac.enabled {
+			continue
+		}
+
+		agentCfg := &config.AgentConfig{}
+		hasSelectedFields := false
+
+		if w.isAgentFieldSelected(fieldModel) {
+			agentCfg.Model = ac.modelValue
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldFallbackModels) {
+			agentCfg.FallbackModels = buildAgentFallbackModelsValue(ac)
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldVariant) {
+			agentCfg.Variant = ac.variant.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldCategory) {
+			agentCfg.Category = ac.category.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldTemperature) {
+			if v := strings.TrimSpace(ac.temperature.Value()); v != "" {
+				if f, err := strconv.ParseFloat(v, 64); err == nil {
+					agentCfg.Temperature = &f
+				}
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldTopP) {
+			if v := strings.TrimSpace(ac.topP.Value()); v != "" {
+				if f, err := strconv.ParseFloat(v, 64); err == nil {
+					agentCfg.TopP = &f
+				}
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldSkills) {
+			if v := strings.TrimSpace(ac.skills.Value()); v != "" {
+				parts := strings.Split(v, ",")
+				var skills []string
+				for _, p := range parts {
+					if s := strings.TrimSpace(p); s != "" {
+						skills = append(skills, s)
+					}
+				}
+				agentCfg.Skills = skills
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldTools) {
+			agentCfg.Tools = parseMapStringBool(ac.tools.Value())
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldPrompt) {
+			agentCfg.Prompt = ac.prompt.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldPromptAppend) {
+			agentCfg.PromptAppend = ac.promptAppend.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldDisable) {
+			disable := ac.disable
+			agentCfg.Disable = &disable
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldDescription) {
+			agentCfg.Description = ac.description.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldMode) {
+			agentCfg.Mode = agentModes[ac.modeIdx]
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldColor) {
+			agentCfg.Color = ac.color.Value()
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldMaxTokens) {
+			if val := strings.TrimSpace(ac.maxTokens.Value()); val != "" {
+				if f, err := strconv.ParseFloat(val, 64); err == nil {
+					agentCfg.MaxTokens = &f
+				}
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldThinkingType) || w.isAgentFieldSelected(fieldThinkingBudget) {
+			agentCfg.Thinking = &config.ThinkingConfig{}
+			if w.isAgentFieldSelected(fieldThinkingType) {
+				agentCfg.Thinking.Type = thinkingTypes[ac.thinkingTypeIdx]
+			}
+			if w.isAgentFieldSelected(fieldThinkingBudget) {
+				if val := strings.TrimSpace(ac.thinkingBudget.Value()); val != "" {
+					if f, err := strconv.ParseFloat(val, 64); err == nil {
+						agentCfg.Thinking.BudgetTokens = &f
+					}
+				}
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldUltraworkModel) || w.isAgentFieldSelected(fieldUltraworkVariant) {
+			agentCfg.Ultrawork = &config.UltraworkConfig{}
+			if w.isAgentFieldSelected(fieldUltraworkModel) {
+				agentCfg.Ultrawork.Model = ac.ultraworkModel.Value()
+			}
+			if w.isAgentFieldSelected(fieldUltraworkVariant) {
+				agentCfg.Ultrawork.Variant = ac.ultraworkVariant.Value()
+			}
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldReasoningEffort) {
+			agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldTextVerbosity) {
+			agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
+			hasSelectedFields = true
+		}
+		if w.isAgentFieldSelected(fieldProviderOptions) {
+			agentCfg.ProviderOptions = buildAgentProviderOptionsValue(ac)
+			hasSelectedFields = true
+		}
+
+		permissionSelected := false
+		if w.isAgentFieldSelected(fieldPermEdit) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.Edit = permissionValues[ac.permEditIdx]
+			permissionSelected = true
+		}
+		if w.isAgentFieldSelected(fieldPermBash) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.Bash = buildAgentBashPermissionValue(ac)
+			permissionSelected = true
+		}
+		if w.isAgentFieldSelected(fieldPermWebfetch) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.Webfetch = permissionValues[ac.permWebfetchIdx]
+			permissionSelected = true
+		}
+		if w.isAgentFieldSelected(fieldPermTask) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.Task = permissionValues[ac.permTaskIdx]
+			permissionSelected = true
+		}
+		if w.isAgentFieldSelected(fieldPermDoomLoop) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.DoomLoop = permissionValues[ac.permDoomLoopIdx]
+			permissionSelected = true
+		}
+		if w.isAgentFieldSelected(fieldPermExtDir) {
+			if agentCfg.Permission == nil {
+				agentCfg.Permission = &config.PermissionConfig{}
+			}
+			agentCfg.Permission.ExternalDirectory = permissionValues[ac.permExtDirIdx]
+			permissionSelected = true
+		}
+		if permissionSelected {
+			hasSelectedFields = true
+		}
+
+		if w.isAgentFieldSelected(fieldCompactionModel) || w.isAgentFieldSelected(fieldCompactionVariant) {
+			agentCfg.Compaction = &config.CompactionConfig{}
+			if w.isAgentFieldSelected(fieldCompactionModel) {
+				agentCfg.Compaction.Model = ac.compactionModel.Value()
+			}
+			if w.isAgentFieldSelected(fieldCompactionVariant) {
+				agentCfg.Compaction.Variant = ac.compactionVariant.Value()
+			}
+			hasSelectedFields = true
+		}
+
+		if name == "hephaestus" && w.isAgentFieldSelected(fieldAllowNonGpt) {
+			allowNonGpt := ac.allowNonGpt
+			agentCfg.AllowNonGptModel = &allowNonGpt
+			hasSelectedFields = true
+		}
+
+		if hasSelectedFields {
+			cfg.Agents[name] = agentCfg
+		}
+	}
+
+	if len(cfg.Agents) == 0 {
+		cfg.Agents = nil
+	}
+}
+
+func (w *WizardAgents) applyAllAgentFields(cfg *config.Config) {
 	if cfg.Agents == nil {
 		cfg.Agents = make(map[string]*config.AgentConfig)
 	}
@@ -806,47 +1023,7 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 		}
 
 		agentCfg.Model = ac.modelValue
-		if len(ac.fallbackEntries) > 0 {
-			if len(ac.fallbackEntries) == 1 && ac.fallbackEntries[0].variant == "" && ac.fallbackEntries[0].reasoningEffort == "" && !ac.fallbackEntries[0].isRawJSON {
-				agentCfg.FallbackModels = ac.fallbackEntries[0].model
-			} else {
-				arr := make([]interface{}, len(ac.fallbackEntries))
-				for i, fe := range ac.fallbackEntries {
-					if fe.isRawJSON {
-						var parsed interface{}
-						if json.Unmarshal([]byte(fe.rawJSON), &parsed) == nil {
-							arr[i] = parsed
-						} else {
-							arr[i] = fe.model
-						}
-					} else if fe.variant != "" || fe.reasoningEffort != "" {
-						obj := map[string]interface{}{"model": fe.model}
-						if fe.variant != "" {
-							obj["variant"] = fe.variant
-						}
-						if fe.reasoningEffort != "" {
-							obj["reasoningEffort"] = fe.reasoningEffort
-						}
-						arr[i] = obj
-					} else {
-						arr[i] = fe.model
-					}
-				}
-				agentCfg.FallbackModels = arr
-			}
-		} else {
-			if v := ac.fallbackModels.Value(); v != "" {
-				v = strings.TrimSpace(v)
-				var parsed interface{}
-				if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-					agentCfg.FallbackModels = parsed
-				} else {
-					agentCfg.FallbackModels = v
-				}
-			} else {
-				agentCfg.FallbackModels = nil
-			}
-		}
+		agentCfg.FallbackModels = buildAgentFallbackModelsValue(ac)
 		agentCfg.Variant = ac.variant.Value()
 		agentCfg.Category = ac.category.Value()
 		if v := ac.temperature.Value(); v != "" {
@@ -899,18 +1076,8 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 			if ac.permEditIdx > 0 {
 				agentCfg.Permission.Edit = permissionValues[ac.permEditIdx]
 			}
-			if len(ac.bashRuleKeys) > 0 {
-				bashMap := make(map[string]interface{})
-				for i, k := range ac.bashRuleKeys {
-					if i < len(ac.bashRulePermIdx) && ac.bashRulePermIdx[i] > 0 {
-						bashMap[k] = permissionValues[ac.bashRulePermIdx[i]]
-					}
-				}
-				if len(bashMap) > 0 {
-					agentCfg.Permission.Bash = bashMap
-				}
-			} else if ac.permBashIdx > 0 {
-				agentCfg.Permission.Bash = permissionValues[ac.permBashIdx]
+			if bashValue := buildAgentBashPermissionValue(ac); bashValue != nil {
+				agentCfg.Permission.Bash = bashValue
 			}
 			if ac.permWebfetchIdx > 0 {
 				agentCfg.Permission.Webfetch = permissionValues[ac.permWebfetchIdx]
@@ -985,31 +1152,7 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 		agentCfg.ReasoningEffort = effortLevels[ac.reasoningEffortIdx]
 		agentCfg.TextVerbosity = verbosityLevels[ac.textVerbosityIdx]
 
-		if len(ac.provOptKeys) > 0 {
-			result := make(map[string]interface{})
-			for i, k := range ac.provOptKeys {
-				if k == "" {
-					continue
-				}
-				if i < len(ac.provOptValues) {
-					raw := ac.provOptValues[i].Value()
-					if f, err := strconv.ParseFloat(raw, 64); err == nil {
-						result[k] = f
-					} else if b, err := strconv.ParseBool(raw); err == nil {
-						result[k] = b
-					} else {
-						result[k] = raw
-					}
-				}
-			}
-			if len(result) > 0 {
-				agentCfg.ProviderOptions = result
-			} else {
-				agentCfg.ProviderOptions = nil
-			}
-		} else {
-			agentCfg.ProviderOptions = nil
-		}
+		agentCfg.ProviderOptions = buildAgentProviderOptionsValue(ac)
 
 		cfg.Agents[name] = agentCfg
 	}
@@ -1017,6 +1160,307 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 	// Remove empty agents map
 	if len(cfg.Agents) == 0 {
 		cfg.Agents = nil
+	}
+}
+
+var selectableAgentFields = []agentFormField{
+	fieldModel,
+	fieldFallbackModels,
+	fieldVariant,
+	fieldCategory,
+	fieldTemperature,
+	fieldTopP,
+	fieldSkills,
+	fieldTools,
+	fieldPrompt,
+	fieldPromptAppend,
+	fieldDisable,
+	fieldDescription,
+	fieldMode,
+	fieldColor,
+	fieldMaxTokens,
+	fieldThinkingType,
+	fieldThinkingBudget,
+	fieldUltraworkModel,
+	fieldUltraworkVariant,
+	fieldReasoningEffort,
+	fieldTextVerbosity,
+	fieldProviderOptions,
+	fieldPermEdit,
+	fieldPermBash,
+	fieldPermWebfetch,
+	fieldPermTask,
+	fieldPermDoomLoop,
+	fieldPermExtDir,
+	fieldCompactionModel,
+	fieldCompactionVariant,
+	fieldAllowNonGpt,
+}
+
+func buildAgentFallbackModelsValue(ac *agentConfig) interface{} {
+	if len(ac.fallbackEntries) > 0 {
+		if len(ac.fallbackEntries) == 1 && ac.fallbackEntries[0].variant == "" && ac.fallbackEntries[0].reasoningEffort == "" && !ac.fallbackEntries[0].isRawJSON {
+			return ac.fallbackEntries[0].model
+		}
+
+		arr := make([]interface{}, len(ac.fallbackEntries))
+		for i, fe := range ac.fallbackEntries {
+			if fe.isRawJSON {
+				var parsed interface{}
+				if json.Unmarshal([]byte(fe.rawJSON), &parsed) == nil {
+					arr[i] = parsed
+				} else {
+					arr[i] = fe.model
+				}
+				continue
+			}
+
+			if fe.variant != "" || fe.reasoningEffort != "" {
+				obj := map[string]interface{}{"model": fe.model}
+				if fe.variant != "" {
+					obj["variant"] = fe.variant
+				}
+				if fe.reasoningEffort != "" {
+					obj["reasoningEffort"] = fe.reasoningEffort
+				}
+				arr[i] = obj
+				continue
+			}
+
+			arr[i] = fe.model
+		}
+		return arr
+	}
+
+	v := strings.TrimSpace(ac.fallbackModels.Value())
+	if v == "" {
+		return nil
+	}
+
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+		return parsed
+	}
+
+	return v
+}
+
+func buildAgentBashPermissionValue(ac *agentConfig) interface{} {
+	if len(ac.bashRuleKeys) > 0 {
+		bashMap := make(map[string]interface{})
+		for i, k := range ac.bashRuleKeys {
+			if i < len(ac.bashRulePermIdx) && ac.bashRulePermIdx[i] > 0 {
+				bashMap[k] = permissionValues[ac.bashRulePermIdx[i]]
+			}
+		}
+		if len(bashMap) > 0 {
+			return bashMap
+		}
+		return nil
+	}
+
+	if ac.permBashIdx > 0 {
+		return permissionValues[ac.permBashIdx]
+	}
+
+	return nil
+}
+
+func buildAgentProviderOptionsValue(ac *agentConfig) map[string]interface{} {
+	if len(ac.provOptKeys) == 0 {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+	for i, k := range ac.provOptKeys {
+		if k == "" {
+			continue
+		}
+		if i >= len(ac.provOptValues) {
+			continue
+		}
+
+		raw := ac.provOptValues[i].Value()
+		if f, err := strconv.ParseFloat(raw, 64); err == nil {
+			result[k] = f
+		} else if b, err := strconv.ParseBool(raw); err == nil {
+			result[k] = b
+		} else {
+			result[k] = raw
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+
+	return result
+}
+
+func agentSelectionPath(field agentFormField) (string, bool) {
+	switch field {
+	case fieldModel:
+		return "agents.*.model", true
+	case fieldFallbackModels:
+		return "agents.*.fallback_models", true
+	case fieldVariant:
+		return "agents.*.variant", true
+	case fieldCategory:
+		return "agents.*.category", true
+	case fieldTemperature:
+		return "agents.*.temperature", true
+	case fieldTopP:
+		return "agents.*.top_p", true
+	case fieldSkills:
+		return "agents.*.skills", true
+	case fieldTools:
+		return "agents.*.tools", true
+	case fieldPrompt:
+		return "agents.*.prompt", true
+	case fieldPromptAppend:
+		return "agents.*.prompt_append", true
+	case fieldDisable:
+		return "agents.*.disable", true
+	case fieldDescription:
+		return "agents.*.description", true
+	case fieldMode:
+		return "agents.*.mode", true
+	case fieldColor:
+		return "agents.*.color", true
+	case fieldMaxTokens:
+		return "agents.*.max_tokens", true
+	case fieldThinkingType:
+		return "agents.*.thinking.type", true
+	case fieldThinkingBudget:
+		return "agents.*.thinking.budget_tokens", true
+	case fieldUltraworkModel:
+		return "agents.*.ultrawork.model", true
+	case fieldUltraworkVariant:
+		return "agents.*.ultrawork.variant", true
+	case fieldReasoningEffort:
+		return "agents.*.reasoning_effort", true
+	case fieldTextVerbosity:
+		return "agents.*.text_verbosity", true
+	case fieldProviderOptions:
+		return "agents.*.provider_options", true
+	case fieldPermEdit:
+		return "agents.*.permission.edit", true
+	case fieldPermBash:
+		return "agents.*.permission.bash", true
+	case fieldPermWebfetch:
+		return "agents.*.permission.webfetch", true
+	case fieldPermTask:
+		return "agents.*.permission.task", true
+	case fieldPermDoomLoop:
+		return "agents.*.permission.doom_loop", true
+	case fieldPermExtDir:
+		return "agents.*.permission.external_directory", true
+	case fieldCompactionModel:
+		return "agents.*.compaction.model", true
+	case fieldCompactionVariant:
+		return "agents.*.compaction.variant", true
+	case fieldAllowNonGpt:
+		return "agents.*.allow_non_gpt_model", true
+	default:
+		return "", false
+	}
+}
+
+func agentSelectionAliases(field agentFormField) []string {
+	switch field {
+	case fieldMaxTokens:
+		return []string{"agents.*.maxTokens"}
+	case fieldThinkingBudget:
+		return []string{"agents.*.thinking.budgetTokens"}
+	case fieldReasoningEffort:
+		return []string{"agents.*.reasoningEffort"}
+	case fieldTextVerbosity:
+		return []string{"agents.*.textVerbosity"}
+	case fieldProviderOptions:
+		return []string{"agents.*.providerOptions"}
+	default:
+		return nil
+	}
+}
+
+func (w *WizardAgents) canonicalizeSelectionPaths() {
+	if w.selection == nil {
+		return
+	}
+
+	for _, field := range selectableAgentFields {
+		path, ok := agentSelectionPath(field)
+		if !ok {
+			continue
+		}
+
+		aliases := agentSelectionAliases(field)
+		if w.selection.IsSelected(path) {
+			for _, alias := range aliases {
+				w.selection.SetSelected(alias, false)
+			}
+			continue
+		}
+
+		selected := false
+		for _, alias := range aliases {
+			if w.selection.IsSelected(alias) {
+				selected = true
+				break
+			}
+		}
+		if selected {
+			w.selection.SetSelected(path, true)
+		}
+
+		for _, alias := range aliases {
+			w.selection.SetSelected(alias, false)
+		}
+	}
+}
+
+func (w WizardAgents) isAgentFieldSelected(field agentFormField) bool {
+	path, ok := agentSelectionPath(field)
+	if !ok {
+		return false
+	}
+	if w.selection == nil {
+		return true
+	}
+	if w.selection.IsSelected(path) {
+		return true
+	}
+	for _, alias := range agentSelectionAliases(field) {
+		if w.selection.IsSelected(alias) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w WizardAgents) hasSelectedAgentFields() bool {
+	for _, field := range selectableAgentFields {
+		if w.isAgentFieldSelected(field) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *WizardAgents) toggleAgentFieldSelection(field agentFormField) {
+	if w.selection == nil {
+		return
+	}
+
+	path, ok := agentSelectionPath(field)
+	if !ok {
+		return
+	}
+
+	selected := w.isAgentFieldSelected(field)
+	w.selection.SetSelected(path, !selected)
+	for _, alias := range agentSelectionAliases(field) {
+		w.selection.SetSelected(alias, false)
 	}
 }
 
@@ -1273,6 +1717,13 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 				w.viewport.SetContent(w.renderContent())
 				w.ensureFieldVisible()
 				return w, nil
+			case " ":
+				if _, ok := agentSelectionPath(w.focusedField); ok {
+					w.toggleAgentFieldSelection(w.focusedField)
+					w.viewport.SetContent(w.renderContent())
+					w.ensureFieldVisible()
+					return w, nil
+				}
 			case "enter":
 				switch w.focusedField {
 				case fieldModel:
@@ -1520,7 +1971,11 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 			style = wizAgentSelectedStyle
 			cursor = wizAgentCursorStyle.Render("> ")
 		}
-		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + value
+		includeCheckbox := "[ ]"
+		if w.isAgentFieldSelected(field) {
+			includeCheckbox = "[✓]"
+		}
+		return indent[:len(indent)-2] + cursor + style.Render(includeCheckbox+" "+fmt.Sprintf(labelFmt, label)) + value
 	}
 
 	renderDropdown := func(label string, field agentFormField, options []string, idx int) string {
@@ -1530,11 +1985,15 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 			style = wizAgentSelectedStyle
 			cursor = wizAgentCursorStyle.Render("> ")
 		}
+		includeCheckbox := "[ ]"
+		if w.isAgentFieldSelected(field) {
+			includeCheckbox = "[✓]"
+		}
 		val := "(none)"
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + val + " [←/→]"
+		return indent[:len(indent)-2] + cursor + style.Render(includeCheckbox+" "+fmt.Sprintf(labelFmt, label)) + val + " [Enter]"
 	}
 
 	renderBool := func(label string, field agentFormField, val bool) string {
@@ -1544,11 +2003,15 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 			style = wizAgentSelectedStyle
 			cursor = wizAgentCursorStyle.Render("> ")
 		}
+		includeCheckbox := "[ ]"
+		if w.isAgentFieldSelected(field) {
+			includeCheckbox = "[✓]"
+		}
 		checkbox := "[ ]"
 		if val {
 			checkbox = "[✓]"
 		}
-		return indent[:len(indent)-2] + cursor + style.Render(fmt.Sprintf(labelFmt, label)) + checkbox + " [←/→]"
+		return indent[:len(indent)-2] + cursor + style.Render(includeCheckbox+" "+fmt.Sprintf(labelFmt, label)) + checkbox + " [Enter]"
 	}
 
 	lines = append(lines, "")
@@ -2186,7 +2649,7 @@ func (w WizardAgents) View() string {
 	desc := wizAgentDimStyle.Render("Space to enable/disable • Enter to expand • Tab to next step")
 
 	if w.inForm {
-		desc = wizAgentDimStyle.Render("↑/↓/Tab: navigate • Enter: cycle options • Esc: close form")
+		desc = wizAgentDimStyle.Render("↑/↓/Tab: navigate • Space: toggle include • Enter: edit/value • Esc: close form")
 	}
 
 	content := w.viewport.View()
