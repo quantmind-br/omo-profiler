@@ -3,6 +3,7 @@ package views
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -58,6 +59,25 @@ const (
 	catFieldMaxPromptTokens
 	catFieldFallbackModels
 )
+
+var selectableCategoryFields = []categoryFormField{
+	catFieldModel,
+	catFieldVariant,
+	catFieldDescription,
+	catFieldIsUnstable,
+	catFieldDisable,
+	catFieldTemperature,
+	catFieldTopP,
+	catFieldMaxTokens,
+	catFieldMaxPromptTokens,
+	catFieldThinkingType,
+	catFieldThinkingBudget,
+	catFieldReasoningEffort,
+	catFieldTextVerbosity,
+	catFieldTools,
+	catFieldPromptAppend,
+	catFieldFallbackModels,
+}
 
 type categoryConfig struct {
 	name               string
@@ -288,6 +308,7 @@ func (w *WizardCategories) SetSize(width, height int) {
 
 func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
+	w.canonicalizeSelectionPaths()
 	w.categories = []*categoryConfig{}
 
 	if cfg.Categories == nil {
@@ -381,6 +402,13 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 
 func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
+	w.canonicalizeSelectionPaths()
+
+	if !w.hasSelectedCategoryFields() {
+		cfg.Categories = nil
+		return
+	}
+
 	cfg.Categories = make(map[string]*config.CategoryConfig)
 
 	for _, cc := range w.categories {
@@ -391,73 +419,84 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 
 		catCfg := &config.CategoryConfig{}
 
-		if cc.modelValue != "" {
+		if w.isCategoryFieldSelected(catFieldModel) {
 			catCfg.Model = cc.modelValue
 		}
-		if v := cc.fallbackModels.Value(); v != "" {
+		if w.isCategoryFieldSelected(catFieldFallbackModels) {
+			v := strings.TrimSpace(cc.fallbackModels.Value())
 			v = strings.TrimSpace(v)
-			var parsed interface{}
+			var parsed any
 			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
 				catCfg.FallbackModels = parsed
 			} else {
 				catCfg.FallbackModels = v
 			}
 		}
-		if v := cc.description.Value(); v != "" {
-			catCfg.Description = v
+		if w.isCategoryFieldSelected(catFieldDescription) {
+			catCfg.Description = cc.description.Value()
 		}
-		if cc.isUnstable {
+		if w.isCategoryFieldSelected(catFieldIsUnstable) {
 			catCfg.IsUnstableAgent = &cc.isUnstable
 		}
-		if cc.disable {
+		if w.isCategoryFieldSelected(catFieldDisable) {
 			catCfg.Disable = &cc.disable
 		}
-		if v := cc.variant.Value(); v != "" {
-			catCfg.Variant = v
+		if w.isCategoryFieldSelected(catFieldVariant) {
+			catCfg.Variant = cc.variant.Value()
 		}
-		if v := cc.temperature.Value(); v != "" {
+		if w.isCategoryFieldSelected(catFieldTemperature) {
+			v := strings.TrimSpace(cc.temperature.Value())
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				catCfg.Temperature = &f
 			}
 		}
-		if v := cc.topP.Value(); v != "" {
+		if w.isCategoryFieldSelected(catFieldTopP) {
+			v := strings.TrimSpace(cc.topP.Value())
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				catCfg.TopP = &f
 			}
 		}
-		if v := cc.maxTokens.Value(); v != "" {
+		if w.isCategoryFieldSelected(catFieldMaxTokens) {
+			v := strings.TrimSpace(cc.maxTokens.Value())
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				catCfg.MaxTokens = &f
 			}
 		}
-		if v := cc.maxPromptTokens.Value(); v != "" {
+		if w.isCategoryFieldSelected(catFieldMaxPromptTokens) {
+			v := strings.TrimSpace(cc.maxPromptTokens.Value())
 			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 				catCfg.MaxPromptTokens = &i
 			}
 		}
 
-		if cc.thinkingTypeIdx > 0 {
+		if w.isCategoryFieldSelected(catFieldThinkingType) || w.isCategoryFieldSelected(catFieldThinkingBudget) {
 			catCfg.Thinking = &config.ThinkingConfig{
 				Type: thinkingTypes[cc.thinkingTypeIdx],
 			}
-			if v := cc.thinkingBudget.Value(); v != "" {
+			if w.isCategoryFieldSelected(catFieldThinkingBudget) {
+				v := strings.TrimSpace(cc.thinkingBudget.Value())
 				if f, err := strconv.ParseFloat(v, 64); err == nil {
 					catCfg.Thinking.BudgetTokens = &f
 				}
 			}
 		}
 
-		if cc.reasoningEffortIdx > 0 {
+		if w.isCategoryFieldSelected(catFieldReasoningEffort) {
 			catCfg.ReasoningEffort = effortLevels[cc.reasoningEffortIdx]
 		}
-		if cc.textVerbosityIdx > 0 {
+		if w.isCategoryFieldSelected(catFieldTextVerbosity) {
 			catCfg.TextVerbosity = verbosityLevels[cc.textVerbosityIdx]
 		}
-		if v := cc.tools.Value(); v != "" {
-			catCfg.Tools = parseMapStringBool(v)
+		if w.isCategoryFieldSelected(catFieldTools) {
+			v := strings.TrimSpace(cc.tools.Value())
+			if v == "" {
+				catCfg.Tools = map[string]bool{}
+			} else {
+				catCfg.Tools = parseMapStringBool(v)
+			}
 		}
-		if v := cc.promptAppend.Value(); v != "" {
-			catCfg.PromptAppend = v
+		if w.isCategoryFieldSelected(catFieldPromptAppend) {
+			catCfg.PromptAppend = cc.promptAppend.Value()
 		}
 
 		cfg.Categories[name] = catCfg
@@ -465,6 +504,130 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 
 	if len(cfg.Categories) == 0 {
 		cfg.Categories = nil
+	}
+}
+
+func categorySelectionPath(field categoryFormField) (string, bool) {
+	switch field {
+	case catFieldModel:
+		return "categories.*.model", true
+	case catFieldVariant:
+		return "categories.*.variant", true
+	case catFieldDescription:
+		return "categories.*.description", true
+	case catFieldIsUnstable:
+		return "categories.*.is_unstable_agent", true
+	case catFieldDisable:
+		return "categories.*.disable", true
+	case catFieldTemperature:
+		return "categories.*.temperature", true
+	case catFieldTopP:
+		return "categories.*.top_p", true
+	case catFieldMaxTokens:
+		return "categories.*.max_tokens", true
+	case catFieldMaxPromptTokens:
+		return "categories.*.max_prompt_tokens", true
+	case catFieldThinkingType:
+		return "categories.*.thinking.type", true
+	case catFieldThinkingBudget:
+		return "categories.*.thinking.budget_tokens", true
+	case catFieldReasoningEffort:
+		return "categories.*.reasoning_effort", true
+	case catFieldTextVerbosity:
+		return "categories.*.text_verbosity", true
+	case catFieldTools:
+		return "categories.*.tools", true
+	case catFieldPromptAppend:
+		return "categories.*.prompt_append", true
+	case catFieldFallbackModels:
+		return "categories.*.fallback_models", true
+	default:
+		return "", false
+	}
+}
+
+func categorySelectionAliases(field categoryFormField) []string {
+	switch field {
+	case catFieldMaxTokens:
+		return []string{"categories.*.maxTokens"}
+	case catFieldThinkingBudget:
+		return []string{"categories.*.thinking.budgetTokens"}
+	case catFieldReasoningEffort:
+		return []string{"categories.*.reasoningEffort"}
+	case catFieldTextVerbosity:
+		return []string{"categories.*.textVerbosity"}
+	default:
+		return nil
+	}
+}
+
+func (w *WizardCategories) canonicalizeSelectionPaths() {
+	if w.selection == nil {
+		return
+	}
+
+	for _, field := range selectableCategoryFields {
+		path, ok := categorySelectionPath(field)
+		if !ok {
+			continue
+		}
+
+		aliases := categorySelectionAliases(field)
+		if w.selection.IsSelected(path) {
+			for _, alias := range aliases {
+				w.selection.SetSelected(alias, false)
+			}
+			continue
+		}
+
+		selected := slices.ContainsFunc(aliases, func(alias string) bool {
+			return w.selection.IsSelected(alias)
+		})
+
+		if selected {
+			w.selection.SetSelected(path, true)
+		}
+
+		for _, alias := range aliases {
+			w.selection.SetSelected(alias, false)
+		}
+	}
+}
+
+func (w WizardCategories) isCategoryFieldSelected(field categoryFormField) bool {
+	path, ok := categorySelectionPath(field)
+	if !ok {
+		return false
+	}
+	if w.selection == nil {
+		return true
+	}
+	if w.selection.IsSelected(path) {
+		return true
+	}
+	return slices.ContainsFunc(categorySelectionAliases(field), func(alias string) bool {
+		return w.selection.IsSelected(alias)
+	})
+}
+
+func (w WizardCategories) hasSelectedCategoryFields() bool {
+	return slices.ContainsFunc(selectableCategoryFields, w.isCategoryFieldSelected)
+}
+
+func (w *WizardCategories) toggleCategoryFieldSelection(field categoryFormField) {
+	if w.selection == nil {
+		return
+	}
+
+	path, ok := categorySelectionPath(field)
+	if !ok {
+		return
+	}
+
+	selected := w.isCategoryFieldSelected(field)
+	w.selection.SetSelected(path, !selected)
+	for _, alias := range categorySelectionAliases(field) {
+		w.selection.SetSelected(alias, false)
 	}
 }
 
@@ -654,6 +817,13 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					w.viewport.SetContent(w.renderContent())
 					w.ensureFieldVisible()
 					return w, nil
+				case " ":
+					if _, ok := categorySelectionPath(w.focusedField); ok {
+						w.toggleCategoryFieldSelection(w.focusedField)
+						w.viewport.SetContent(w.renderContent())
+						w.ensureFieldVisible()
+						return w, nil
+					}
 				case "enter":
 					if w.focusedField == catFieldModel {
 						cc.selectingModel = true
@@ -868,16 +1038,34 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + value
 	}
 
+	renderSelectableField := func(label string, field categoryFormField, value string) string {
+		style := wizCatDimStyle
+		if w.inForm && w.focusedField == field {
+			style = wizCatSelectedStyle
+		}
+
+		checkbox := "[ ]"
+		if w.isCategoryFieldSelected(field) {
+			checkbox = "[✓]"
+		}
+
+		return indent + style.Render(checkbox+" "+fmt.Sprintf(labelFmt, label)) + value
+	}
+
 	renderDropdown := func(label string, field categoryFormField, options []string, idx int) string {
 		style := wizCatDimStyle
 		if w.inForm && w.focusedField == field {
 			style = wizCatSelectedStyle
 		}
+		checkbox := "[ ]"
+		if w.isCategoryFieldSelected(field) {
+			checkbox = "[✓]"
+		}
 		val := "(none)"
 		if idx > 0 && idx < len(options) {
 			val = options[idx]
 		}
-		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + val + " [Enter]"
+		return indent + style.Render(checkbox+" "+fmt.Sprintf(labelFmt, label)) + val + " [Enter]"
 	}
 
 	renderBool := func(label string, field categoryFormField, val bool) string {
@@ -885,11 +1073,15 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 		if w.inForm && w.focusedField == field {
 			style = wizCatSelectedStyle
 		}
+		includeCheckbox := "[ ]"
+		if w.isCategoryFieldSelected(field) {
+			includeCheckbox = "[✓]"
+		}
 		checkbox := "[ ]"
 		if val {
 			checkbox = "[✓]"
 		}
-		return indent + style.Render(fmt.Sprintf(labelFmt, label)) + checkbox + " [Enter]"
+		return indent + style.Render(includeCheckbox+" "+fmt.Sprintf(labelFmt, label)) + checkbox + " [Enter]"
 	}
 
 	lines = append(lines, "")
@@ -898,26 +1090,26 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	if modelDisplayValue == "" {
 		modelDisplayValue = "[Select model...]"
 	}
-	lines = append(lines, renderField("model", catFieldModel, modelDisplayValue))
-	lines = append(lines, renderField("variant", catFieldVariant, cc.variant.View()))
-	lines = append(lines, renderField("description", catFieldDescription, cc.description.View()))
+	lines = append(lines, renderSelectableField("model", catFieldModel, modelDisplayValue))
+	lines = append(lines, renderSelectableField("variant", catFieldVariant, cc.variant.View()))
+	lines = append(lines, renderSelectableField("description", catFieldDescription, cc.description.View()))
 	lines = append(lines, renderBool("is_unstable", catFieldIsUnstable, cc.isUnstable))
 	lines = append(lines, renderBool("disable", catFieldDisable, cc.disable))
-	lines = append(lines, renderField("temperature", catFieldTemperature, cc.temperature.View()))
-	lines = append(lines, renderField("top_p", catFieldTopP, cc.topP.View()))
-	lines = append(lines, renderField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
-	lines = append(lines, renderField("max_prompt_tokens", catFieldMaxPromptTokens, cc.maxPromptTokens.View()))
+	lines = append(lines, renderSelectableField("temperature", catFieldTemperature, cc.temperature.View()))
+	lines = append(lines, renderSelectableField("top_p", catFieldTopP, cc.topP.View()))
+	lines = append(lines, renderSelectableField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
+	lines = append(lines, renderSelectableField("max_prompt_tokens", catFieldMaxPromptTokens, cc.maxPromptTokens.View()))
 	lines = append(lines, "")
 	lines = append(lines, indent+wizCatDimStyle.Render("── Thinking ──"))
 	lines = append(lines, renderDropdown("type", catFieldThinkingType, thinkingTypes, cc.thinkingTypeIdx))
-	lines = append(lines, renderField("budget_tokens", catFieldThinkingBudget, cc.thinkingBudget.View()))
+	lines = append(lines, renderSelectableField("budget_tokens", catFieldThinkingBudget, cc.thinkingBudget.View()))
 	lines = append(lines, "")
 	lines = append(lines, renderDropdown("reasoning_effort", catFieldReasoningEffort, effortLevels, cc.reasoningEffortIdx))
 	lines = append(lines, renderDropdown("text_verbosity", catFieldTextVerbosity, verbosityLevels, cc.textVerbosityIdx))
 	lines = append(lines, "")
-	lines = append(lines, renderField("tools", catFieldTools, cc.tools.View()))
-	lines = append(lines, renderField("prompt_append", catFieldPromptAppend, cc.promptAppend.View()))
-	lines = append(lines, renderField("fallback_models", catFieldFallbackModels, cc.fallbackModels.View()))
+	lines = append(lines, renderSelectableField("tools", catFieldTools, cc.tools.View()))
+	lines = append(lines, renderSelectableField("prompt_append", catFieldPromptAppend, cc.promptAppend.View()))
+	lines = append(lines, renderSelectableField("fallback_models", catFieldFallbackModels, cc.fallbackModels.View()))
 	lines = append(lines, "")
 
 	return lines
@@ -938,7 +1130,7 @@ func (w WizardCategories) View() string {
 	desc := wizCatDimStyle.Render("n: new • d: delete • →: expand • ←: collapse • Enter: edit • Tab: next step")
 
 	if w.inForm {
-		desc = wizCatDimStyle.Render("↑/↓/Tab: navigate • Enter: select/toggle • Esc: close form")
+		desc = wizCatDimStyle.Render("↑/↓/Tab: navigate • Space: toggle include • Enter: select/toggle • Esc: close form")
 	}
 
 	content := w.viewport.View()

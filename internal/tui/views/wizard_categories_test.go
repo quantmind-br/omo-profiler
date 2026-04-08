@@ -1,10 +1,12 @@
 package views
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
 func TestNewWizardCategories(t *testing.T) {
@@ -243,6 +245,117 @@ func TestWizardCategoriesApply(t *testing.T) {
 
 	if catCfg.Description != "Test description" {
 		t.Errorf("expected description 'Test description', got %q", catCfg.Description)
+	}
+}
+
+func TestWizardCategoriesCheckboxesLoadFromSelection(t *testing.T) {
+	wc := NewWizardCategories()
+	wc.SetSize(100, 40)
+
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("categories.*.model", true)
+
+	cfg := &config.Config{
+		Categories: map[string]*config.CategoryConfig{
+			"coding": {
+				Model:       "claude-sonnet-4",
+				Description: "Coding tasks",
+			},
+		},
+	}
+
+	wc.SetConfig(cfg, selection)
+	wc.categories[0].expanded = true
+
+	lines := wc.renderCategoryForm(wc.categories[0])
+	if !strings.Contains(lines[2], "[✓]") || !strings.Contains(lines[2], "model") {
+		t.Fatalf("expected model line to show selected checkbox, got %q", lines[2])
+	}
+	if !strings.Contains(lines[4], "[ ]") || !strings.Contains(lines[4], "description") {
+		t.Fatalf("expected description line to show unselected checkbox, got %q", lines[4])
+	}
+}
+
+func TestWizardCategoriesApplyWritesOnlySelectedFields(t *testing.T) {
+	wc := NewWizardCategories()
+
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("categories.*.model", true)
+	selection.SetSelected("categories.*.max_prompt_tokens", true)
+
+	newCat := newCategoryConfig()
+	newCat.nameInput.SetValue("test-category")
+	newCat.modelValue = "claude-sonnet-4"
+	newCat.description.SetValue("Test description")
+	newCat.maxPromptTokens.SetValue("2048")
+	newCat.disable = true
+	wc.categories = append(wc.categories, &newCat)
+
+	cfg := &config.Config{}
+	wc.Apply(cfg, selection)
+
+	catCfg, ok := cfg.Categories["test-category"]
+	if !ok {
+		t.Fatal("expected category 'test-category' to exist")
+	}
+	if catCfg.Model != "claude-sonnet-4" {
+		t.Fatalf("expected selected model to be written, got %q", catCfg.Model)
+	}
+	if catCfg.Description != "" {
+		t.Fatalf("expected unselected description to be omitted, got %q", catCfg.Description)
+	}
+	if catCfg.Disable != nil {
+		t.Fatal("expected unselected disable field to be omitted")
+	}
+	if catCfg.MaxPromptTokens == nil || *catCfg.MaxPromptTokens != 2048 {
+		t.Fatalf("expected selected max_prompt_tokens to be written, got %v", catCfg.MaxPromptTokens)
+	}
+}
+
+func TestWizardCategoriesApplyOmitsCategoriesWithZeroSelectedFields(t *testing.T) {
+	wc := NewWizardCategories()
+
+	newCat := newCategoryConfig()
+	newCat.nameInput.SetValue("test-category")
+	newCat.modelValue = "claude-sonnet-4"
+	wc.categories = append(wc.categories, &newCat)
+
+	selection := profile.NewBlankSelection()
+	cfg := &config.Config{}
+	wc.Apply(cfg, selection)
+
+	if cfg.Categories != nil {
+		t.Fatalf("expected categories to be omitted when no fields are selected, got %#v", cfg.Categories)
+	}
+}
+
+func TestWizardCategoriesSpaceToggleRetainsFieldValue(t *testing.T) {
+	wc := NewWizardCategories()
+	wc.SetSize(80, 24)
+
+	selection := profile.NewBlankSelection()
+
+	newCat := newCategoryConfig()
+	newCat.nameInput.SetValue("cat1")
+	newCat.description.SetValue("keep this value")
+	newCat.expanded = true
+	wc.categories = append(wc.categories, &newCat)
+	wc.selection = selection
+	wc.inForm = true
+	wc.focusedField = catFieldDescription
+	wc.viewport.SetContent(wc.renderContent())
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")}
+	updated, cmd := wc.Update(msg)
+
+	if cmd != nil {
+		t.Error("expected nil command when toggling inclusion checkbox with space")
+	}
+	if !updated.selection.IsSelected("categories.*.description") {
+		t.Fatal("expected space to toggle description selection on")
+	}
+	if updated.categories[0].description.Value() != "keep this value" {
+		t.Fatalf("expected description value to be retained, got %q", updated.categories[0].description.Value())
 	}
 }
 
