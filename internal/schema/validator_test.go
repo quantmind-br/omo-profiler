@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
@@ -218,6 +219,67 @@ func TestValidateJSON_InvalidJSON(t *testing.T) {
 	assert.Error(t, err, "malformed JSON should return error")
 }
 
+func TestValidateForSaveAllowsEmptyConfig(t *testing.T) {
+	v, err := NewValidator()
+	require.NoError(t, err)
+
+	errors, err := v.ValidateForSave(&config.Config{})
+	require.NoError(t, err)
+	assert.Nil(t, errors, "empty config should be valid for save")
+}
+
+func TestValidateForSaveRejectsMalformedPresentValues(t *testing.T) {
+	v, err := NewValidator()
+	require.NoError(t, err)
+
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"build": {
+				Mode: "invalid_mode",
+			},
+		},
+	}
+
+	errors, err := v.ValidateForSave(cfg)
+	require.NoError(t, err)
+	require.NotEmpty(t, errors, "invalid present values should fail save validation")
+	assert.Contains(t, validationErrorMessages(errors)[0], "must be one of the following")
+}
+
+func TestValidateStrictStillReportsRequiredness(t *testing.T) {
+	v, err := NewValidator()
+	require.NoError(t, err)
+
+	errors, err := v.Validate(&config.Config{})
+	require.NoError(t, err)
+	require.NotEmpty(t, errors, "strict validation should report required field errors")
+	assert.True(t, hasRequiredValidationError(errors), "strict validation should keep required errors")
+}
+
+func TestValidateForSaveFiltersOnlyRequiredErrors(t *testing.T) {
+	v, err := NewValidator()
+	require.NoError(t, err)
+
+	invalidJSON := []byte(`{
+		"agents": {
+			"build": {
+				"temperature": "hot"
+			}
+		}
+	}`)
+
+	strictErrors, err := v.ValidateJSON(invalidJSON)
+	require.NoError(t, err)
+	require.NotEmpty(t, strictErrors)
+	assert.True(t, hasRequiredValidationError(strictErrors), "strict validation should include required errors")
+
+	saveErrors, err := v.ValidateJSONForSave(invalidJSON)
+	require.NoError(t, err)
+	require.NotEmpty(t, saveErrors, "non-required errors should remain after filtering")
+	assert.False(t, hasRequiredValidationError(saveErrors), "save validation should filter required errors")
+	assert.True(t, hasTypeValidationError(saveErrors), "save validation should keep type errors")
+}
+
 func TestValidationError_HasPath(t *testing.T) {
 	v, err := NewValidator()
 	require.NoError(t, err)
@@ -247,4 +309,33 @@ func TestValidationError_Error(t *testing.T) {
 		Message: "Must be less than or equal to 2",
 	}
 	assert.Equal(t, "agents.build.temperature: Must be less than or equal to 2", e.Error())
+}
+
+func hasRequiredValidationError(errors []ValidationError) bool {
+	for _, err := range errors {
+		if strings.Contains(err.Message, "is required") {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasTypeValidationError(errors []ValidationError) bool {
+	for _, err := range errors {
+		if strings.Contains(err.Message, "Invalid type") {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validationErrorMessages(errors []ValidationError) []string {
+	messages := make([]string, 0, len(errors))
+	for _, err := range errors {
+		messages = append(messages, err.Message)
+	}
+
+	return messages
 }
