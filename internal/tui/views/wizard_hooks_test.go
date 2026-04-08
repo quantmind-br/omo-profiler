@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
+	"github.com/diogenes/omo-profiler/internal/profile"
 )
 
 func TestNewWizardHooks(t *testing.T) {
@@ -128,21 +129,22 @@ func TestWizardHooksSetConfigResetsPreviousState(t *testing.T) {
 
 func TestWizardHooksApply(t *testing.T) {
 	wh := NewWizardHooks()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected(disabledHooksFieldPath, true)
 
 	// Disable some hooks
 	wh.disabled["todo-continuation-enforcer"] = true
 	wh.disabled["session-recovery"] = true
 
 	cfg := &config.Config{}
-	wh.Apply(cfg, nil)
+	wh.Apply(cfg, selection)
 
 	// Check DisabledHooks is set correctly
 	if len(cfg.DisabledHooks) != 2 {
 		t.Errorf("expected 2 disabled hooks, got %d", len(cfg.DisabledHooks))
 	}
 
-	// Check order (should match allHooks order: todo-continuation-enforcer comes before session-recovery)
-	expected := []string{"todo-continuation-enforcer", "session-recovery"}
+	expected := []string{"session-recovery", "todo-continuation-enforcer"}
 	for i, hook := range cfg.DisabledHooks {
 		if hook != expected[i] {
 			t.Errorf("expected hook %d to be %q, got %q", i, expected[i], hook)
@@ -156,9 +158,80 @@ func TestWizardHooksApplyNoneDisabled(t *testing.T) {
 	cfg := &config.Config{}
 	wh.Apply(cfg, nil)
 
-	// When no hooks are disabled, DisabledHooks should be nil (not empty slice)
 	if cfg.DisabledHooks != nil {
 		t.Errorf("expected DisabledHooks to be nil when none disabled, got %v", cfg.DisabledHooks)
+	}
+}
+
+func TestWizardHooksLoadsDisabledHooksSelectionFromJSONPresence(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	wh := NewWizardHooks()
+	selection := profile.NewSelectionFromPresence(map[string]bool{disabledHooksFieldPath: true})
+	cfg := &config.Config{DisabledHooks: []string{"session-recovery"}}
+
+	wh.SetConfig(cfg, selection)
+
+	if !wh.isDisabledHooksSelected() {
+		t.Fatal("expected disabled_hooks selection to be loaded")
+	}
+
+	content := wh.renderContent()
+	if !contains(content, "Include disabled_hooks in profile") {
+		t.Fatal("expected inclusion checkbox label in rendered content")
+	}
+	if !contains(content, "[✓]") {
+		t.Fatal("expected rendered content to show a checked inclusion checkbox")
+	}
+}
+
+func TestWizardHooksApplyWritesDisabledHooksOnlyWhenSelected(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	selected := profile.NewBlankSelection()
+	selected.SetSelected(disabledHooksFieldPath, true)
+
+	wh := NewWizardHooks()
+	wh.disabled["todo-continuation-enforcer"] = true
+	wh.disabled["session-recovery"] = true
+
+	cfg := &config.Config{}
+	wh.Apply(cfg, selected)
+
+	expected := []string{"session-recovery", "todo-continuation-enforcer"}
+	if len(cfg.DisabledHooks) != len(expected) {
+		t.Fatalf("expected %d disabled hooks, got %d", len(expected), len(cfg.DisabledHooks))
+	}
+	for i, hook := range expected {
+		if cfg.DisabledHooks[i] != hook {
+			t.Fatalf("expected hook %d to be %q, got %q", i, hook, cfg.DisabledHooks[i])
+		}
+	}
+
+	wh.Apply(cfg, profile.NewBlankSelection())
+	if cfg.DisabledHooks != nil {
+		t.Fatalf("expected DisabledHooks to be omitted when disabled_hooks is unselected, got %v", cfg.DisabledHooks)
+	}
+}
+
+func TestWizardHooksSelectedEmptyDisabledHooksSerializesAsEmptyArray(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	wh := NewWizardHooks()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected(disabledHooksFieldPath, true)
+
+	cfg := &config.Config{}
+	wh.Apply(cfg, selection)
+
+	if cfg.DisabledHooks == nil {
+		t.Fatal("expected DisabledHooks to be an empty slice when selected")
+	}
+	if len(cfg.DisabledHooks) != 0 {
+		t.Fatalf("expected DisabledHooks to be empty, got %v", cfg.DisabledHooks)
 	}
 }
 
@@ -235,6 +308,27 @@ func TestWizardHooksUpdateToggleKey(t *testing.T) {
 	}
 
 	_ = cmd
+}
+
+func TestWizardHooksSeparatesFieldInclusionFromPerHookToggleState(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	wh := NewWizardHooks()
+	wh.disabled["todo-continuation-enforcer"] = true
+	selection := profile.NewBlankSelection()
+	selection.SetSelected(disabledHooksFieldPath, true)
+	wh.selection = selection
+	wh.includeFocused = true
+
+	updated, _ := wh.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	if updated.isDisabledHooksSelected() {
+		t.Fatal("expected disabled_hooks inclusion to toggle off")
+	}
+	if !updated.disabled["todo-continuation-enforcer"] {
+		t.Fatal("expected per-hook disabled state to remain unchanged when toggling inclusion")
+	}
 }
 
 func TestWizardHooksUpdateNextKey(t *testing.T) {
@@ -389,6 +483,10 @@ func TestWizardHooksView(t *testing.T) {
 	if !contains(view, "hooks disabled") {
 		t.Error("expected 'hooks disabled' in view")
 	}
+
+	if !contains(view, "Include disabled_hooks in profile") {
+		t.Error("expected inclusion checkbox label in view")
+	}
 }
 
 func TestWizardHooksViewWithDisabledHooks(t *testing.T) {
@@ -423,7 +521,10 @@ func TestWizardHooksRenderContent(t *testing.T) {
 		t.Error("expected cursor marker in content")
 	}
 
-	// First item should be selected
+	if !contains(content, "Include disabled_hooks in profile") {
+		t.Error("expected inclusion checkbox label in content")
+	}
+
 	if !contains(content, "todo-continuation-enforcer") {
 		t.Error("expected first hook name in content")
 	}

@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -11,6 +12,8 @@ import (
 	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/tui/layout"
 )
+
+const disabledHooksFieldPath = "disabled_hooks"
 
 var (
 	wizHooksPurple = lipgloss.Color("#7D56F4")
@@ -124,14 +127,15 @@ func newWizardHooksKeyMap() wizardHooksKeyMap {
 
 // WizardHooks is step 3: Hook configuration
 type WizardHooks struct {
-	disabled  map[string]bool
-	selection *profile.FieldSelection
-	cursor    int
-	viewport  viewport.Model
-	ready     bool
-	width     int
-	height    int
-	keys      wizardHooksKeyMap
+	disabled       map[string]bool
+	selection      *profile.FieldSelection
+	includeFocused bool
+	cursor         int
+	viewport       viewport.Model
+	ready          bool
+	width          int
+	height         int
+	keys           wizardHooksKeyMap
 }
 
 func NewWizardHooks() WizardHooks {
@@ -183,16 +187,23 @@ func (w *WizardHooks) SetConfig(cfg *config.Config, selection *profile.FieldSele
 
 func (w *WizardHooks) Apply(cfg *config.Config, selection *profile.FieldSelection) {
 	w.selection = selection
-	var disabled []string
-	for _, hook := range allHooks {
-		if w.disabled[hook] {
-			disabled = append(disabled, hook)
+	if w.selection != nil && w.selection.IsSelected(disabledHooksFieldPath) {
+		disabled := make([]string, 0)
+		for hook, isDisabled := range w.disabled {
+			if isDisabled {
+				disabled = append(disabled, hook)
+			}
 		}
+		sort.Strings(disabled)
+		cfg.DisabledHooks = disabled
+		return
 	}
-	cfg.DisabledHooks = disabled
-	if len(cfg.DisabledHooks) == 0 {
-		cfg.DisabledHooks = nil
-	}
+
+	cfg.DisabledHooks = nil
+}
+
+func (w WizardHooks) isDisabledHooksSelected() bool {
+	return w.selection != nil && w.selection.IsSelected(disabledHooksFieldPath)
 }
 
 func (w WizardHooks) Update(msg tea.Msg) (WizardHooks, tea.Cmd) {
@@ -206,14 +217,28 @@ func (w WizardHooks) Update(msg tea.Msg) (WizardHooks, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, w.keys.Up):
+			if w.includeFocused {
+				break
+			}
 			if w.cursor > 0 {
 				w.cursor--
+			} else {
+				w.includeFocused = true
 			}
 		case key.Matches(msg, w.keys.Down):
+			if w.includeFocused {
+				w.includeFocused = false
+				break
+			}
 			if w.cursor < len(allHooks)-1 {
 				w.cursor++
 			}
 		case key.Matches(msg, w.keys.Toggle):
+			if w.includeFocused {
+				w.selection.Toggle(disabledHooksFieldPath)
+				break
+			}
+
 			hook := allHooks[w.cursor]
 			w.disabled[hook] = !w.disabled[hook]
 		case key.Matches(msg, w.keys.Next):
@@ -221,11 +246,26 @@ func (w WizardHooks) Update(msg tea.Msg) (WizardHooks, tea.Cmd) {
 		case key.Matches(msg, w.keys.Back):
 			return w, func() tea.Msg { return WizardBackMsg{} }
 		case key.Matches(msg, w.keys.PageUp):
+			if w.includeFocused {
+				break
+			}
 			w.cursor -= 10
 			if w.cursor < 0 {
 				w.cursor = 0
 			}
 		case key.Matches(msg, w.keys.PageDown):
+			if w.includeFocused {
+				w.includeFocused = false
+				if len(allHooks) == 0 {
+					break
+				}
+				if len(allHooks) < 10 {
+					w.cursor = len(allHooks) - 1
+				} else {
+					w.cursor = 9
+				}
+				break
+			}
 			w.cursor += 10
 			if w.cursor >= len(allHooks) {
 				w.cursor = len(allHooks) - 1
@@ -248,9 +288,27 @@ func (w WizardHooks) renderContent() string {
 	disabledStyle := wizHooksDisabledStyle
 	dimStyle := wizHooksDimStyle
 
+	includeCursor := "  "
+	if w.includeFocused {
+		includeCursor = selectedStyle.Render("> ")
+	}
+
+	includeCheckbox := dimStyle.Render("[ ]")
+	if w.isDisabledHooksSelected() {
+		includeCheckbox = enabledStyle.Render("[✓]")
+	}
+
+	includeLabelStyle := dimStyle
+	if w.includeFocused {
+		includeLabelStyle = wizHooksNameStyle
+	}
+
+	lines = append(lines, fmt.Sprintf("%s%s %s", includeCursor, includeCheckbox, includeLabelStyle.Render("Include disabled_hooks in profile")))
+	lines = append(lines, "")
+
 	for i, hook := range allHooks {
 		cursor := "  "
-		if i == w.cursor {
+		if !w.includeFocused && i == w.cursor {
 			cursor = selectedStyle.Render("> ")
 		}
 
@@ -262,7 +320,7 @@ func (w WizardHooks) renderContent() string {
 		}
 
 		nameStyle := dimStyle
-		if i == w.cursor {
+		if !w.includeFocused && i == w.cursor {
 			nameStyle = wizHooksNameStyle
 		}
 
@@ -301,7 +359,7 @@ func (w WizardHooks) View() string {
 	}
 
 	title := titleStyle.Render("Configure Hooks")
-	desc := helpStyle.Render("Space to toggle • ✓ enabled • ✗ disabled • Tab next • Shift+Tab back")
+	desc := helpStyle.Render("Space to toggle focused item • ✓ included/enabled • ✗ disabled • Tab next • Shift+Tab back")
 	stats := helpStyle.Render(fmt.Sprintf("%d/%d hooks disabled", disabledCount, len(allHooks)))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
