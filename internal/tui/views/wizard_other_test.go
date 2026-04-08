@@ -2,6 +2,7 @@ package views
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"testing"
 
@@ -306,7 +307,20 @@ func applyAndMarshal(t *testing.T, w WizardOther, selection *profile.FieldSelect
 	t.Helper()
 	cfg := &config.Config{}
 	w.Apply(cfg, selection)
-	data, err := profile.MarshalSparse(cfg, selection, nil)
+	marshalSelection := selection
+	if marshalSelection == nil {
+		marshalSelection = profile.NewBlankSelection()
+		if cfg.DisabledAgents != nil {
+			marshalSelection.SetSelected("disabled_agents", true)
+		}
+		if cfg.AutoUpdate != nil {
+			marshalSelection.SetSelected("auto_update", true)
+		}
+		if cfg.Experimental != nil && cfg.Experimental.AggressiveTruncation != nil {
+			marshalSelection.SetSelected("experimental.aggressive_truncation", true)
+		}
+	}
+	data, err := profile.MarshalSparse(cfg, marshalSelection, nil)
 	require.NoError(t, err, "MarshalSparse should not error")
 	var result map[string]interface{}
 	err = json.Unmarshal(data, &result)
@@ -367,6 +381,137 @@ func assertJSONEquals(t *testing.T, jsonMap map[string]interface{}, key string, 
 		}
 		current = next
 	}
+}
+
+func TestWizardOtherEditFlow_LoadsFieldPresence(t *testing.T) {
+	profileJSON := `{
+		"disabled_agents": ["sisyphus"],
+		"experimental": {
+			"aggressive_truncation": true
+		}
+	}`
+
+	var cfg config.Config
+	require.NoError(t, json.Unmarshal([]byte(profileJSON), &cfg))
+
+	selection := profile.NewSelectionFromPresence(map[string]bool{
+		"disabled_agents":                    true,
+		"experimental.aggressive_truncation": true,
+	})
+
+	w := NewWizardOther()
+	w.SetConfig(&cfg, selection)
+
+	require.True(t, w.selection.IsSelected("disabled_agents"))
+	require.True(t, w.selection.IsSelected("experimental.aggressive_truncation"))
+	assert.True(t, w.disabledAgents["sisyphus"], "expected sisyphus checkbox to load as disabled")
+	assert.True(t, w.expAggressiveTrunc, "expected aggressive truncation to load from config")
+
+	marshaled := applyAndMarshal(t, w, selection)
+
+	var expected map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(profileJSON), &expected))
+	assert.Equal(t, expected, marshaled)
+}
+
+func TestWizardOtherEditFlow_ModifyAndSave(t *testing.T) {
+	profileJSON := `{
+		"disabled_agents": ["sisyphus"]
+	}`
+
+	var cfg config.Config
+	require.NoError(t, json.Unmarshal([]byte(profileJSON), &cfg))
+
+	selection := profile.NewSelectionFromPresence(map[string]bool{
+		"disabled_agents": true,
+	})
+
+	w := NewWizardOther()
+	w.SetConfig(&cfg, selection)
+	w.disabledAgents["prometheus"] = true
+
+	marshaled := applyAndMarshal(t, w, selection)
+	assertJSONContains(t, marshaled, "disabled_agents")
+
+	rawAgents, ok := marshaled["disabled_agents"].([]interface{})
+	require.True(t, ok, "expected disabled_agents array, got %T", marshaled["disabled_agents"])
+
+	actual := make([]string, 0, len(rawAgents))
+	for _, agent := range rawAgents {
+		actual = append(actual, agent.(string))
+	}
+	sort.Strings(actual)
+	assert.Equal(t, []string{"prometheus", "sisyphus"}, actual)
+}
+
+func TestWizardOtherEditFlow_RemoveField(t *testing.T) {
+	profileJSON := `{
+		"auto_update": true
+	}`
+
+	var cfg config.Config
+	require.NoError(t, json.Unmarshal([]byte(profileJSON), &cfg))
+
+	selection := profile.NewSelectionFromPresence(map[string]bool{
+		"auto_update": true,
+	})
+
+	w := NewWizardOther()
+	w.SetConfig(&cfg, selection)
+	require.True(t, w.selection.IsSelected("auto_update"))
+	require.True(t, w.autoUpdate)
+
+	w.selection.SetSelected("auto_update", false)
+	marshaled := applyAndMarshal(t, w, selection)
+	assertJSONOmits(t, marshaled, "auto_update")
+}
+
+func TestWizardOtherTemplateFlow_PreservesSelection(t *testing.T) {
+	templateJSON := `{
+		"disabled_agents": ["sisyphus"],
+		"auto_update": true,
+		"experimental": {
+			"aggressive_truncation": true
+		}
+	}`
+
+	var cfg config.Config
+	require.NoError(t, json.Unmarshal([]byte(templateJSON), &cfg))
+
+	selection := profile.NewSelectionFromPresence(map[string]bool{
+		"disabled_agents":                    true,
+		"auto_update":                        true,
+		"experimental.aggressive_truncation": true,
+	})
+
+	w := NewWizardOther()
+	w.SetConfig(&cfg, selection)
+
+	assert.True(t, w.selection.IsSelected("disabled_agents"))
+	assert.True(t, w.selection.IsSelected("auto_update"))
+	assert.True(t, w.selection.IsSelected("experimental.aggressive_truncation"))
+
+	marshaled := applyAndMarshal(t, w, selection)
+
+	var expected map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(templateJSON), &expected))
+	assert.Equal(t, expected, marshaled)
+}
+
+func TestWizardOtherNewProfile_BlankSelection(t *testing.T) {
+	w := NewWizardOther()
+	w.autoUpdate = true
+	w.disabledAgents["sisyphus"] = true
+	w.expAggressiveTrunc = true
+
+	marshaled := applyAndMarshal(t, w, nil)
+	assertJSONEquals(t, marshaled, "auto_update", true)
+	assertJSONEquals(t, marshaled, "experimental.aggressive_truncation", true)
+
+	rawAgents, ok := marshaled["disabled_agents"].([]interface{})
+	require.True(t, ok, "expected disabled_agents array, got %T", marshaled["disabled_agents"])
+	require.Len(t, rawAgents, 1)
+	assert.Equal(t, "sisyphus", rawAgents[0])
 }
 
 func TestWizardOtherDisabledAgentsInclusionToggle(t *testing.T) {
@@ -467,4 +612,468 @@ func TestWizardOtherDisabledToolsInclusionToggle(t *testing.T) {
 	if updated.selection.IsSelected("disabled_tools") {
 		t.Fatal("expected disabled_tools to be deselected after second toggle")
 	}
+}
+
+// --- Disabled-list omission tests (unselected → field absent from JSON) ---
+
+func TestWizardOtherOmission_DisabledAgents(t *testing.T) {
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "disabled_agents")
+}
+
+func TestWizardOtherOmission_DisabledSkills(t *testing.T) {
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "disabled_skills")
+}
+
+func TestWizardOtherOmission_DisabledCommands(t *testing.T) {
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "disabled_commands")
+}
+
+func TestWizardOtherOmission_DisabledMcps(t *testing.T) {
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "disabled_mcps")
+}
+
+func TestWizardOtherOmission_DisabledTools(t *testing.T) {
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "disabled_tools")
+}
+
+// --- Disabled-list empty-array tests (selected, no items → field as []) ---
+
+func TestWizardOtherEmptyArray_DisabledAgents(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_agents")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "disabled_agents", []interface{}{})
+}
+
+func TestWizardOtherEmptyArray_DisabledSkills(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_skills")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "disabled_skills", []interface{}{})
+}
+
+func TestWizardOtherEmptyArray_DisabledCommands(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_commands")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "disabled_commands", []interface{}{})
+}
+
+func TestWizardOtherEmptyArray_DisabledMcps(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_mcps")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "disabled_mcps", []interface{}{})
+}
+
+func TestWizardOtherEmptyArray_DisabledTools(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_tools")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "disabled_tools", []interface{}{})
+}
+
+// --- Disabled-list with-values tests (selected with items → field as ["item1", ...]) ---
+
+func TestWizardOtherWithValues_DisabledAgents(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_agents")
+	w.disabledAgents["sisyphus"] = true
+	w.disabledAgents["oracle"] = true
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONContains(t, result, "disabled_agents")
+	actual := result["disabled_agents"].([]interface{})
+	assert.Equal(t, 2, len(actual), "expected 2 disabled agents")
+	// Order follows disableableAgents slice
+	assert.Equal(t, "sisyphus", actual[0])
+	assert.Equal(t, "oracle", actual[1])
+}
+
+func TestWizardOtherWithValues_DisabledSkills(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_skills")
+	w.disabledSkills["playwright"] = true
+	w.disabledSkills["git-master"] = true
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONContains(t, result, "disabled_skills")
+	actual := result["disabled_skills"].([]interface{})
+	assert.Equal(t, 2, len(actual), "expected 2 disabled skills")
+	assert.Equal(t, "playwright", actual[0])
+	assert.Equal(t, "git-master", actual[1])
+}
+
+func TestWizardOtherWithValues_DisabledCommands(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_commands")
+	w.disabledCommands["ralph-loop"] = true
+	w.disabledCommands["refactor"] = true
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONContains(t, result, "disabled_commands")
+	actual := result["disabled_commands"].([]interface{})
+	assert.Equal(t, 2, len(actual), "expected 2 disabled commands")
+	assert.Equal(t, "ralph-loop", actual[0])
+	assert.Equal(t, "refactor", actual[1])
+}
+
+func TestWizardOtherWithValues_DisabledMcps(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_mcps")
+	w.disabledMcps.SetValue("mcp-server-1, mcp-server-2")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONContains(t, result, "disabled_mcps")
+	actual := result["disabled_mcps"].([]interface{})
+	assert.Equal(t, 2, len(actual), "expected 2 disabled mcps")
+	assert.Equal(t, "mcp-server-1", actual[0])
+	assert.Equal(t, "mcp-server-2", actual[1])
+}
+
+func TestWizardOtherWithValues_DisabledTools(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, "disabled_tools")
+	w.disabledTools.SetValue("tool-a, tool-b")
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONContains(t, result, "disabled_tools")
+	actual := result["disabled_tools"].([]interface{})
+	assert.Equal(t, 2, len(actual), "expected 2 disabled tools")
+	assert.Equal(t, "tool-a", actual[0])
+	assert.Equal(t, "tool-b", actual[1])
+}
+
+// --- Boolean field distinction tests (auto_update) ---
+
+func TestWizardOtherOmission_AutoUpdate(t *testing.T) {
+	// Unselected → field completely absent from JSON
+	w := setupWizardOtherWithSelection(t)
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONOmits(t, result, "auto_update")
+}
+
+func TestWizardOtherAutoUpdate_SelectedFalse(t *testing.T) {
+	// Selected with value false → "auto_update": false in JSON
+	w := setupWizardOtherWithSelection(t, "auto_update")
+	w.autoUpdate = false
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "auto_update", false)
+}
+
+func TestWizardOtherAutoUpdate_SelectedTrue(t *testing.T) {
+	// Selected with value true → "auto_update": true in JSON
+	w := setupWizardOtherWithSelection(t, "auto_update")
+	w.autoUpdate = true
+	result := applyAndMarshal(t, w, w.selection)
+	assertJSONEquals(t, result, "auto_update", true)
+}
+
+func TestWizardOtherInclusionSeparateFromValue_DisabledAgents(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("disabled_agents", true)
+	w.selection = selection
+	w.currentSection = sectionDisabledAgents
+	w.sectionExpanded[sectionDisabledAgents] = true
+	w.inSubSection = true
+	w.disabledAgents = map[string]bool{"sisyphus": true, "oracle": false}
+
+	w.subCursor = 0
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	if updated.selection.IsSelected("disabled_agents") {
+		t.Fatal("expected disabled_agents inclusion to be toggled off")
+	}
+	if !updated.disabledAgents["sisyphus"] {
+		t.Fatal("expected sisyphus disabled=true to be preserved when inclusion toggled off")
+	}
+	if updated.disabledAgents["oracle"] {
+		t.Fatal("expected oracle disabled=false to be preserved when inclusion toggled off")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_agents") {
+		t.Fatal("expected disabled_agents inclusion to be toggled back on")
+	}
+	if !updated.disabledAgents["sisyphus"] {
+		t.Fatal("expected sisyphus disabled=true to survive inclusion round-trip")
+	}
+	if updated.disabledAgents["oracle"] {
+		t.Fatal("expected oracle disabled=false to survive inclusion round-trip")
+	}
+
+	cfg := &config.Config{}
+	updated.Apply(cfg, updated.selection)
+	if cfg.DisabledAgents == nil {
+		t.Fatal("expected DisabledAgents to be set after Apply")
+	}
+	require.Equal(t, []string{"sisyphus"}, cfg.DisabledAgents)
+}
+
+func TestWizardOtherInclusionSeparateFromValue_BoolField(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("experimental.aggressive_truncation", true)
+	w.selection = selection
+	w.currentSection = sectionExperimental
+	w.sectionExpanded[sectionExperimental] = true
+	w.inSubSection = true
+	w.subCursor = 0
+
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected inclusion to be toggled off")
+	}
+	if updated.expAggressiveTrunc {
+		t.Fatal("expected boolean value to remain false after inclusion toggle")
+	}
+
+	updated.toggleFieldSelection("experimental.aggressive_truncation")
+	if !updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected inclusion to be toggled back on")
+	}
+	if updated.expAggressiveTrunc {
+		t.Fatal("expected boolean value to still be false after inclusion round-trip")
+	}
+
+	updated.subValueFocused = true
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.expAggressiveTrunc {
+		t.Fatal("expected boolean value to be toggled to true")
+	}
+	if !updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected inclusion to remain selected after value toggle")
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if updated.expAggressiveTrunc {
+		t.Fatal("expected boolean value to be toggled back to false")
+	}
+	if !updated.selection.IsSelected("experimental.aggressive_truncation") {
+		t.Fatal("expected inclusion to remain selected after second value toggle")
+	}
+}
+
+func TestWizardOtherInclusionSeparateFromValue_SliceField(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("disabled_mcps", true)
+	w.selection = selection
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = true
+	w.inSubSection = true
+	w.disabledMcps.SetValue("mcp-server-1,mcp-server-2")
+
+	w.subCursor = 0
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	if updated.selection.IsSelected("disabled_mcps") {
+		t.Fatal("expected disabled_mcps inclusion to be toggled off")
+	}
+	if updated.disabledMcps.Value() != "mcp-server-1,mcp-server-2" {
+		t.Fatalf("expected text input value preserved, got %q", updated.disabledMcps.Value())
+	}
+
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if !updated.selection.IsSelected("disabled_mcps") {
+		t.Fatal("expected disabled_mcps inclusion to be toggled back on")
+	}
+	if updated.disabledMcps.Value() != "mcp-server-1,mcp-server-2" {
+		t.Fatalf("expected text input value to survive round-trip, got %q", updated.disabledMcps.Value())
+	}
+
+	cfg := &config.Config{}
+	updated.Apply(cfg, updated.selection)
+	if cfg.DisabledMCPs == nil || len(cfg.DisabledMCPs) != 2 {
+		t.Fatalf("expected 2 disabled mcps after Apply, got %v", cfg.DisabledMCPs)
+	}
+}
+
+func TestWizardOtherInclusionSeparateFromValue_StringField(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("default_run_agent", true)
+	w.selection = selection
+	w.currentSection = sectionDefaultRunAgent
+	w.defaultRunAgent.SetValue("build")
+
+	w.toggleFieldSelection("default_run_agent")
+	if w.selection.IsSelected("default_run_agent") {
+		t.Fatal("expected default_run_agent inclusion to be toggled off")
+	}
+	if w.defaultRunAgent.Value() != "build" {
+		t.Fatalf("expected text input value preserved, got %q", w.defaultRunAgent.Value())
+	}
+
+	w.toggleFieldSelection("default_run_agent")
+	if !w.selection.IsSelected("default_run_agent") {
+		t.Fatal("expected default_run_agent inclusion to be toggled back on")
+	}
+	if w.defaultRunAgent.Value() != "build" {
+		t.Fatalf("expected text input value to survive round-trip, got %q", w.defaultRunAgent.Value())
+	}
+
+	cfg := &config.Config{}
+	w.Apply(cfg, w.selection)
+	if cfg.DefaultRunAgent != "build" {
+		t.Fatalf("expected default_run_agent='build' after Apply, got %q", cfg.DefaultRunAgent)
+	}
+}
+
+// --- Round-trip tests: disabled-list sections (5 sections × 3 states) ---
+// Each test verifies the full data path: set wizard state → Apply → MarshalSparse → verify JSON output.
+
+// Round-trip: disabled_agents
+
+func TestWizardOtherRoundTrip_DisabledAgents(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledAgentsFieldPath)
+	w.disabledAgents["sisyphus"] = true
+	w.disabledAgents["oracle"] = true
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_agents")
+	assertJSONEquals(t, result, "disabled_agents", []interface{}{"sisyphus", "oracle"})
+}
+
+func TestWizardOtherRoundTrip_DisabledAgentsEmpty(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledAgentsFieldPath)
+	// No agents toggled on → should serialize as []
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_agents")
+	assertJSONEquals(t, result, "disabled_agents", []interface{}{})
+}
+
+func TestWizardOtherRoundTrip_DisabledAgentsOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	// disabled_agents NOT selected → key must be absent from JSON
+
+	result := applyAndMarshal(t, w, selection)
+
+	assertJSONOmits(t, result, "disabled_agents")
+}
+
+// Round-trip: disabled_skills
+
+func TestWizardOtherRoundTrip_DisabledSkills(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledSkillsFieldPath)
+	w.disabledSkills["playwright"] = true
+	w.disabledSkills["git-master"] = true
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_skills")
+	assertJSONEquals(t, result, "disabled_skills", []interface{}{"playwright", "git-master"})
+}
+
+func TestWizardOtherRoundTrip_DisabledSkillsEmpty(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledSkillsFieldPath)
+	// No skills toggled on → should serialize as []
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_skills")
+	assertJSONEquals(t, result, "disabled_skills", []interface{}{})
+}
+
+func TestWizardOtherRoundTrip_DisabledSkillsOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+
+	result := applyAndMarshal(t, w, selection)
+
+	assertJSONOmits(t, result, "disabled_skills")
+}
+
+// Round-trip: disabled_commands
+
+func TestWizardOtherRoundTrip_DisabledCommands(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledCommandsFieldPath)
+	w.disabledCommands["ralph-loop"] = true
+	w.disabledCommands["refactor"] = true
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_commands")
+	assertJSONEquals(t, result, "disabled_commands", []interface{}{"ralph-loop", "refactor"})
+}
+
+func TestWizardOtherRoundTrip_DisabledCommandsEmpty(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledCommandsFieldPath)
+	// No commands toggled on → should serialize as []
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_commands")
+	assertJSONEquals(t, result, "disabled_commands", []interface{}{})
+}
+
+func TestWizardOtherRoundTrip_DisabledCommandsOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+
+	result := applyAndMarshal(t, w, selection)
+
+	assertJSONOmits(t, result, "disabled_commands")
+}
+
+// Round-trip: disabled_mcps
+
+func TestWizardOtherRoundTrip_DisabledMcps(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledMcpsFieldPath)
+	w.disabledMcps.SetValue("mcp-server-1, mcp-server-2")
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_mcps")
+	assertJSONEquals(t, result, "disabled_mcps", []interface{}{"mcp-server-1", "mcp-server-2"})
+}
+
+func TestWizardOtherRoundTrip_DisabledMcpsEmpty(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledMcpsFieldPath)
+	// No MCPs entered (empty text input) → should serialize as []
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_mcps")
+	assertJSONEquals(t, result, "disabled_mcps", []interface{}{})
+}
+
+func TestWizardOtherRoundTrip_DisabledMcpsOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+
+	result := applyAndMarshal(t, w, selection)
+
+	assertJSONOmits(t, result, "disabled_mcps")
+}
+
+// Round-trip: disabled_tools
+
+func TestWizardOtherRoundTrip_DisabledTools(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledToolsFieldPath)
+	w.disabledTools.SetValue("tool-a, tool-b")
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_tools")
+	assertJSONEquals(t, result, "disabled_tools", []interface{}{"tool-a", "tool-b"})
+}
+
+func TestWizardOtherRoundTrip_DisabledToolsEmpty(t *testing.T) {
+	w := setupWizardOtherWithSelection(t, disabledToolsFieldPath)
+	// No tools entered (empty text input) → should serialize as []
+
+	result := applyAndMarshal(t, w, w.selection)
+
+	assertJSONContains(t, result, "disabled_tools")
+	assertJSONEquals(t, result, "disabled_tools", []interface{}{})
+}
+
+func TestWizardOtherRoundTrip_DisabledToolsOmitted(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+
+	result := applyAndMarshal(t, w, selection)
+
+	assertJSONOmits(t, result, "disabled_tools")
 }
