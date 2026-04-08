@@ -91,10 +91,11 @@ type Wizard struct {
 	otherStep      WizardOther
 	reviewStep     WizardReview
 
-	width  int
-	height int
-	keys   wizardKeyMap
-	err    error
+	width    int
+	height   int
+	keys     wizardKeyMap
+	err      error
+	flashMsg string
 }
 
 // NewWizard creates a new wizard for creating a profile
@@ -219,7 +220,7 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 		return w, func() tea.Msg { return WizardSaveMsg{Profile: msg.profile} }
 
 	case tea.KeyMsg:
-		// Global navigation keys
+		w.flashMsg = ""
 		if key.Matches(msg, w.keys.Cancel) {
 			return w, func() tea.Msg { return WizardCancelMsg{} }
 		}
@@ -374,13 +375,22 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 	return w, nil
 }
 
-// prevStep navigates to the previous wizard step WITHOUT calling Apply()
-// on the current step. This means any unsaved edits in the current step
-// are intentionally discarded. When the user navigates forward again,
-// SetConfig() will reload from the canonical w.config, restoring the
-// last-applied state. This design gives users a natural "undo" mechanism:
-// going back discards uncommitted changes in the current step.
 func (w Wizard) prevStep() (Wizard, tea.Cmd) {
+	switch w.step {
+	case StepCategories:
+		w.categoriesStep.Apply(&w.config, w.selection)
+		w.flashMsg = "Changes applied"
+	case StepAgents:
+		w.agentsStep.Apply(&w.config, w.selection)
+		w.flashMsg = "Changes applied"
+	case StepHooks:
+		w.hooksStep.Apply(&w.config, w.selection)
+		w.flashMsg = "Changes applied"
+	case StepOther:
+		w.otherStep.Apply(&w.config, w.selection)
+		w.flashMsg = "Changes applied"
+	}
+
 	switch w.step {
 	case StepName:
 		return w, func() tea.Msg { return WizardCancelMsg{} }
@@ -404,10 +414,18 @@ func (w Wizard) prevStep() (Wizard, tea.Cmd) {
 }
 
 func (w Wizard) View() string {
-	// Header with progress indicator
 	header := w.renderHeader()
 
-	// Current step content
+	errorDisplay := ""
+	if w.err != nil {
+		errorDisplay = errorStyle.Render("⚠ " + w.err.Error())
+	}
+
+	flashDisplay := ""
+	if w.flashMsg != "" {
+		flashDisplay = successStyle.Render("✓ " + w.flashMsg)
+	}
+
 	var content string
 	switch w.step {
 	case StepName:
@@ -425,9 +443,21 @@ func (w Wizard) View() string {
 	}
 
 	if layout.IsShort(w.height) {
+		if w.err != nil {
+			return lipgloss.JoinVertical(lipgloss.Left, header, errorDisplay, content)
+		}
+		if w.flashMsg != "" {
+			return lipgloss.JoinVertical(lipgloss.Left, header, flashDisplay, content)
+		}
 		return lipgloss.JoinVertical(lipgloss.Left, header, content)
 	}
 
+	if w.err != nil {
+		return lipgloss.JoinVertical(lipgloss.Left, header, errorDisplay, "", content)
+	}
+	if w.flashMsg != "" {
+		return lipgloss.JoinVertical(lipgloss.Left, header, flashDisplay, "", content)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", content)
 }
 
@@ -436,6 +466,9 @@ func (w Wizard) renderHeader() string {
 	if w.editMode {
 		title = titleStyle.Render("Edit Profile")
 	}
+
+	totalSteps := StepReview
+	progressText := fmt.Sprintf("Step %d of %d", w.step, totalSteps)
 
 	if layout.IsCompact(w.width) {
 		progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
@@ -450,14 +483,13 @@ func (w Wizard) renderHeader() string {
 				dots += dimStyle.Render("○")
 			}
 		}
-		dots += " " + progressStyle.Render(stepNames[w.step])
+		dots += " " + progressStyle.Render(stepNames[w.step]) + " " + dimStyle.Render(progressText)
 		if layout.IsShort(w.height) {
 			return dots
 		}
 		return lipgloss.JoinVertical(lipgloss.Left, title, dots)
 	}
 
-	// Progress bar
 	progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
@@ -482,7 +514,9 @@ func (w Wizard) renderHeader() string {
 		steps[5],
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left, title, progress)
+	headerLine := lipgloss.JoinHorizontal(lipgloss.Top, progress, "  ", dimStyle.Render(progressText))
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, headerLine)
 }
 
 // GetProfile returns the built profile

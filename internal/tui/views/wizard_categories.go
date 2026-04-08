@@ -3,6 +3,7 @@ package views
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ var (
 	wizCatGray   = lipgloss.Color("#6C7086")
 	wizCatText   = lipgloss.Color("#CDD6F4")
 	wizCatRed    = lipgloss.Color("#F38BA8")
+	wizCatGreen  = lipgloss.Color("#A6E3A1")
 )
 
 var (
@@ -36,7 +38,38 @@ var (
 	wizCatSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizCatPurple)
 	wizCatTextStyle     = lipgloss.NewStyle().Foreground(wizCatText)
 	wizCatErrorStyle    = lipgloss.NewStyle().Foreground(wizCatRed)
+	wizCatValidStyle    = lipgloss.NewStyle().Foreground(wizCatGreen)
 )
+
+// validateCategoryField returns an inline validation indicator for range fields (temperature, top_p).
+// Validation runs on field-exit (focused=false).
+func validateCategoryField(label, value string, focused bool) string {
+	switch label {
+	case "temperature":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
+			return wizCatErrorStyle.Render(" ✗ must be 0-2")
+		}
+		return wizCatValidStyle.Render(" ✓")
+	case "top_p":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+			return wizCatErrorStyle.Render(" ✗ must be 0-1")
+		}
+		return wizCatValidStyle.Render(" ✓")
+	}
+	return ""
+}
 
 type categoryFormField int
 
@@ -1115,8 +1148,8 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, renderSelectableField("description", catFieldDescription, cc.description.View()))
 	lines = append(lines, renderBool("is_unstable", catFieldIsUnstable, cc.isUnstable))
 	lines = append(lines, renderBool("disable", catFieldDisable, cc.disable))
-	lines = append(lines, renderSelectableField("temperature", catFieldTemperature, cc.temperature.View()))
-	lines = append(lines, renderSelectableField("top_p", catFieldTopP, cc.topP.View()))
+	lines = append(lines, renderSelectableField("temperature", catFieldTemperature, cc.temperature.View())+validateCategoryField("temperature", cc.temperature.Value(), w.inForm && w.focusedField == catFieldTemperature))
+	lines = append(lines, renderSelectableField("top_p", catFieldTopP, cc.topP.View())+validateCategoryField("top_p", cc.topP.Value(), w.inForm && w.focusedField == catFieldTopP))
 	lines = append(lines, renderSelectableField("max_tokens", catFieldMaxTokens, cc.maxTokens.View()))
 	lines = append(lines, renderSelectableField("max_prompt_tokens", catFieldMaxPromptTokens, cc.maxPromptTokens.View()))
 	lines = append(lines, "")

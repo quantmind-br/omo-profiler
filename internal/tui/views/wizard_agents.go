@@ -74,24 +74,41 @@ func sortedKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-func validateAgentField(label, value string) string {
+// validateAgentField returns an inline validation indicator for the given field.
+// For simple fields (color), validation runs on every keystroke (focused=true).
+// For range fields (temperature, top_p), validation runs on field-exit (focused=false).
+func validateAgentField(label, value string, focused bool) string {
 	switch label {
 	case "color":
-		if value != "" && !validationHexRe.MatchString(value) {
+		if value == "" {
+			return ""
+		}
+		if !validationHexRe.MatchString(value) {
 			return wizAgentErrorStyle.Render(" ✗ invalid hex")
 		}
+		return wizAgentValidStyle.Render(" ✓")
 	case "temperature":
-		if value != "" {
-			if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
-				return wizAgentErrorStyle.Render(" ✗ must be 0-2")
-			}
+		if value == "" {
+			return ""
 		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
+			return wizAgentErrorStyle.Render(" ✗ must be 0-2")
+		}
+		return wizAgentValidStyle.Render(" ✓")
 	case "top_p":
-		if value != "" {
-			if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
-				return wizAgentErrorStyle.Render(" ✗ must be 0-1")
-			}
+		if value == "" {
+			return ""
 		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+			return wizAgentErrorStyle.Render(" ✗ must be 0-1")
+		}
+		return wizAgentValidStyle.Render(" ✓")
 	}
 	return ""
 }
@@ -143,6 +160,7 @@ var (
 	wizAgentCursorStyle   = lipgloss.NewStyle().Bold(true).Foreground(wizAgentPink)
 	wizAgentTextStyle     = lipgloss.NewStyle().Foreground(wizAgentText)
 	wizAgentErrorStyle    = lipgloss.NewStyle().Foreground(wizAgentRed)
+	wizAgentValidStyle    = lipgloss.NewStyle().Foreground(wizAgentGreen)
 )
 
 var validationHexRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -2022,8 +2040,8 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("model", fieldModel, modelDisplayValue))
 	lines = append(lines, renderField("variant", fieldVariant, ac.variant.View()))
 	lines = append(lines, renderField("category", fieldCategory, ac.category.View()))
-	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View())+validateAgentField("temperature", ac.temperature.Value()))
-	lines = append(lines, renderField("top_p", fieldTopP, ac.topP.View())+validateAgentField("top_p", ac.topP.Value()))
+	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View())+validateAgentField("temperature", ac.temperature.Value(), isActiveAgent && w.focusedField == fieldTemperature))
+	lines = append(lines, renderField("top_p", fieldTopP, ac.topP.View())+validateAgentField("top_p", ac.topP.Value(), isActiveAgent && w.focusedField == fieldTopP))
 	lines = append(lines, renderField("skills", fieldSkills, ac.skills.View()))
 	lines = append(lines, renderField("tools", fieldTools, ac.tools.View()))
 	lines = append(lines, renderField("prompt", fieldPrompt, ac.prompt.View()))
@@ -2031,7 +2049,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderBool("disable", fieldDisable, ac.disable))
 	lines = append(lines, renderField("description", fieldDescription, ac.description.View()))
 	lines = append(lines, renderDropdown("mode", fieldMode, agentModes, ac.modeIdx))
-	lines = append(lines, renderField("color", fieldColor, ac.color.View())+validateAgentField("color", ac.color.Value()))
+	lines = append(lines, renderField("color", fieldColor, ac.color.View())+validateAgentField("color", ac.color.Value(), isActiveAgent && w.focusedField == fieldColor))
 	lines = append(lines, renderField("maxTokens", fieldMaxTokens, ac.maxTokens.View()))
 	lines = append(lines, renderDropdown("thinking", fieldThinkingType, thinkingTypes, ac.thinkingTypeIdx))
 	lines = append(lines, renderField("thinkBudget", fieldThinkingBudget, ac.thinkingBudget.View()))

@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	wizReviewWhite = lipgloss.Color("#CDD6F4")
-	wizReviewGray  = lipgloss.Color("#6C7086")
-	wizReviewRed   = lipgloss.Color("#F38BA8")
-	wizReviewGreen = lipgloss.Color("#A6E3A1")
-	wizReviewBlue  = lipgloss.Color("#89B4FA")
+	wizReviewWhite  = lipgloss.Color("#CDD6F4")
+	wizReviewGray   = lipgloss.Color("#6C7086")
+	wizReviewRed    = lipgloss.Color("#F38BA8")
+	wizReviewGreen  = lipgloss.Color("#A6E3A1")
+	wizReviewBlue   = lipgloss.Color("#89B4FA")
+	wizReviewYellow = lipgloss.Color("#F9E2AF")
 )
 
 var (
@@ -27,6 +28,7 @@ var (
 	wizReviewHelpStyle    = lipgloss.NewStyle().Foreground(wizReviewGray)
 	wizReviewErrorStyle   = lipgloss.NewStyle().Foreground(wizReviewRed)
 	wizReviewSuccessStyle = lipgloss.NewStyle().Foreground(wizReviewGreen)
+	wizReviewWarningStyle = lipgloss.NewStyle().Foreground(wizReviewYellow)
 	wizReviewCodeStyle    = lipgloss.NewStyle().Foreground(wizReviewBlue)
 )
 
@@ -77,6 +79,7 @@ type WizardReview struct {
 	jsonPreview      string
 	validationErrs   []schema.ValidationError
 	isValid          bool
+	flashMsg         string
 	viewport         viewport.Model
 	ready            bool
 	width            int
@@ -162,11 +165,14 @@ func (w WizardReview) Update(msg tea.Msg) (WizardReview, tea.Cmd) {
 		return w, nil
 
 	case tea.KeyMsg:
+		w.flashMsg = ""
+
 		switch {
 		case key.Matches(msg, w.keys.Save):
 			if w.isValid {
 				return w, func() tea.Msg { return WizardNextMsg{} }
 			}
+			w.flashMsg = "Fix validation errors before saving"
 			return w, nil
 		case key.Matches(msg, w.keys.Back):
 			return w, func() tea.Msg { return WizardBackMsg{} }
@@ -181,6 +187,11 @@ func (w WizardReview) Update(msg tea.Msg) (WizardReview, tea.Cmd) {
 
 func (w WizardReview) View() string {
 	title := wizReviewTitleStyle.Render("Review & Save")
+
+	flash := ""
+	if w.flashMsg != "" {
+		flash = wizReviewWarningStyle.Render(w.flashMsg)
+	}
 
 	// Profile name
 	nameLabel := wizReviewHelpStyle.Render("Profile Name: ") + wizReviewTitleStyle.Render(w.profileName)
@@ -213,6 +224,7 @@ func (w WizardReview) View() string {
 		w.viewport.SetContent(wizReviewCodeStyle.Render(w.jsonPreview))
 		return lipgloss.JoinVertical(lipgloss.Left,
 			titleLine,
+			flash,
 			validationStatus,
 			w.viewport.View(),
 			help,
@@ -222,6 +234,7 @@ func (w WizardReview) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		title,
 		nameLabel,
+		flash,
 		"",
 		validationStatus,
 		"",

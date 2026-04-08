@@ -342,6 +342,9 @@ func (d Diff) View() string {
 		selectors = lipgloss.JoinHorizontal(lipgloss.Top, leftSelector, " ", rightSelector)
 	}
 
+	leftLabel := d.renderPaneLabel(true, d.focused == focusLeft)
+	rightLabel := d.renderPaneLabel(false, d.focused == focusRight)
+
 	var content string
 	if d.ready && d.diffResult != nil {
 		if d.stacked {
@@ -354,8 +357,8 @@ func (d Diff) View() string {
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(d.borderColor(focusRight)).
 				Width(paneWidth)
-			leftPane := leftBorder.Render(d.leftViewport.View())
-			rightPane := rightBorder.Render(d.rightViewport.View())
+			leftPane := lipgloss.JoinVertical(lipgloss.Left, leftLabel, leftBorder.Render(d.leftViewport.View()))
+			rightPane := lipgloss.JoinVertical(lipgloss.Left, rightLabel, rightBorder.Render(d.rightViewport.View()))
 			content = lipgloss.JoinVertical(lipgloss.Left, leftPane, rightPane)
 		} else {
 			paneWidth := (d.width - 3) / 2
@@ -367,8 +370,8 @@ func (d Diff) View() string {
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(d.borderColor(focusRight)).
 				Width(paneWidth)
-			leftPane := leftBorder.Render(d.leftViewport.View())
-			rightPane := rightBorder.Render(d.rightViewport.View())
+			leftPane := lipgloss.JoinVertical(lipgloss.Left, leftLabel, leftBorder.Render(d.leftViewport.View()))
+			rightPane := lipgloss.JoinVertical(lipgloss.Left, rightLabel, rightBorder.Render(d.rightViewport.View()))
 			content = lipgloss.JoinHorizontal(lipgloss.Top, leftPane, " ", rightPane)
 		}
 	} else if d.diffResult == nil && d.leftProfile != "" && d.rightProfile != "" {
@@ -398,6 +401,19 @@ func (d Diff) borderColor(pane focusedPane) lipgloss.Color {
 		return diffPurple
 	}
 	return diffGray
+}
+
+func (d Diff) renderPaneLabel(isLeft bool, isFocused bool) string {
+	if isLeft {
+		if isFocused {
+			return lipgloss.NewStyle().Bold(true).Foreground(diffPurple).Render("◀ Left Profile")
+		}
+		return lipgloss.NewStyle().Foreground(diffGray).Render("Left Profile")
+	}
+	if isFocused {
+		return lipgloss.NewStyle().Bold(true).Foreground(diffPurple).Render("Right Profile ▶")
+	}
+	return lipgloss.NewStyle().Foreground(diffGray).Render("Right Profile")
 }
 
 func (d Diff) renderSelector(selected string, isSelecting bool, idx int, isFocused bool) string {

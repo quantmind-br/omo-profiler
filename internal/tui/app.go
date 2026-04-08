@@ -86,8 +86,9 @@ type App struct {
 	showHelp bool
 
 	// Loading state
-	spinner spinner.Model
-	loading bool
+	spinner    spinner.Model
+	loading    bool
+	loadingMsg string
 
 	// Toast notification
 	toast       string
@@ -147,7 +148,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, Keys.Quit):
 			if msg.String() == "q" {
 				if a.state == stateWizard {
-					break
+					return a, a.showToast("Press Esc to exit wizard", toastInfo, 3*time.Second)
 				}
 				if a.state == stateModels && a.modelRegistry.IsEditing() {
 					break
@@ -281,6 +282,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("Import failed: "+msg.Err.Error(), toastError, 3*time.Second)
 		}
 		a.loading = true
+		a.loadingMsg = "Importing"
 		return a, tea.Batch(
 			a.spinner.Tick,
 			a.doImportProfile(msg.Path),
@@ -310,6 +312,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("Export failed: "+msg.Err.Error(), toastError, 3*time.Second)
 		}
 		a.loading = true
+		a.loadingMsg = "Exporting"
 		return a, tea.Batch(
 			a.spinner.Tick,
 			a.doExportProfile(a.exportView.GetProfileName(), msg.Path),
@@ -380,6 +383,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.SwitchProfileMsg:
 		a.loading = true
+		a.loadingMsg = "Switching profile"
 		return a, tea.Batch(
 			a.spinner.Tick,
 			a.doSwitchProfile(msg.Name),
@@ -408,6 +412,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.DeleteProfileMsg:
 		a.loading = true
+		a.loadingMsg = "Deleting profile"
 		return a, tea.Batch(
 			a.spinner.Tick,
 			a.doDeleteProfile(msg.Name),
@@ -647,7 +652,7 @@ func (a App) View() string {
 			a.contentHeight(),
 			lipgloss.Center,
 			lipgloss.Center,
-			a.spinner.View()+" Loading...",
+			a.spinner.View()+" "+a.loadingMsg+"...",
 		)
 	} else {
 		switch a.state {
@@ -750,6 +755,7 @@ func (a App) renderShortHelp() string {
 
 	if a.width < 45 && len(hints) > 3 {
 		hints = hints[:3]
+		hints = append(hints, "…")
 	}
 
 	separator := " • "
