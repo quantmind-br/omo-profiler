@@ -1244,10 +1244,15 @@ func TestWizardOtherSimpleValueFocused_NoHighlightWhenFalse(t *testing.T) {
 		if strings.Contains(line, "Auto Update") {
 			// The line should have [off] but the value portion should NOT have
 			// the specific ANSI styling that comes from labelStyle.Render()
-			// We verify this by checking the structure - the value should be
-			// concatenated directly without extra styling wrapper
+			// labelStyle adds Bold + White foreground which produces ANSI escape codes
 			if !strings.Contains(line, "[off]") {
 				t.Fatalf("expected [off] in line, got: %s", line)
+			}
+			// Verify the value [off] does NOT have labelStyle ANSI wrapper
+			// labelStyle.Render("[off]") would wrap it with bold+white ANSI codes
+			// When simpleValueFocused=false, [off] appears directly without styling
+			if strings.Contains(line, "\x1b[1m") || strings.Contains(line, "\x1b[37m") || strings.Contains(line, "\x1b[97m") {
+				t.Fatalf("value [off] should NOT have bold/white ANSI styling when simpleValueFocused=false, got: %q", line)
 			}
 		}
 	}

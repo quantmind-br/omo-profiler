@@ -527,10 +527,6 @@ func (w *WizardOther) toggleSubItem() {
 		if w.subCursor == 2 {
 			w.sisyphusTasksClaudeCodeCompat = !w.sisyphusTasksClaudeCodeCompat
 		}
-	case sectionStartWork:
-		if w.subCursor == 0 {
-			w.startWorkAutoCommit = !w.startWorkAutoCommit
-		}
 	case sectionModelCapabilities:
 		switch w.subCursor {
 		case 0:

@@ -360,10 +360,6 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}
-	case sectionStartWork:
-		if idx == 0 {
-			return startWorkAutoCommitFieldPath
-		}
 	case sectionModelCapabilities:
 		paths := []string{"model_capabilities.enabled", "model_capabilities.auto_refresh_on_start", "model_capabilities.refresh_timeout_ms", "model_capabilities.source_url"}
 		if idx >= 0 && idx < len(paths) {
