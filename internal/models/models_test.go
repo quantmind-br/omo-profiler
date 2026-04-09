@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 
@@ -115,11 +116,24 @@ func TestAdd(t *testing.T) {
 		t.Errorf("Expected 1 model, got %d", len(reg.Models))
 	}
 
-	// Duplicate error
+	// Duplicate error (same provider + modelID)
 	if err := reg.Add(m1); err == nil {
 		t.Error("Expected error for duplicate add, got nil")
-	} else if err.Error() != "model with ID 'm1' already exists" {
-		t.Errorf("Unexpected error msg: %v", err)
+	} else {
+		var existsErr *ModelExistsError
+		if !errors.As(err, &existsErr) {
+			t.Errorf("Expected ModelExistsError, got %v", err)
+		}
+	}
+
+	// Same modelID, different provider — should succeed
+	m1DifferentProvider := RegisteredModel{DisplayName: "M1 Alt", ModelID: "m1", Provider: "p2"}
+	if err := reg.Add(m1DifferentProvider); err != nil {
+		t.Errorf("Add with different provider should succeed: %v", err)
+	}
+
+	if len(reg.Models) != 2 {
+		t.Errorf("Expected 2 models, got %d", len(reg.Models))
 	}
 }
 
@@ -134,36 +148,41 @@ func TestUpdate(t *testing.T) {
 	// Success update
 	updated := m1
 	updated.DisplayName = "M1 Updated"
-	if err := reg.Update("m1", updated); err != nil {
+	if err := reg.Update("p1", "m1", updated); err != nil {
 		t.Errorf("Update failed: %v", err)
 	}
-	if reg.Get("m1").DisplayName != "M1 Updated" {
+	if reg.Get("p1", "m1").DisplayName != "M1 Updated" {
 		t.Error("Update didn't persist")
 	}
 
 	// Not found
-	if err := reg.Update("missing", m1); err == nil {
+	if err := reg.Update("p1", "missing", m1); err == nil {
 		t.Error("Expected error for missing update")
 	}
 
 	// Rename success
 	renamed := m1
 	renamed.ModelID = "m1-renamed"
-	if err := reg.Update("m1", renamed); err != nil {
+	if err := reg.Update("p1", "m1", renamed); err != nil {
 		t.Errorf("Rename failed: %v", err)
 	}
-	if reg.Get("m1") != nil {
+	if reg.Get("p1", "m1") != nil {
 		t.Error("Old ID should be gone")
 	}
-	if reg.Get("m1-renamed") == nil {
+	if reg.Get("p1", "m1-renamed") == nil {
 		t.Error("New ID should exist")
 	}
 
 	// Conflict
-	_ = reg.Add(RegisteredModel{ModelID: "m2"})
-	conflict := RegisteredModel{ModelID: "m2"}
-	if err := reg.Update("m1-renamed", conflict); err == nil {
+	_ = reg.Add(RegisteredModel{ModelID: "m2", Provider: "p1"})
+	conflict := RegisteredModel{ModelID: "m2", Provider: "p1"}
+	if err := reg.Update("p1", "m1-renamed", conflict); err == nil {
 		t.Error("Expected error for conflict update")
+	} else {
+		var existsErr *ModelExistsError
+		if !errors.As(err, &existsErr) {
+			t.Errorf("Expected ModelExistsError, got %v", err)
+		}
 	}
 }
 
@@ -172,10 +191,10 @@ func TestDelete(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
 
 	// Success
-	if err := reg.Delete("m1"); err != nil {
+	if err := reg.Delete("p1", "m1"); err != nil {
 		t.Errorf("Delete failed: %v", err)
 	}
 	if len(reg.Models) != 0 {
@@ -183,7 +202,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// Not found
-	if err := reg.Delete("m1"); err == nil {
+	if err := reg.Delete("p1", "m1"); err == nil {
 		t.Error("Expected error for deleting missing model")
 	}
 }
@@ -193,13 +212,22 @@ func TestGet(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
 
-	if reg.Get("m1") == nil {
+	if reg.Get("p1", "m1") == nil {
 		t.Error("Get should return model")
 	}
-	if reg.Get("missing") != nil {
+	if reg.Get("p1", "missing") != nil {
 		t.Error("Get missing should return nil")
+	}
+
+	// Same modelID, different provider
+	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p2"})
+	if reg.Get("p2", "m1") == nil {
+		t.Error("Get should return model with different provider")
+	}
+	if reg.Get("p3", "m1") != nil {
+		t.Error("Get should return nil for non-existent provider")
 	}
 }
 
@@ -271,12 +299,83 @@ func TestExists(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1"})
+	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
 
-	if !Exists("m1") {
+	if !Exists("p1", "m1") {
 		t.Error("Exists returned false for existing model")
 	}
-	if Exists("missing") {
+	if Exists("p1", "missing") {
 		t.Error("Exists returned true for missing model")
+	}
+
+	// Same modelID, different provider
+	if Exists("p2", "m1") {
+		t.Error("Exists should return false for different provider")
+	}
+}
+
+func TestAdd_SameModelIDDifferentProvider(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	reg, _ := Load()
+
+	// Add same modelID with different providers
+	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
+	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
+	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 No Provider", ModelID: "gpt-4", Provider: ""})
+
+	if len(reg.Models) != 3 {
+		t.Errorf("Expected 3 models (same ID, different providers), got %d", len(reg.Models))
+	}
+
+	// Verify each is retrievable
+	if reg.Get("openai", "gpt-4") == nil {
+		t.Error("Should retrieve openai/gpt-4")
+	}
+	if reg.Get("azure", "gpt-4") == nil {
+		t.Error("Should retrieve azure/gpt-4")
+	}
+	if reg.Get("", "gpt-4") == nil {
+		t.Error("Should retrieve no-provider/gpt-4")
+	}
+}
+
+func TestModelExistsError_Error(t *testing.T) {
+	// With provider
+	err1 := &ModelExistsError{Provider: "openai", ModelID: "gpt-4"}
+	expected1 := "model with provider 'openai' and ID 'gpt-4' already exists"
+	if err1.Error() != expected1 {
+		t.Errorf("Unexpected error message: got %q, want %q", err1.Error(), expected1)
+	}
+
+	// Without provider
+	err2 := &ModelExistsError{Provider: "", ModelID: "gpt-4"}
+	expected2 := "model with ID 'gpt-4' (no provider) already exists"
+	if err2.Error() != expected2 {
+		t.Errorf("Unexpected error message: got %q, want %q", err2.Error(), expected2)
+	}
+}
+
+func TestDelete_CorrectProviderOnly(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	reg, _ := Load()
+	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
+	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
+
+	// Delete only openai version
+	if err := reg.Delete("openai", "gpt-4"); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	if len(reg.Models) != 1 {
+		t.Errorf("Expected 1 model after delete, got %d", len(reg.Models))
+	}
+
+	// Azure version should still exist
+	if reg.Get("azure", "gpt-4") == nil {
+		t.Error("Azure model should still exist after deleting openai model")
 	}
 }

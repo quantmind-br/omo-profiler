@@ -1,6 +1,7 @@
 package views
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -90,7 +91,8 @@ type ModelRegistry struct {
 
 	formMode  bool
 	editMode  bool
-	editingId string
+	editingId  string
+	editingProvider string
 
 	displayNameInput textinput.Model
 	modelIdInput     textinput.Model
@@ -98,7 +100,10 @@ type ModelRegistry struct {
 	focusedField     int
 
 	confirmDelete bool
-	deleteTarget  string
+	deleteTarget  struct {
+		provider string
+		modelID  string
+	}
 
 	errorMsg  string
 	loadError error
@@ -196,9 +201,12 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 			case "y", "Y":
 				m.confirmDelete = false
 				target := m.deleteTarget
-				m.deleteTarget = ""
+				m.deleteTarget = struct {
+					provider string
+					modelID  string
+				}{}
 
-				if err := m.registry.Delete(target); err != nil {
+				if err := m.registry.Delete(target.provider, target.modelID); err != nil {
 					m.errorMsg = fmt.Sprintf("Delete failed: %v", err)
 					return m, nil
 				}
@@ -210,12 +218,15 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 				}
 
 				return m, func() tea.Msg {
-					return ModelDeletedMsg{ModelID: target}
+					return ModelDeletedMsg{ModelID: target.modelID}
 				}
 
 			case "n", "N", "esc":
 				m.confirmDelete = false
-				m.deleteTarget = ""
+				m.deleteTarget = struct {
+					provider string
+					modelID  string
+				}{}
 				return m, nil
 			}
 			return m, nil
@@ -339,7 +350,13 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 		case key.Matches(msg, m.keys.Delete):
 			if len(filteredModels) > 0 && m.cursor < len(filteredModels) {
 				m.confirmDelete = true
-				m.deleteTarget = filteredModels[m.cursor].ModelID
+				m.deleteTarget = struct {
+					provider string
+					modelID  string
+				}{
+					provider: filteredModels[m.cursor].Provider,
+					modelID:  filteredModels[m.cursor].ModelID,
+				}
 			}
 
 		case key.Matches(msg, m.keys.Esc):
@@ -366,6 +383,7 @@ func (m *ModelRegistry) enterEditMode(model models.RegisteredModel) {
 	m.formMode = true
 	m.editMode = true
 	m.editingId = model.ModelID
+	m.editingProvider = model.Provider
 	m.errorMsg = ""
 
 	m.displayNameInput.SetValue(model.DisplayName)
@@ -439,16 +457,18 @@ func (m *ModelRegistry) validateAndSave() error {
 	}
 
 	if m.editMode {
-		if err := m.registry.Update(m.editingId, newModel); err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("model with ID '%s' already exists", modelId)
+		if err := m.registry.Update(m.editingProvider, m.editingId, newModel); err != nil {
+			var existsErr *models.ModelExistsError
+			if errors.As(err, &existsErr) {
+				return fmt.Errorf("model with provider '%s' and ID '%s' already exists", existsErr.Provider, existsErr.ModelID)
 			}
 			return err
 		}
 	} else {
 		if err := m.registry.Add(newModel); err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("model with ID '%s' already exists", modelId)
+			var existsErr *models.ModelExistsError
+			if errors.As(err, &existsErr) {
+				return fmt.Errorf("model with provider '%s' and ID '%s' already exists", existsErr.Provider, existsErr.ModelID)
 			}
 			return err
 		}
@@ -618,7 +638,7 @@ func (m ModelRegistry) renderDeleteConfirm() string {
 
 	var targetName string
 	for _, model := range m.flatModels {
-		if model.ModelID == m.deleteTarget {
+		if model.ModelID == m.deleteTarget.modelID && model.Provider == m.deleteTarget.provider {
 			targetName = model.DisplayName
 			break
 		}

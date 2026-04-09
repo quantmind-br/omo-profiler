@@ -1,6 +1,7 @@
 package views
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -390,7 +391,8 @@ func (m ModelImport) importSelectedModels() tea.Cmd {
 			registeredModel := foundModel.ToRegisteredModel(m.selectedProvider)
 			err := m.registry.Add(registeredModel)
 			if err != nil {
-				if strings.Contains(err.Error(), "already exists") {
+				var existsErr *models.ModelExistsError
+				if errors.As(err, &existsErr) {
 					skipped++
 				}
 			} else {

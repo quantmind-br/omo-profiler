@@ -284,7 +284,7 @@ func TestModelRegistryUpdateDeleteKey(t *testing.T) {
 		t.Error("expected confirmDelete to be true after 'd' key")
 	}
 
-	if updated.deleteTarget == "" {
+	if updated.deleteTarget.modelID == "" {
 		t.Error("expected deleteTarget to be set")
 	}
 }
@@ -323,7 +323,10 @@ func TestModelRegistryUpdateSearchKey(t *testing.T) {
 func TestModelRegistryUpdateDeleteConfirmYes(t *testing.T) {
 	mr := NewModelRegistry()
 	mr.confirmDelete = true
-	mr.deleteTarget = "test-model-id"
+	mr.deleteTarget = struct {
+		provider string
+		modelID  string
+	}{modelID: "test-model-id"}
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")}
 	updated, cmd := mr.Update(msg)
@@ -335,7 +338,7 @@ func TestModelRegistryUpdateDeleteConfirmYes(t *testing.T) {
 		t.Error("expected confirmDelete to be false after confirmation")
 	}
 
-	if updated.deleteTarget != "" {
+	if updated.deleteTarget.modelID != "" {
 		t.Error("expected deleteTarget to be cleared after confirmation")
 	}
 }
@@ -343,7 +346,10 @@ func TestModelRegistryUpdateDeleteConfirmYes(t *testing.T) {
 func TestModelRegistryUpdateDeleteConfirmNo(t *testing.T) {
 	mr := NewModelRegistry()
 	mr.confirmDelete = true
-	mr.deleteTarget = "test-model-id"
+	mr.deleteTarget = struct {
+		provider string
+		modelID  string
+	}{modelID: "test-model-id"}
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
 	updated, cmd := mr.Update(msg)
@@ -356,7 +362,7 @@ func TestModelRegistryUpdateDeleteConfirmNo(t *testing.T) {
 		t.Error("expected confirmDelete to be false after rejection")
 	}
 
-	if updated.deleteTarget != "" {
+	if updated.deleteTarget.modelID != "" {
 		t.Error("expected deleteTarget to be cleared after rejection")
 	}
 }
@@ -732,7 +738,10 @@ func TestModelRegistryViewDeleteConfirm(t *testing.T) {
 	mr.width = 80
 	mr.height = 24
 	mr.confirmDelete = true
-	mr.deleteTarget = "test-model"
+	mr.deleteTarget = struct {
+		provider string
+		modelID  string
+	}{modelID: "test-model"}
 
 	view := mr.View()
 
