@@ -51,6 +51,10 @@ func (w WizardOther) renderContent() string {
 				if valid {
 					value += wizOtherEnabledStyle.Render(" ✓")
 				}
+				// Highlight value when in simpleValueFocused mode
+				if w.simpleValueFocused && section == w.currentSection && !w.inSubSection {
+					value = labelStyle.Render(value)
+				}
 				line := fmt.Sprintf("%s%s %s: %s", cursor, checkbox, labelStyle.Render(name), value)
 				lines = append(lines, line)
 				continue
