@@ -133,6 +133,43 @@ var otherSectionNames = []string{
 	"Skills (JSON)",
 }
 
+// Category grouping for sections
+type otherCategory int
+
+const (
+	categoryDisabledFeatures otherCategory = iota
+	categoryGeneralSettings
+	categoryClaudeCode
+	categoryAgentsLoops
+	categoryInfrastructure
+	categoryAdvanced
+	categoryCount // sentinel for iteration
+)
+
+var otherCategoryNames = []string{
+	"Disabled Features",
+	"General Settings",
+	"Claude Code",
+	"Agents & Loops",
+	"Infrastructure",
+	"Advanced",
+}
+
+var categorySections = [][]otherSection{
+	// categoryDisabledFeatures
+	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools},
+	// categoryGeneralSettings
+	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork},
+	// categoryClaudeCode
+	{sectionClaudeCode, sectionModelCapabilities},
+	// categoryAgentsLoops
+	{sectionDefaultRunAgent, sectionSisyphusAgent, sectionSisyphus, sectionRalphLoop, sectionBabysitting, sectionCommentChecker},
+	// categoryInfrastructure
+	{sectionBackgroundTask, sectionTmux, sectionBrowserAutomationEngine, sectionWebsearch, sectionNotification, sectionGitMaster},
+	// categoryAdvanced
+	{sectionExperimental, sectionOpenclaw, sectionRuntimeFallback, sectionSkillsJson},
+}
+
 type wizardOtherKeyMap struct {
 	Up     key.Binding
 	Down   key.Binding
@@ -311,7 +348,12 @@ type WizardOther struct {
 	runtimeFallbackEditor textarea.Model
 	skillsEditor          textarea.Model
 
-	// UI State
+	// UI State — category navigation
+	currentCategory  otherCategory
+	categoryExpanded map[otherCategory]bool
+	inCategory       bool // true when cursor is on a section within an expanded category
+
+	// UI State — section navigation
 	currentSection     otherSection
 	sectionExpanded    map[otherSection]bool
 	subCursor          int
@@ -544,8 +586,9 @@ func NewWizardOther() WizardOther {
 		skillsEditor:                skillsEditor,
 		tmuxLayoutIdx:               2,
 		tmuxIsolationIdx:            3,
-		sectionExpanded:             sectionExpanded,
-		keys:                        newWizardOtherKeyMap(),
+		sectionExpanded:  sectionExpanded,
+		categoryExpanded: make(map[otherCategory]bool),
+		keys:             newWizardOtherKeyMap(),
 	}
 }
 
@@ -624,10 +667,12 @@ func (w WizardOther) View() string {
 	helpStyle := wizOtherHelpStyle
 
 	title := titleStyle.Render("Other Settings")
-	desc := helpStyle.Render("[Enter] expand  [Space] toggle  [Tab] next  [Shift+Tab] back")
+	desc := helpStyle.Render("[Enter/→] expand  [←] collapse  [Space] toggle  [Tab] next  [Esc] back")
 
 	if w.inSubSection {
 		desc = helpStyle.Render("Space/Enter to toggle • Esc to close section")
+	} else if w.inCategory {
+		desc = helpStyle.Render("[Enter/→] expand  [←] collapse  [Space] toggle  [Esc] back to category")
 	}
 
 	content := w.viewport.View()

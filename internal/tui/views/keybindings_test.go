@@ -193,13 +193,16 @@ func TestWizardAgentsSpaceToggles(t *testing.T) {
 func TestWizardOtherRightExpandsSection(t *testing.T) {
 	w := NewWizardOther()
 	w.SetSize(80, 24)
-	w.currentSection = 0
-	w.sectionExpanded[0] = false
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = false
 	w.inSubSection = false
 
 	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
 
-	if !w.sectionExpanded[0] {
+	if !w.sectionExpanded[sectionDisabledMcps] {
 		t.Error("expected section to be expanded after pressing right arrow")
 	}
 	if !w.inSubSection {
@@ -213,13 +216,16 @@ func TestWizardOtherRightExpandsSection(t *testing.T) {
 func TestWizardOtherLeftCollapsesSection(t *testing.T) {
 	w := NewWizardOther()
 	w.SetSize(80, 24)
-	w.currentSection = 0
-	w.sectionExpanded[0] = true
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = true
 	w.inSubSection = false
 
 	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
 
-	if w.sectionExpanded[0] {
+	if w.sectionExpanded[sectionDisabledMcps] {
 		t.Error("expected section to be collapsed after pressing left arrow")
 	}
 }
@@ -227,13 +233,16 @@ func TestWizardOtherLeftCollapsesSection(t *testing.T) {
 func TestWizardOtherRightDoesNothingWhenExpanded(t *testing.T) {
 	w := NewWizardOther()
 	w.SetSize(80, 24)
-	w.currentSection = 0
-	w.sectionExpanded[0] = true
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = true
 	w.inSubSection = false
 
 	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
 
-	if !w.sectionExpanded[0] {
+	if !w.sectionExpanded[sectionDisabledMcps] {
 		t.Error("section should remain expanded")
 	}
 }
@@ -241,20 +250,27 @@ func TestWizardOtherRightDoesNothingWhenExpanded(t *testing.T) {
 func TestWizardOtherLeftDoesNothingWhenCollapsed(t *testing.T) {
 	w := NewWizardOther()
 	w.SetSize(80, 24)
-	w.currentSection = 0
-	w.sectionExpanded[0] = false
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledMcps
+	w.sectionExpanded[sectionDisabledMcps] = false
 	w.inSubSection = false
 
 	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
 
-	if w.sectionExpanded[0] {
-		t.Error("section should remain collapsed")
+	// Left on a collapsed section goes back to category header
+	if w.inCategory {
+		t.Error("expected to go back to category header")
 	}
 }
 
 func TestWizardOtherLeftRightIgnoredInSubSection(t *testing.T) {
 	w := NewWizardOther()
 	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
 	w.currentSection = sectionDisabledAgents
 	w.sectionExpanded[sectionDisabledAgents] = true
 	w.inSubSection = true

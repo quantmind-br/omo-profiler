@@ -1089,6 +1089,9 @@ func TestWizardOtherCheckmarkReflectsSelection_NotValue_SimpleBoolean(t *testing
 	selection.SetSelected("auto_update", true)
 	w.selection = selection
 	w.autoUpdate = false
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionAutoUpdate
 
 	content := w.renderContent()
@@ -1107,6 +1110,9 @@ func TestWizardOtherCheckmarkReflectsSelection_NotValue_Unselected(t *testing.T)
 	// auto_update NOT selected
 	w.selection = selection
 	w.autoUpdate = true
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionAutoUpdate
 
 	content := w.renderContent()
@@ -1193,6 +1199,9 @@ func TestWizardOtherSimpleValueFocused_HighlightApplied(t *testing.T) {
 	selection := profile.NewBlankSelection()
 	selection.SetSelected("auto_update", true)
 	w.selection = selection
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionAutoUpdate
 	w.simpleValueFocused = true
 	w.autoUpdate = false
@@ -1232,6 +1241,9 @@ func TestWizardOtherSimpleValueFocused_NoHighlightWhenFalse(t *testing.T) {
 	selection := profile.NewBlankSelection()
 	selection.SetSelected("auto_update", true)
 	w.selection = selection
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionAutoUpdate
 	w.simpleValueFocused = false
 	w.autoUpdate = false
@@ -1265,6 +1277,9 @@ func TestWizardOtherSimpleValueFocused_NoHighlightOnNonCurrentSection(t *testing
 	selection.SetSelected("auto_update", true)
 	selection.SetSelected("new_task_system_enabled", true)
 	w.selection = selection
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionNewTaskSystemEnabled // Current is New Task System
 	w.simpleValueFocused = true
 	w.autoUpdate = false
@@ -1321,6 +1336,9 @@ func TestWizardOtherSectionStartWork_RendersAsSimpleBoolean(t *testing.T) {
 	selection := profile.NewBlankSelection()
 	selection.SetSelected("start_work.auto_commit", true)
 	w.selection = selection
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.startWorkAutoCommit = false
 
 	content := w.renderContent()
@@ -1402,6 +1420,9 @@ func TestWizardOtherSectionStartWork_EnterDoesNotExpand(t *testing.T) {
 	selection := profile.NewBlankSelection()
 	selection.SetSelected("start_work.auto_commit", true)
 	w.selection = selection
+	w.currentCategory = categoryGeneralSettings
+	w.categoryExpanded[categoryGeneralSettings] = true
+	w.inCategory = true
 	w.currentSection = sectionStartWork
 	w.simpleValueFocused = false
 
@@ -1424,6 +1445,9 @@ func TestWizardOtherSectionStartWork_ExpandableSectionsStillWork(t *testing.T) {
 	selection := profile.NewBlankSelection()
 	selection.SetSelected("experimental.aggressive_truncation", true)
 	w.selection = selection
+	w.currentCategory = categoryAdvanced
+	w.categoryExpanded[categoryAdvanced] = true
+	w.inCategory = true
 	w.currentSection = sectionExperimental
 
 	// Simulate pressing Enter
@@ -1436,5 +1460,173 @@ func TestWizardOtherSectionStartWork_ExpandableSectionsStillWork(t *testing.T) {
 	// Section should be expanded
 	if !updated.sectionExpanded[sectionExperimental] {
 		t.Fatal("expected sectionExpanded to be true for expandable section")
+	}
+}
+
+// --- Category navigation tests ---
+
+func TestWizardOtherBuildVisibleItems_AllCollapsed(t *testing.T) {
+	w := NewWizardOther()
+	items := w.buildVisibleItems()
+
+	// With all categories collapsed, should have exactly 6 items (one per category)
+	if len(items) != int(categoryCount) {
+		t.Fatalf("expected %d visible items, got %d", int(categoryCount), len(items))
+	}
+	for i, item := range items {
+		if item.kind != itemCategory {
+			t.Errorf("item %d: expected itemCategory, got itemSection", i)
+		}
+		if item.category != otherCategory(i) {
+			t.Errorf("item %d: expected category %d, got %d", i, i, item.category)
+		}
+	}
+}
+
+func TestWizardOtherBuildVisibleItems_OneExpanded(t *testing.T) {
+	w := NewWizardOther()
+	w.categoryExpanded[categoryGeneralSettings] = true
+	items := w.buildVisibleItems()
+
+	// 6 categories + 6 sections in General Settings
+	expectedSections := len(categorySections[int(categoryGeneralSettings)])
+	expected := int(categoryCount) + expectedSections
+	if len(items) != expected {
+		t.Fatalf("expected %d visible items, got %d", expected, len(items))
+	}
+}
+
+func TestWizardOtherCategoryExpandEnter(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+
+	// Press Enter to expand category
+	w, _ = w.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !w.categoryExpanded[categoryDisabledFeatures] {
+		t.Fatal("expected category to be expanded after Enter")
+	}
+	if !w.inCategory {
+		t.Fatal("expected inCategory to be true after expanding")
+	}
+	if w.currentSection != sectionDisabledMcps {
+		t.Fatalf("expected currentSection to be sectionDisabledMcps, got %d", w.currentSection)
+	}
+}
+
+func TestWizardOtherCategoryCollapseLeft(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+
+	// Press Left to collapse
+	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+
+	if w.categoryExpanded[categoryDisabledFeatures] {
+		t.Fatal("expected category to be collapsed after Left")
+	}
+}
+
+func TestWizardOtherCollapseCategoryResetsInnerState(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledAgents
+	w.sectionExpanded[sectionDisabledAgents] = true
+	w.inSubSection = true
+	w.subValueFocused = true
+
+	w.collapseCategory(categoryDisabledFeatures)
+
+	if w.categoryExpanded[categoryDisabledFeatures] {
+		t.Fatal("expected category to be collapsed")
+	}
+	if w.sectionExpanded[sectionDisabledAgents] {
+		t.Fatal("expected section within category to be collapsed")
+	}
+	if w.inCategory {
+		t.Fatal("expected inCategory to be false")
+	}
+	if w.inSubSection {
+		t.Fatal("expected inSubSection to be false")
+	}
+	if w.subValueFocused {
+		t.Fatal("expected subValueFocused to be false")
+	}
+}
+
+func TestWizardOtherNavigationCrossesCategoryBoundary(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+
+	// Press Down to go to next category
+	w, _ = w.Update(keyMsg("j"))
+
+	if w.currentCategory != categoryGeneralSettings {
+		t.Fatalf("expected to move to categoryGeneralSettings, got %d", w.currentCategory)
+	}
+	if w.inCategory {
+		t.Fatal("expected to be on category header, not in category")
+	}
+}
+
+func TestWizardOtherNavigationFromSectionToNextCategory(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	// Navigate to last section in the category
+	lastSection := categorySections[int(categoryDisabledFeatures)]
+	w.currentSection = lastSection[len(lastSection)-1]
+
+	// Press Down to go past last section
+	w, _ = w.Update(keyMsg("j"))
+
+	// Should be on the next category header
+	if w.currentCategory != categoryGeneralSettings {
+		t.Fatalf("expected to move to categoryGeneralSettings, got %d", w.currentCategory)
+	}
+	if w.inCategory {
+		t.Fatal("expected to be on category header")
+	}
+}
+
+func TestWizardOtherBackFromCategoryGoesToWizardBack(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.inCategory = false
+
+	var backMsg bool
+	_, cmd := w.Update(keyMsgSpecial(tea.KeyEsc))
+	if cmd != nil {
+		msg := cmd()
+		if _, ok := msg.(WizardBackMsg); ok {
+			backMsg = true
+		}
+	}
+	if !backMsg {
+		t.Fatal("expected WizardBackMsg when pressing Esc on category header")
+	}
+}
+
+func TestWizardOtherBackFromSectionGoesToCategory(t *testing.T) {
+	w := NewWizardOther()
+	w.SetSize(80, 24)
+	w.currentCategory = categoryDisabledFeatures
+	w.categoryExpanded[categoryDisabledFeatures] = true
+	w.inCategory = true
+	w.currentSection = sectionDisabledMcps
+
+	w, _ = w.Update(keyMsgSpecial(tea.KeyEsc))
+
+	if w.inCategory {
+		t.Fatal("expected inCategory to be false after Esc from section level")
 	}
 }

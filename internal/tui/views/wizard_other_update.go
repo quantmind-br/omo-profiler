@@ -307,51 +307,93 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 		switch {
 		case key.Matches(msg, w.keys.Up):
 			w.simpleValueFocused = false
-			if w.currentSection > 0 {
-				w.currentSection--
+			items := w.buildVisibleItems()
+			idx := w.findCurrentVisibleIndex(items)
+			if idx > 0 {
+				w.applyCursorPosition(items[idx-1])
 			}
 		case key.Matches(msg, w.keys.Down):
 			w.simpleValueFocused = false
-			if w.currentSection < sectionSkillsJson {
-				w.currentSection++
+			items := w.buildVisibleItems()
+			idx := w.findCurrentVisibleIndex(items)
+			if idx < len(items)-1 {
+				w.applyCursorPosition(items[idx+1])
 			}
 		case key.Matches(msg, w.keys.Toggle):
-			w.toggleSection()
-		case key.Matches(msg, w.keys.Expand):
-			if w.isSimpleBooleanSection(w.currentSection) {
-				// Simple booleans toggle value directly, don't expand
+			if w.inCategory {
 				w.toggleSection()
-				break
 			}
-			w.sectionExpanded[w.currentSection] = !w.sectionExpanded[w.currentSection]
-			if w.sectionExpanded[w.currentSection] {
-				w.inSubSection = true
-				w.subCursor = 0
-				w.subValueFocused = false
+		case key.Matches(msg, w.keys.Expand):
+			if !w.inCategory {
+				// On category header: toggle expand
+				w.categoryExpanded[w.currentCategory] = !w.categoryExpanded[w.currentCategory]
+				if w.categoryExpanded[w.currentCategory] {
+					sections := categorySections[int(w.currentCategory)]
+					if len(sections) > 0 {
+						w.currentSection = sections[0]
+						w.inCategory = true
+					}
+				}
+			} else {
+				// On a section within an expanded category
+				if w.isSimpleBooleanSection(w.currentSection) {
+					w.toggleSection()
+				} else {
+					w.sectionExpanded[w.currentSection] = !w.sectionExpanded[w.currentSection]
+					if w.sectionExpanded[w.currentSection] {
+						w.inSubSection = true
+						w.subCursor = 0
+						w.subValueFocused = false
+					}
+				}
 			}
 		case key.Matches(msg, w.keys.Right):
-			if w.isSimpleBooleanSection(w.currentSection) {
-				w.simpleValueFocused = true
-				break
-			}
-			if !w.inSubSection && !w.sectionExpanded[w.currentSection] {
-				w.sectionExpanded[w.currentSection] = true
-				w.inSubSection = true
-				w.subCursor = 0
-				w.subValueFocused = false
+			if !w.inCategory {
+				// On category header: expand and enter first section
+				if !w.categoryExpanded[w.currentCategory] {
+					w.categoryExpanded[w.currentCategory] = true
+					sections := categorySections[int(w.currentCategory)]
+					if len(sections) > 0 {
+						w.currentSection = sections[0]
+						w.inCategory = true
+					}
+				}
+			} else {
+				// On a section: expand section
+				if w.isSimpleBooleanSection(w.currentSection) {
+					w.simpleValueFocused = true
+				} else if !w.inSubSection && !w.sectionExpanded[w.currentSection] {
+					w.sectionExpanded[w.currentSection] = true
+					w.inSubSection = true
+					w.subCursor = 0
+					w.subValueFocused = false
+				}
 			}
 		case key.Matches(msg, w.keys.Left):
-			if w.isSimpleBooleanSection(w.currentSection) {
-				w.simpleValueFocused = false
-				break
-			}
-			if !w.inSubSection && w.sectionExpanded[w.currentSection] {
-				w.sectionExpanded[w.currentSection] = false
+			if !w.inCategory {
+				// On category header: collapse category
+				if w.categoryExpanded[w.currentCategory] {
+					w.collapseCategory(w.currentCategory)
+				}
+			} else {
+				// On a section within a category
+				if w.isSimpleBooleanSection(w.currentSection) {
+					w.simpleValueFocused = false
+				} else if !w.inSubSection && w.sectionExpanded[w.currentSection] {
+					w.sectionExpanded[w.currentSection] = false
+				} else if !w.inSubSection {
+					// Section already collapsed, go back to category header
+					w.inCategory = false
+				}
 			}
 		case key.Matches(msg, w.keys.Next):
 			return w, func() tea.Msg { return WizardNextMsg{} }
 		case key.Matches(msg, w.keys.Back):
-			return w, func() tea.Msg { return WizardBackMsg{} }
+			if w.inCategory {
+				w.inCategory = false
+			} else {
+				return w, func() tea.Msg { return WizardBackMsg{} }
+			}
 		}
 	}
 
@@ -394,6 +436,8 @@ func (w *WizardOther) toggleSection() {
 		} else {
 			w.toggleFieldSelection(startWorkAutoCommitFieldPath)
 		}
+	case sectionDefaultRunAgent:
+		w.toggleFieldSelection(defaultRunAgentFieldPath)
 	case sectionDisabledMcps:
 		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledMcps))
 	case sectionDisabledAgents:
@@ -545,4 +589,71 @@ func (w *WizardOther) toggleSubItem() {
 			}
 		}
 	}
+}
+
+// Category navigation helpers
+
+type visibleItemKind int
+
+const (
+	itemCategory visibleItemKind = iota
+	itemSection
+)
+
+type visibleItem struct {
+	kind     visibleItemKind
+	category otherCategory
+	section  otherSection // only valid when kind == itemSection
+}
+
+func (w *WizardOther) buildVisibleItems() []visibleItem {
+	var items []visibleItem
+	for ci := range otherCategoryNames {
+		cat := otherCategory(ci)
+		items = append(items, visibleItem{kind: itemCategory, category: cat})
+		if w.categoryExpanded[cat] {
+			for _, sec := range categorySections[ci] {
+				items = append(items, visibleItem{kind: itemSection, category: cat, section: sec})
+			}
+		}
+	}
+	return items
+}
+
+func (w *WizardOther) findCurrentVisibleIndex(items []visibleItem) int {
+	if w.inCategory {
+		for i, item := range items {
+			if item.kind == itemSection && item.section == w.currentSection {
+				return i
+			}
+		}
+	}
+	for i, item := range items {
+		if item.kind == itemCategory && item.category == w.currentCategory {
+			return i
+		}
+	}
+	return 0
+}
+
+func (w *WizardOther) applyCursorPosition(item visibleItem) {
+	if item.kind == itemCategory {
+		w.currentCategory = item.category
+		w.inCategory = false
+	} else {
+		w.currentCategory = item.category
+		w.currentSection = item.section
+		w.inCategory = true
+	}
+}
+
+func (w *WizardOther) collapseCategory(cat otherCategory) {
+	w.categoryExpanded[cat] = false
+	for _, sec := range categorySections[int(cat)] {
+		w.sectionExpanded[sec] = false
+	}
+	w.inCategory = false
+	w.inSubSection = false
+	w.subValueFocused = false
+	w.simpleValueFocused = false
 }

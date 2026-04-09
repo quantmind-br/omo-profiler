@@ -7,67 +7,96 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var wizOtherCategoryStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F9E2AF"))
+
 func (w WizardOther) renderContent() string {
 	var lines []string
 
 	selectedStyle := wizOtherSelectedStyle
 	enabledStyle := wizOtherEnabledStyle
 	labelStyle := wizOtherLabelStyle
+	catStyle := wizOtherCategoryStyle
 
-	for i, name := range otherSectionNames {
-		section := otherSection(i)
-		cursor := "  "
-		if section == w.currentSection && !w.inSubSection {
-			cursor = selectedStyle.Render("> ")
+	for ci, catName := range otherCategoryNames {
+		cat := otherCategory(ci)
+
+		// Category header cursor
+		catCursor := "  "
+		if cat == w.currentCategory && !w.inCategory && !w.inSubSection {
+			catCursor = selectedStyle.Render("> ")
 		}
 
-		expandIcon := "▶"
-		if w.sectionExpanded[section] {
-			expandIcon = "▼"
+		catIcon := "▶"
+		if w.categoryExpanded[cat] {
+			catIcon = "▼"
 		}
 
-		if path := w.topLevelFieldPath(section); path != "" {
-			checkbox := "[ ]"
-			if w.fieldSelected(path) {
-				checkbox = enabledStyle.Render("[✓]")
+		lines = append(lines, fmt.Sprintf("%s%s %s", catCursor, catIcon, catStyle.Render(catName)))
+
+		if !w.categoryExpanded[cat] {
+			continue
+		}
+
+		// Render sections within expanded category
+		sectionIndent := "   "
+		for _, section := range categorySections[ci] {
+			name := otherSectionNames[int(section)]
+
+			cursor := "  "
+			if w.currentSection == section && w.inCategory && !w.inSubSection {
+				cursor = selectedStyle.Render("> ")
 			}
-			value := ""
-			var valid bool
-			switch section {
-			case sectionAutoUpdate:
-				value = onOff(w.autoUpdate)
-				valid = w.fieldSelected(path)
-			case sectionNewTaskSystemEnabled:
-				value = onOff(w.newTaskSystemEnabled)
-				valid = w.fieldSelected(path)
-			case sectionHashlineEdit:
-				value = onOff(w.hashlineEdit)
-				valid = w.fieldSelected(path)
-			case sectionModelFallback:
-				value = onOff(w.modelFallback)
-				valid = w.fieldSelected(path)
-			case sectionStartWork:
-				value = onOff(w.startWorkAutoCommit)
-				valid = w.fieldSelected(path)
-			}
-			if value != "" {
-				if valid {
-					value += wizOtherEnabledStyle.Render(" ✓")
+
+			// Simple boolean / top-level value sections render inline
+			if path := w.topLevelFieldPath(section); path != "" {
+				checkbox := "[ ]"
+				if w.fieldSelected(path) {
+					checkbox = enabledStyle.Render("[✓]")
 				}
-				// Highlight value when in simpleValueFocused mode
-				if w.simpleValueFocused && section == w.currentSection && !w.inSubSection {
-					value = labelStyle.Render(value)
+				value := ""
+				var valid bool
+				switch section {
+				case sectionAutoUpdate:
+					value = onOff(w.autoUpdate)
+					valid = w.fieldSelected(path)
+				case sectionNewTaskSystemEnabled:
+					value = onOff(w.newTaskSystemEnabled)
+					valid = w.fieldSelected(path)
+				case sectionHashlineEdit:
+					value = onOff(w.hashlineEdit)
+					valid = w.fieldSelected(path)
+				case sectionModelFallback:
+					value = onOff(w.modelFallback)
+					valid = w.fieldSelected(path)
+				case sectionStartWork:
+					value = onOff(w.startWorkAutoCommit)
+					valid = w.fieldSelected(path)
 				}
-				line := fmt.Sprintf("%s%s %s: %s", cursor, checkbox, labelStyle.Render(name), value)
-				lines = append(lines, line)
-				continue
+				if value != "" {
+					if valid {
+						value += enabledStyle.Render(" ✓")
+					}
+					if w.simpleValueFocused && section == w.currentSection && w.inCategory && !w.inSubSection {
+						value = labelStyle.Render(value)
+					}
+					line := fmt.Sprintf("%s%s%s %s: %s", sectionIndent, cursor, checkbox, labelStyle.Render(name), value)
+					lines = append(lines, line)
+					continue
+				}
 			}
-		}
 
-		line := fmt.Sprintf("%s%s %s", cursor, expandIcon, labelStyle.Render(name))
-		lines = append(lines, line)
-		if w.sectionExpanded[section] {
-			lines = append(lines, w.renderSubSection(section)...)
+			// Expandable sections
+			expandIcon := "▶"
+			if w.sectionExpanded[section] {
+				expandIcon = "▼"
+			}
+
+			lines = append(lines, fmt.Sprintf("%s%s%s %s", sectionIndent, cursor, expandIcon, labelStyle.Render(name)))
+			if w.sectionExpanded[section] {
+				for _, sl := range w.renderSubSection(section) {
+					lines = append(lines, sectionIndent+sl)
+				}
+			}
 		}
 	}
 
