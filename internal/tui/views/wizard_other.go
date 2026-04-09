@@ -21,7 +21,6 @@ import (
 var (
 	wizOtherPurple = lipgloss.Color("#7D56F4")
 	wizOtherGreen  = lipgloss.Color("#A6E3A1")
-	wizOtherRed    = lipgloss.Color("#F38BA8")
 	wizOtherGray   = lipgloss.Color("#6C7086")
 	wizOtherWhite  = lipgloss.Color("#CDD6F4")
 )
@@ -29,7 +28,6 @@ var (
 var (
 	wizOtherSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizOtherPurple)
 	wizOtherEnabledStyle  = lipgloss.NewStyle().Foreground(wizOtherGreen)
-	wizOtherDisabledStyle = lipgloss.NewStyle().Foreground(wizOtherRed)
 	wizOtherDimStyle      = lipgloss.NewStyle().Foreground(wizOtherGray)
 	wizOtherLabelStyle    = lipgloss.NewStyle().Bold(true).Foreground(wizOtherWhite)
 	wizOtherHelpStyle     = lipgloss.NewStyle().Foreground(wizOtherGray)
@@ -289,10 +287,6 @@ func wizardOtherBoolPtr(v bool) *bool {
 }
 
 func intPtr(v int) *int {
-	return &v
-}
-
-func int64Ptr(v int64) *int64 {
 	return &v
 }
 
@@ -562,29 +556,6 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 		}
 	}
 	return ""
-}
-
-func (w WizardOther) isBooleanField(section otherSection, idx int) bool {
-	path := w.subSectionFieldPath(section, idx)
-	switch path {
-	case "experimental.aggressive_truncation", "experimental.auto_resume", "experimental.truncate_all_tool_outputs",
-		"experimental.dynamic_context_pruning.enabled", "experimental.dynamic_context_pruning.turn_protection.enabled",
-		"experimental.dynamic_context_pruning.strategies.deduplication.enabled",
-		"experimental.dynamic_context_pruning.strategies.supersede_writes.enabled",
-		"experimental.dynamic_context_pruning.strategies.supersede_writes.aggressive",
-		"experimental.dynamic_context_pruning.strategies.purge_errors.enabled", "experimental.preemptive_compaction",
-		"experimental.task_system", "experimental.safe_hook_creation", "experimental.hashline_edit",
-		"experimental.disable_omo_env", "experimental.model_fallback_title", "claude_code.mcp", "claude_code.commands",
-		"claude_code.skills", "claude_code.agents", "claude_code.hooks", "claude_code.plugins",
-		"sisyphus_agent.disabled", "sisyphus_agent.default_builder_enabled", "sisyphus_agent.planner_enabled",
-		"sisyphus_agent.replace_plan", "sisyphus_agent.tdd", "ralph_loop.enabled", "notification.force_enable",
-		"git_master.commit_footer", "git_master.include_co_authored_by", "tmux.enabled",
-		"sisyphus.tasks.claude_code_compat", startWorkAutoCommitFieldPath,
-		"model_capabilities.enabled", "model_capabilities.auto_refresh_on_start", openclawEnabledFieldPath:
-		return true
-	default:
-		return false
-	}
 }
 
 func onOff(v bool) string {
@@ -1939,7 +1910,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				return w, nil
 			case "enter", "right", "l":
 				path := w.subSectionFieldPath(w.currentSection, w.subCursor)
-				if path == "" && !(w.currentSection == sectionOpenclaw && w.subCursor == 4) && !(w.currentSection == sectionRuntimeFallback && w.subCursor == 1) && !(w.currentSection == sectionSkillsJson && w.subCursor == 1) {
+				if path == "" && (w.currentSection != sectionOpenclaw || w.subCursor != 4) && (w.currentSection != sectionRuntimeFallback || w.subCursor != 1) && (w.currentSection != sectionSkillsJson || w.subCursor != 1) {
 					return w, nil
 				}
 				w.subValueFocused = true
