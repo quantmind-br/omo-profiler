@@ -4,9 +4,162 @@ import (
 	"encoding/json"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 )
+
+type fieldBinding struct {
+	section   otherSection
+	subCursor int
+	update    func(*WizardOther, tea.KeyMsg) tea.Cmd
+}
+
+func (w *WizardOther) updateTextInputField(model *textinput.Model, msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+	switch msg.String() {
+	case "esc":
+		model.Blur()
+		w.inSubSection = false
+		w.viewport.SetContent(w.renderContent())
+		return nil
+	case "up", "k":
+		model.Blur()
+		if w.subCursor > 0 {
+			w.subCursor--
+		}
+		w.viewport.SetContent(w.renderContent())
+		return nil
+	case "down", "j":
+		model.Blur()
+		w.subCursor++
+		w.viewport.SetContent(w.renderContent())
+		return nil
+	case "tab":
+		model.Blur()
+		w.inSubSection = false
+		w.viewport.SetContent(w.renderContent())
+		return nil
+	case "enter", " ":
+		model.Focus()
+		*model, cmd = model.Update(msg)
+		return cmd
+	default:
+		model.Focus()
+		*model, cmd = model.Update(msg)
+		return cmd
+	}
+}
+
+func (w *WizardOther) updateTextareaField(model *textarea.Model, msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+	switch msg.String() {
+	case "esc", "tab":
+		model.Blur()
+		w.inSubSection = false
+		w.viewport.SetContent(w.renderContent())
+		return nil
+	default:
+		model.Focus()
+		*model, cmd = model.Update(msg)
+		return cmd
+	}
+}
+
+func (w *WizardOther) fieldBindings() []fieldBinding {
+	return []fieldBinding{
+		{section: sectionExperimental, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.dcpTurnProtTurns, msg) }},
+		{section: sectionExperimental, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.dcpProtectedTools, msg) }},
+		{section: sectionExperimental, subCursor: 12, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.dcpPurgeErrorsTurns, msg)
+		}},
+		{section: sectionExperimental, subCursor: 15, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.expPluginLoadTimeoutMs, msg)
+		}},
+		{section: sectionExperimental, subCursor: 20, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.expMaxTools, msg) }},
+		{section: sectionClaudeCode, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.ccPluginsOverride, msg) }},
+		{section: sectionBackgroundTask, subCursor: 0, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btProviderConcurrency, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btModelConcurrency, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btDefaultConcurrency, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btStaleTimeoutMs, msg) }},
+		{section: sectionBackgroundTask, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btMessageStalenessTimeoutMs, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 5, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btSyncPollTimeoutMs, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxDepth, msg) }},
+		{section: sectionBackgroundTask, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxDescendants, msg) }},
+		{section: sectionBackgroundTask, subCursor: 8, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btTaskTtlMs, msg) }},
+		{section: sectionBackgroundTask, subCursor: 9, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btSessionGoneTimeoutMs, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxToolCalls, msg) }},
+		{section: sectionBackgroundTask, subCursor: 12, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btCircuitBreakerMaxCalls, msg)
+		}},
+		{section: sectionBackgroundTask, subCursor: 13, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.btCircuitBreakerConsecutive, msg)
+		}},
+		{section: sectionDisabledMcps, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledMcps, msg) }},
+		{section: sectionDisabledTools, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledTools, msg) }},
+		{section: sectionRalphLoop, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.rlDefaultMaxIterations, msg)
+		}},
+		{section: sectionRalphLoop, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.rlStateDir, msg) }},
+		{section: sectionGitMaster, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.gmCommitFooterText, msg)
+		}},
+		{section: sectionGitMaster, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.gmGitEnvPrefix, msg) }},
+		{section: sectionCommentChecker, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.ccCustomPrompt, msg) }},
+		{section: sectionBabysitting, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.babysittingTimeoutMs, msg)
+		}},
+		{section: sectionTmux, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.tmuxMainPaneSize, msg) }},
+		{section: sectionTmux, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmuxMainPaneMinWidth, msg)
+		}},
+		{section: sectionTmux, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmuxAgentPaneMinWidth, msg)
+		}},
+		{section: sectionSisyphus, subCursor: 0, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.sisyphusTasksStoragePath, msg)
+		}},
+		{section: sectionSisyphus, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.sisyphusTasksTaskListID, msg)
+		}},
+		{section: sectionDefaultRunAgent, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.defaultRunAgent, msg) }},
+		{section: sectionModelCapabilities, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.mcRefreshTimeoutMs, msg)
+		}},
+		{section: sectionModelCapabilities, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.mcSourceURL, msg) }},
+		{section: sectionOpenclaw, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextareaField(&w.openclawEditor, msg) }},
+		{section: sectionRuntimeFallback, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextareaField(&w.runtimeFallbackEditor, msg)
+		}},
+		{section: sectionSkillsJson, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextareaField(&w.skillsEditor, msg) }},
+	}
+}
+
+func (w *WizardOther) dispatchFocusedField(msg tea.KeyMsg) (tea.Cmd, bool) {
+	for _, binding := range w.fieldBindings() {
+		if binding.section != w.currentSection {
+			continue
+		}
+		if binding.subCursor >= 0 && binding.subCursor != w.subCursor {
+			continue
+		}
+		return binding.update(w, msg), true
+	}
+	return nil, false
+}
 
 func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 	var cmd tea.Cmd
@@ -50,111 +203,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 		}
 
 		if w.inSubSection {
-			if w.currentSection == sectionExperimental && w.subCursor == 6 {
-				switch msg.String() {
-				case "esc":
-					w.dcpTurnProtTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.dcpTurnProtTurns.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.dcpTurnProtTurns.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.dcpTurnProtTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.dcpTurnProtTurns.Focus()
-					w.dcpTurnProtTurns, cmd = w.dcpTurnProtTurns.Update(msg)
-					return w, cmd
-				default:
-					w.dcpTurnProtTurns.Focus()
-					w.dcpTurnProtTurns, cmd = w.dcpTurnProtTurns.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionExperimental && w.subCursor == 7 {
-				switch msg.String() {
-				case "esc":
-					w.dcpProtectedTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.dcpProtectedTools.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.dcpProtectedTools.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.dcpProtectedTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.dcpProtectedTools.Focus()
-					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
-					return w, cmd
-				default:
-					w.dcpProtectedTools.Focus()
-					w.dcpProtectedTools, cmd = w.dcpProtectedTools.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionExperimental && w.subCursor == 12 {
-				switch msg.String() {
-				case "esc":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.dcpPurgeErrorsTurns.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.dcpPurgeErrorsTurns.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.dcpPurgeErrorsTurns.Focus()
-					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
-					return w, cmd
-				default:
-					w.dcpPurgeErrorsTurns.Focus()
-					w.dcpPurgeErrorsTurns, cmd = w.dcpPurgeErrorsTurns.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionExperimental && w.subCursor == 4 {
 				switch msg.String() {
 				case "right", "l":
@@ -168,289 +216,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionExperimental && w.subCursor == 15 {
-				switch msg.String() {
-				case "esc":
-					w.expPluginLoadTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.expPluginLoadTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.expPluginLoadTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.expPluginLoadTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.expPluginLoadTimeoutMs.Focus()
-					w.expPluginLoadTimeoutMs, cmd = w.expPluginLoadTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.expPluginLoadTimeoutMs.Focus()
-					w.expPluginLoadTimeoutMs, cmd = w.expPluginLoadTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionExperimental && w.subCursor == 20 {
-				switch msg.String() {
-				case "esc":
-					w.expMaxTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.expMaxTools.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.expMaxTools.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.expMaxTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.expMaxTools.Focus()
-					w.expMaxTools, cmd = w.expMaxTools.Update(msg)
-					return w, cmd
-				default:
-					w.expMaxTools.Focus()
-					w.expMaxTools, cmd = w.expMaxTools.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionClaudeCode && w.subCursor == 6 {
-				switch msg.String() {
-				case "esc":
-					w.ccPluginsOverride.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.ccPluginsOverride.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.ccPluginsOverride.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.ccPluginsOverride.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.ccPluginsOverride.Focus()
-					w.ccPluginsOverride, cmd = w.ccPluginsOverride.Update(msg)
-					return w, cmd
-				default:
-					w.ccPluginsOverride.Focus()
-					w.ccPluginsOverride, cmd = w.ccPluginsOverride.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 0 {
-				switch msg.String() {
-				case "esc":
-					w.btProviderConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btProviderConcurrency.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btProviderConcurrency.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btProviderConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btProviderConcurrency.Focus()
-					w.btProviderConcurrency, cmd = w.btProviderConcurrency.Update(msg)
-					return w, cmd
-				default:
-					w.btProviderConcurrency.Focus()
-					w.btProviderConcurrency, cmd = w.btProviderConcurrency.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.btModelConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btModelConcurrency.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btModelConcurrency.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btModelConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btModelConcurrency.Focus()
-					w.btModelConcurrency, cmd = w.btModelConcurrency.Update(msg)
-					return w, cmd
-				default:
-					w.btModelConcurrency.Focus()
-					w.btModelConcurrency, cmd = w.btModelConcurrency.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionDisabledMcps {
-				switch msg.String() {
-				case "esc":
-					w.disabledMcps.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.disabledMcps.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.disabledMcps.Focus()
-					w.disabledMcps, cmd = w.disabledMcps.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionDisabledTools {
-				switch msg.String() {
-				case "esc":
-					w.disabledTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.disabledTools.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.disabledTools.Focus()
-					w.disabledTools, cmd = w.disabledTools.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionRalphLoop && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.rlDefaultMaxIterations.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.rlDefaultMaxIterations.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.rlDefaultMaxIterations.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.rlDefaultMaxIterations.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.rlDefaultMaxIterations.Focus()
-					w.rlDefaultMaxIterations, cmd = w.rlDefaultMaxIterations.Update(msg)
-					return w, cmd
-				default:
-					w.rlDefaultMaxIterations.Focus()
-					w.rlDefaultMaxIterations, cmd = w.rlDefaultMaxIterations.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionRalphLoop && w.subCursor == 2 {
-				switch msg.String() {
-				case "esc":
-					w.rlStateDir.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.rlStateDir.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.rlStateDir.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.rlStateDir.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.rlStateDir.Focus()
-					w.rlStateDir, cmd = w.rlStateDir.Update(msg)
-					return w, cmd
-				default:
-					w.rlStateDir.Focus()
-					w.rlStateDir, cmd = w.rlStateDir.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionRalphLoop && w.subCursor == 3 {
 				switch msg.String() {
 				case "right", "l":
@@ -461,461 +226,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx - 1 + len(ralphLoopStrategies)) % len(ralphLoopStrategies)
 					w.viewport.SetContent(w.renderContent())
 					return w, nil
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 2 {
-				switch msg.String() {
-				case "esc":
-					w.btDefaultConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btDefaultConcurrency.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btDefaultConcurrency.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btDefaultConcurrency.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btDefaultConcurrency.Focus()
-					w.btDefaultConcurrency, cmd = w.btDefaultConcurrency.Update(msg)
-					return w, cmd
-				default:
-					w.btDefaultConcurrency.Focus()
-					w.btDefaultConcurrency, cmd = w.btDefaultConcurrency.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 3 {
-				switch msg.String() {
-				case "esc":
-					w.btStaleTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btStaleTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btStaleTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btStaleTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btStaleTimeoutMs.Focus()
-					w.btStaleTimeoutMs, cmd = w.btStaleTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.btStaleTimeoutMs.Focus()
-					w.btStaleTimeoutMs, cmd = w.btStaleTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 4 {
-				switch msg.String() {
-				case "esc":
-					w.btMessageStalenessTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btMessageStalenessTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btMessageStalenessTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btMessageStalenessTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btMessageStalenessTimeoutMs.Focus()
-					w.btMessageStalenessTimeoutMs, cmd = w.btMessageStalenessTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.btMessageStalenessTimeoutMs.Focus()
-					w.btMessageStalenessTimeoutMs, cmd = w.btMessageStalenessTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 5 {
-				switch msg.String() {
-				case "esc":
-					w.btSyncPollTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btSyncPollTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btSyncPollTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btSyncPollTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btSyncPollTimeoutMs.Focus()
-					w.btSyncPollTimeoutMs, cmd = w.btSyncPollTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.btSyncPollTimeoutMs.Focus()
-					w.btSyncPollTimeoutMs, cmd = w.btSyncPollTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 6 {
-				switch msg.String() {
-				case "esc":
-					w.btMaxDepth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btMaxDepth.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btMaxDepth.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btMaxDepth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btMaxDepth.Focus()
-					w.btMaxDepth, cmd = w.btMaxDepth.Update(msg)
-					return w, cmd
-				default:
-					w.btMaxDepth.Focus()
-					w.btMaxDepth, cmd = w.btMaxDepth.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 7 {
-				switch msg.String() {
-				case "esc":
-					w.btMaxDescendants.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btMaxDescendants.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btMaxDescendants.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btMaxDescendants.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btMaxDescendants.Focus()
-					w.btMaxDescendants, cmd = w.btMaxDescendants.Update(msg)
-					return w, cmd
-				default:
-					w.btMaxDescendants.Focus()
-					w.btMaxDescendants, cmd = w.btMaxDescendants.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 8 {
-				switch msg.String() {
-				case "esc":
-					w.btTaskTtlMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btTaskTtlMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btTaskTtlMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btTaskTtlMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btTaskTtlMs.Focus()
-					w.btTaskTtlMs, cmd = w.btTaskTtlMs.Update(msg)
-					return w, cmd
-				default:
-					w.btTaskTtlMs.Focus()
-					w.btTaskTtlMs, cmd = w.btTaskTtlMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 9 {
-				switch msg.String() {
-				case "esc":
-					w.btSessionGoneTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btSessionGoneTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btSessionGoneTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btSessionGoneTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btSessionGoneTimeoutMs.Focus()
-					w.btSessionGoneTimeoutMs, cmd = w.btSessionGoneTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.btSessionGoneTimeoutMs.Focus()
-					w.btSessionGoneTimeoutMs, cmd = w.btSessionGoneTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 10 {
-				switch msg.String() {
-				case "esc":
-					w.btMaxToolCalls.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btMaxToolCalls.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btMaxToolCalls.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btMaxToolCalls.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btMaxToolCalls.Focus()
-					w.btMaxToolCalls, cmd = w.btMaxToolCalls.Update(msg)
-					return w, cmd
-				default:
-					w.btMaxToolCalls.Focus()
-					w.btMaxToolCalls, cmd = w.btMaxToolCalls.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 12 {
-				switch msg.String() {
-				case "esc":
-					w.btCircuitBreakerMaxCalls.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btCircuitBreakerMaxCalls.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btCircuitBreakerMaxCalls.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btCircuitBreakerMaxCalls.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btCircuitBreakerMaxCalls.Focus()
-					w.btCircuitBreakerMaxCalls, cmd = w.btCircuitBreakerMaxCalls.Update(msg)
-					return w, cmd
-				default:
-					w.btCircuitBreakerMaxCalls.Focus()
-					w.btCircuitBreakerMaxCalls, cmd = w.btCircuitBreakerMaxCalls.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBackgroundTask && w.subCursor == 13 {
-				switch msg.String() {
-				case "esc":
-					w.btCircuitBreakerConsecutive.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.btCircuitBreakerConsecutive.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.btCircuitBreakerConsecutive.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.btCircuitBreakerConsecutive.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.btCircuitBreakerConsecutive.Focus()
-					w.btCircuitBreakerConsecutive, cmd = w.btCircuitBreakerConsecutive.Update(msg)
-					return w, cmd
-				default:
-					w.btCircuitBreakerConsecutive.Focus()
-					w.btCircuitBreakerConsecutive, cmd = w.btCircuitBreakerConsecutive.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionGitMaster && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.gmCommitFooterText.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.gmCommitFooterText.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.gmCommitFooterText.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.gmCommitFooterText.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.gmCommitFooterText.Focus()
-					w.gmCommitFooterText, cmd = w.gmCommitFooterText.Update(msg)
-					return w, cmd
-				default:
-					w.gmCommitFooterText.Focus()
-					w.gmCommitFooterText, cmd = w.gmCommitFooterText.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionGitMaster && w.subCursor == 3 {
-				switch msg.String() {
-				case "esc":
-					w.gmGitEnvPrefix.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.gmGitEnvPrefix.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.gmGitEnvPrefix.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.gmGitEnvPrefix.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.gmGitEnvPrefix.Focus()
-					w.gmGitEnvPrefix, cmd = w.gmGitEnvPrefix.Update(msg)
-					return w, cmd
-				default:
-					w.gmGitEnvPrefix.Focus()
-					w.gmGitEnvPrefix, cmd = w.gmGitEnvPrefix.Update(msg)
-					return w, cmd
 				}
 			}
 
@@ -945,60 +255,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionCommentChecker {
-				switch msg.String() {
-				case "esc":
-					w.ccCustomPrompt.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.ccCustomPrompt.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.ccCustomPrompt.Focus()
-					w.ccCustomPrompt, cmd = w.ccCustomPrompt.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionBabysitting {
-				switch msg.String() {
-				case "esc":
-					w.babysittingTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.babysittingTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.babysittingTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.babysittingTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.babysittingTimeoutMs.Focus()
-					w.babysittingTimeoutMs, cmd = w.babysittingTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.babysittingTimeoutMs.Focus()
-					w.babysittingTimeoutMs, cmd = w.babysittingTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionBrowserAutomationEngine && w.subCursor == 0 {
 				switch msg.String() {
 				case "right", "l":
@@ -1025,111 +281,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionTmux && w.subCursor == 2 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxMainPaneSize.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxMainPaneSize.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxMainPaneSize.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxMainPaneSize.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.tmuxMainPaneSize.Focus()
-					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
-					return w, cmd
-				default:
-					w.tmuxMainPaneSize.Focus()
-					w.tmuxMainPaneSize, cmd = w.tmuxMainPaneSize.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionTmux && w.subCursor == 3 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxMainPaneMinWidth.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxMainPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.tmuxMainPaneMinWidth.Focus()
-					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
-					return w, cmd
-				default:
-					w.tmuxMainPaneMinWidth.Focus()
-					w.tmuxMainPaneMinWidth, cmd = w.tmuxMainPaneMinWidth.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionTmux && w.subCursor == 4 {
-				switch msg.String() {
-				case "esc":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.tmuxAgentPaneMinWidth.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.tmuxAgentPaneMinWidth.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.tmuxAgentPaneMinWidth.Focus()
-					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
-					return w, cmd
-				default:
-					w.tmuxAgentPaneMinWidth.Focus()
-					w.tmuxAgentPaneMinWidth, cmd = w.tmuxAgentPaneMinWidth.Update(msg)
-					return w, cmd
-				}
-			}
-
 			if w.currentSection == sectionWebsearch && w.subCursor == 0 {
 				switch msg.String() {
 				case "right", "l":
@@ -1143,220 +294,8 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionSisyphus && w.subCursor == 0 {
-				switch msg.String() {
-				case "esc":
-					w.sisyphusTasksStoragePath.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.sisyphusTasksStoragePath.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.sisyphusTasksStoragePath.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.sisyphusTasksStoragePath.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.sisyphusTasksStoragePath.Focus()
-					w.sisyphusTasksStoragePath, cmd = w.sisyphusTasksStoragePath.Update(msg)
-					return w, cmd
-				default:
-					w.sisyphusTasksStoragePath.Focus()
-					w.sisyphusTasksStoragePath, cmd = w.sisyphusTasksStoragePath.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionSisyphus && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.sisyphusTasksTaskListID.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.sisyphusTasksTaskListID.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.sisyphusTasksTaskListID.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.sisyphusTasksTaskListID.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.sisyphusTasksTaskListID.Focus()
-					w.sisyphusTasksTaskListID, cmd = w.sisyphusTasksTaskListID.Update(msg)
-					return w, cmd
-				default:
-					w.sisyphusTasksTaskListID.Focus()
-					w.sisyphusTasksTaskListID, cmd = w.sisyphusTasksTaskListID.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionDefaultRunAgent {
-				switch msg.String() {
-				case "esc":
-					w.defaultRunAgent.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.defaultRunAgent.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.defaultRunAgent.Focus()
-					w.defaultRunAgent, cmd = w.defaultRunAgent.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionModelCapabilities && w.subCursor == 2 {
-				switch msg.String() {
-				case "esc":
-					w.mcRefreshTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.mcRefreshTimeoutMs.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.mcRefreshTimeoutMs.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.mcRefreshTimeoutMs.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.mcRefreshTimeoutMs.Focus()
-					w.mcRefreshTimeoutMs, cmd = w.mcRefreshTimeoutMs.Update(msg)
-					return w, cmd
-				default:
-					w.mcRefreshTimeoutMs.Focus()
-					w.mcRefreshTimeoutMs, cmd = w.mcRefreshTimeoutMs.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionModelCapabilities && w.subCursor == 3 {
-				switch msg.String() {
-				case "esc":
-					w.mcSourceURL.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "up", "k":
-					w.mcSourceURL.Blur()
-					if w.subCursor > 0 {
-						w.subCursor--
-					}
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "down", "j":
-					w.mcSourceURL.Blur()
-					w.subCursor++
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.mcSourceURL.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "enter", " ":
-					w.mcSourceURL.Focus()
-					w.mcSourceURL, cmd = w.mcSourceURL.Update(msg)
-					return w, cmd
-				default:
-					w.mcSourceURL.Focus()
-					w.mcSourceURL, cmd = w.mcSourceURL.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionOpenclaw && w.subCursor == 4 {
-				switch msg.String() {
-				case "esc":
-					w.openclawEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.openclawEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.openclawEditor.Focus()
-					w.openclawEditor, cmd = w.openclawEditor.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionRuntimeFallback && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.runtimeFallbackEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.runtimeFallbackEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.runtimeFallbackEditor.Focus()
-					w.runtimeFallbackEditor, cmd = w.runtimeFallbackEditor.Update(msg)
-					return w, cmd
-				}
-			}
-
-			if w.currentSection == sectionSkillsJson && w.subCursor == 1 {
-				switch msg.String() {
-				case "esc":
-					w.skillsEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				case "tab":
-					w.skillsEditor.Blur()
-					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
-					return w, nil
-				default:
-					w.skillsEditor.Focus()
-					w.skillsEditor, cmd = w.skillsEditor.Update(msg)
-					return w, cmd
-				}
+			if cmd, ok := w.dispatchFocusedField(msg); ok {
+				return w, cmd
 			}
 
 			switch msg.String() {
@@ -1613,4 +552,3 @@ func (w *WizardOther) toggleSubItem() {
 		}
 	}
 }
-
