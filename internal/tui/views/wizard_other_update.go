@@ -22,24 +22,24 @@ func (w *WizardOther) updateTextInputField(model *textinput.Model, msg tea.KeyMs
 	case "esc":
 		model.Blur()
 		w.inSubSection = false
-		w.viewport.SetContent(w.renderContent())
+		w.refreshView()
 		return nil
 	case "up", "k":
 		model.Blur()
 		if w.subCursor > 0 {
 			w.subCursor--
 		}
-		w.viewport.SetContent(w.renderContent())
+		w.refreshView()
 		return nil
 	case "down", "j":
 		model.Blur()
 		w.subCursor++
-		w.viewport.SetContent(w.renderContent())
+		w.refreshView()
 		return nil
 	case "tab":
 		model.Blur()
 		w.inSubSection = false
-		w.viewport.SetContent(w.renderContent())
+		w.refreshView()
 		return nil
 	case "enter", " ":
 		model.Focus()
@@ -58,7 +58,7 @@ func (w *WizardOther) updateTextareaField(model *textarea.Model, msg tea.KeyMsg)
 	case "esc", "tab":
 		model.Blur()
 		w.inSubSection = false
-		w.viewport.SetContent(w.renderContent())
+		w.refreshView()
 		return nil
 	default:
 		model.Focus()
@@ -175,21 +175,21 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			case "esc", "tab":
 				w.inSubSection = false
 				w.subValueFocused = false
-				w.viewport.SetContent(w.renderContent())
+				w.refreshView()
 				return w, nil
 			case "up", "k":
 				if w.subCursor > 0 {
 					w.subCursor--
 				}
-				w.viewport.SetContent(w.renderContent())
+				w.refreshView()
 				return w, nil
 			case "down", "j":
 				w.subCursor++
-				w.viewport.SetContent(w.renderContent())
+				w.refreshView()
 				return w, nil
 			case " ":
 				w.toggleSubItem()
-				w.viewport.SetContent(w.renderContent())
+				w.refreshView()
 				return w, nil
 			case "enter", "right", "l":
 				path := w.subSectionFieldPath(w.currentSection, w.subCursor)
@@ -197,7 +197,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					return w, nil
 				}
 				w.subValueFocused = true
-				w.viewport.SetContent(w.renderContent())
+				w.refreshView()
 				return w, nil
 			}
 		}
@@ -207,11 +207,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx + 1) % len(dcpNotificationValues)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx - 1 + len(dcpNotificationValues)) % len(dcpNotificationValues)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -220,11 +220,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx + 1) % len(ralphLoopStrategies)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx - 1 + len(ralphLoopStrategies)) % len(ralphLoopStrategies)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -233,11 +233,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.tmuxIsolationIdx = (w.tmuxIsolationIdx + 1) % len(tmuxIsolations)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.tmuxIsolationIdx = (w.tmuxIsolationIdx - 1 + len(tmuxIsolations)) % len(tmuxIsolations)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -246,11 +246,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "esc", "tab":
 					w.inSubSection = false
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "enter", " ":
 					w.startWorkAutoCommit = !w.startWorkAutoCommit
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -259,11 +259,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.browserProviderIdx = (w.browserProviderIdx + 1) % len(browserProviders)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.browserProviderIdx = (w.browserProviderIdx - 1 + len(browserProviders)) % len(browserProviders)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -272,11 +272,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.tmuxLayoutIdx = (w.tmuxLayoutIdx + 1) % len(tmuxLayouts)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.tmuxLayoutIdx = (w.tmuxLayoutIdx - 1 + len(tmuxLayouts)) % len(tmuxLayouts)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -285,11 +285,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				switch msg.String() {
 				case "right", "l":
 					w.websearchProviderIdx = (w.websearchProviderIdx + 1) % len(websearchProviders)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				case "left", "h":
 					w.websearchProviderIdx = (w.websearchProviderIdx - 1 + len(websearchProviders)) % len(websearchProviders)
-					w.viewport.SetContent(w.renderContent())
+					w.refreshView()
 					return w, nil
 				}
 			}
@@ -313,7 +313,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 			case "tab":
 				w.inSubSection = false
 			}
-			w.viewport.SetContent(w.renderContent())
+			w.refreshView()
 			return w, nil
 		}
 
@@ -364,7 +364,7 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 	}
 
 	// Update viewport
-	w.viewport.SetContent(w.renderContent())
+	w.refreshView()
 	w.viewport, cmd = w.viewport.Update(msg)
 
 	return w, cmd

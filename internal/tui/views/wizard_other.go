@@ -612,6 +612,10 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.openclawEditor.SetWidth(wide)
 	w.runtimeFallbackEditor.SetWidth(wide)
 	w.skillsEditor.SetWidth(wide)
+	w.refreshView()
+}
+
+func (w *WizardOther) refreshView() {
 	w.viewport.SetContent(w.renderContent())
 }
 
