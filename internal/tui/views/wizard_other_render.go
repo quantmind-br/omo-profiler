@@ -188,6 +188,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	case sectionDisabledTools:
 		lines = append(lines, renderInclude(0, disabledToolsFieldPath, "disabled_tools"))
 		lines = append(lines, renderValueField(1, disabledToolsFieldPath, "values", w.disabledTools.View()))
+	case sectionMcpEnvAllowlist:
+		lines = append(lines, renderInclude(0, mcpEnvAllowlistFieldPath, "mcp_env_allowlist"))
+		lines = append(lines, renderValueField(1, mcpEnvAllowlistFieldPath, "values", w.mcpEnvAllowlist.View()))
 	case sectionExperimental:
 		lines = append(lines, renderBoolField(0, "experimental.aggressive_truncation", "aggressive_truncation", w.expAggressiveTrunc))
 		lines = append(lines, renderBoolField(1, "experimental.auto_resume", "auto_resume", w.expAutoResume))

@@ -45,6 +45,8 @@ var disableableSkills = []string{
 	"playwright",
 	"agent-browser",
 	"dev-browser",
+	"ai-slop-remover",
+	"review-work",
 	"frontend-ui-ux",
 	"git-master",
 }
@@ -98,6 +100,7 @@ const (
 	sectionStartWork
 	sectionModelCapabilities
 	sectionOpenclaw
+	sectionMcpEnvAllowlist
 	sectionRuntimeFallback
 	sectionSkillsJson
 )
@@ -129,6 +132,7 @@ var otherSectionNames = []string{
 	"Start Work",
 	"Model Capabilities",
 	"Openclaw (JSON)",
+	"MCP Env Allowlist",
 	"Runtime Fallback (JSON)",
 	"Skills (JSON)",
 }
@@ -159,7 +163,7 @@ var categorySections = [][]otherSection{
 	// categoryDisabledFeatures
 	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools},
 	// categoryGeneralSettings
-	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork},
+	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist},
 	// categoryClaudeCode
 	{sectionClaudeCode, sectionModelCapabilities},
 	// categoryAgentsLoops
@@ -228,6 +232,7 @@ type WizardOther struct {
 	disabledSkills   map[string]bool
 	disabledCommands map[string]bool
 	disabledTools    textinput.Model
+	mcpEnvAllowlist  textinput.Model
 
 	// Auto update
 	autoUpdate          bool
@@ -375,6 +380,10 @@ func NewWizardOther() WizardOther {
 	disabledTools := textinput.New()
 	disabledTools.Placeholder = "tool1, tool2, ..."
 	disabledTools.Width = 50
+
+	mcpEnvAllowlist := textinput.New()
+	mcpEnvAllowlist.Placeholder = "ENV_VAR1, ENV_VAR2, ..."
+	mcpEnvAllowlist.Width = 50
 
 	rlMaxIter := textinput.New()
 	rlMaxIter.Placeholder = "10"
@@ -548,6 +557,7 @@ func NewWizardOther() WizardOther {
 		disabledSkills:              disabledSkills,
 		disabledCommands:            disabledCommands,
 		disabledTools:               disabledTools,
+		mcpEnvAllowlist:             mcpEnvAllowlist,
 		expPluginLoadTimeoutMs:      expPluginLoadTimeoutMs,
 		expMaxTools:                 expMaxTools,
 		rlDefaultMaxIterations:      rlMaxIter,

@@ -64,6 +64,7 @@ const (
 	websearchProviderFieldPath          = "websearch.provider"
 	commentCheckerCustomPromptFieldPath = "comment_checker.custom_prompt"
 	babysittingTimeoutFieldPath         = "babysitting.timeout_ms"
+	mcpEnvAllowlistFieldPath            = "mcp_env_allowlist"
 	openclawEnabledFieldPath            = "openclaw.enabled"
 	openclawGatewaysFieldPath           = "openclaw.gateways.*.type"
 	openclawHooksFieldPath              = "openclaw.hooks.*.enabled"
@@ -256,6 +257,8 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 		return modelFallbackFieldPath
 	case sectionDefaultRunAgent:
 		return defaultRunAgentFieldPath
+	case sectionMcpEnvAllowlist:
+		return mcpEnvAllowlistFieldPath
 	case sectionRuntimeFallback:
 		return runtimeFallbackFieldPath
 	case sectionSkillsJson:

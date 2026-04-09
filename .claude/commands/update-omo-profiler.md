@@ -11,7 +11,7 @@ Este command garante que a aplicação esteja 100% alinhada com o esquema mais r
 ## Fase 1: Fetch e Comparação
 
 1. Baixe o esquema upstream de:
-   `https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json`
+   `https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/assets/oh-my-opencode.schema.json`
 
 2. Compare com o esquema embarcado em `internal/schema/schema.json`
 

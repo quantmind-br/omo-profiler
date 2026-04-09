@@ -44,6 +44,11 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		w.disabledTools.SetValue(strings.Join(cfg.DisabledTools, ", "))
 	}
 
+	// MCP Env Allowlist
+	if len(cfg.MCPEnvAllowlist) > 0 {
+		w.mcpEnvAllowlist.SetValue(strings.Join(cfg.MCPEnvAllowlist, ", "))
+	}
+
 	// Auto update
 	if cfg.AutoUpdate != nil {
 		w.autoUpdate = *cfg.AutoUpdate
@@ -468,6 +473,17 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 			}
 		}
 		cfg.DisabledTools = emptySliceIfSelected(true, tools)
+	}
+
+	cfg.MCPEnvAllowlist = nil
+	if w.fieldSelected(mcpEnvAllowlistFieldPath) {
+		var envVars []string
+		for _, e := range strings.Split(w.mcpEnvAllowlist.Value(), ",") {
+			if s := strings.TrimSpace(e); s != "" {
+				envVars = append(envVars, s)
+			}
+		}
+		cfg.MCPEnvAllowlist = emptySliceIfSelected(true, envVars)
 	}
 
 	cfg.AutoUpdate = nil

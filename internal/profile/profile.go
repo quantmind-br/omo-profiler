@@ -45,6 +45,7 @@ var knownConfigTags = []string{
 	"git_master",
 	"new_task_system_enabled",
 	"disabled_tools",
+	"mcp_env_allowlist",
 	"babysitting",
 	"browser_automation_engine",
 	"tmux",

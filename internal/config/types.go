@@ -27,6 +27,7 @@ type Config struct {
 	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
 	NewTaskSystemEnabled    *bool                          `json:"new_task_system_enabled,omitempty"`
 	DisabledTools           []string                       `json:"disabled_tools,omitempty"`
+	MCPEnvAllowlist         []string                       `json:"mcp_env_allowlist,omitempty"`
 	Babysitting             *BabysittingConfig             `json:"babysitting,omitempty"`
 	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`

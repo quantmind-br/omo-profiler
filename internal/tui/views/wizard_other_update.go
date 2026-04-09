@@ -110,6 +110,7 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		}},
 		{section: sectionDisabledMcps, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledMcps, msg) }},
 		{section: sectionDisabledTools, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledTools, msg) }},
+		{section: sectionMcpEnvAllowlist, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.mcpEnvAllowlist, msg) }},
 		{section: sectionRalphLoop, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.rlDefaultMaxIterations, msg)
 		}},

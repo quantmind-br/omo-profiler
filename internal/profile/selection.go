@@ -122,6 +122,7 @@ var allFieldPaths = []string{
 	"git_master.git_env_prefix",
 	"new_task_system_enabled",
 	"disabled_tools",
+	"mcp_env_allowlist",
 	"babysitting.timeout_ms",
 	"browser_automation_engine.provider",
 	"tmux.enabled",
