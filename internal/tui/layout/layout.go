@@ -7,16 +7,12 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-var (
-	Yellow = lipgloss.Color("#F9E2AF")
-	Gray   = lipgloss.Color("#6C7086")
-)
-
+// RenderConfirmDialog renders a confirmation dialog with the given target and message.
 func RenderConfirmDialog(target, message string) string {
 	confirmStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(Yellow).
-		Background(Gray).
+		Foreground(lipgloss.Color("#F9E2AF")).
+		Background(lipgloss.Color("#6C7086")).
 		Padding(0, 1)
 	return confirmStyle.Render(fmt.Sprintf("%s '%s'? [y/n]", message, target))
 }

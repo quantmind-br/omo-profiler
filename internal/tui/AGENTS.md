@@ -2,17 +2,17 @@
 
 ## OVERVIEW
 
-Bubble Tea MVU application. Root `App` model (`app.go`, 872 lines) acts as state container, router, and composition layer for all sub-views.
+Bubble Tea MVU application. Root `App` model (`app.go`, 840 lines) acts as state container, router, and composition layer for all sub-views.
 
 ## FILES
 
 | File | Lines | Role |
 |------|-------|------|
-| `app.go` | 872 | Root model: state machine, message router, global overlays (toast/spinner/help) |
+| `app.go` | 840 | Root model: state machine, message router, global overlays |
 | `app_test.go` | — | State transitions, message routing, toast system tests |
-| `tui.go` | 10 | `Run()` entry point: `NewApp()` → `tea.NewProgram(WithAltScreen)` |
-| `styles.go` | 54 | **Shared palette**: `Purple`, `Magenta`, `Cyan`, `Green`, `Red`, `Yellow`, `Gray`, `White` + component styles |
-| `layout/layout.go` | 73 | `MinTerminalWidth/Height`, `MaxFieldWidth`, responsive width helpers |
+| `tui.go` | ~20 | `Run()` entry point: `NewApp()` → `tea.NewProgram()` |
+| `styles.go` | — | **Shared palette**: `Purple`, `Magenta`, `Cyan`, `Green`, `Red`, `Yellow`, `Gray`, `White` + component styles |
+| `layout/layout.go` | — | `MinTerminalWidth/Height`, `MaxFieldWidth`, responsive width helpers |
 
 ## STATE MACHINE
 

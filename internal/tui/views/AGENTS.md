@@ -2,29 +2,28 @@
 
 ## OVERVIEW
 
-18 view files + 10 test files implementing Bubble Tea sub-views. Dominated by the 6-step Profile Wizard. `Wizard` (`wizard.go`) orchestrates sequential configuration steps.
+18 view files implementing Bubble Tea sub-views. Dominated by the 6-step Profile Wizard. `Wizard` (`wizard.go`) orchestrates sequential configuration steps.
 
 ## FILE MAP
 
 | File | Lines | Role |
 |------|-------|------|
-| `wizard.go` | 499 | Orchestrator: step transitions, `NewWizard`/`NewWizardForEdit`/`NewWizardFromTemplate` |
-| `step.go` | — | `WizardStep` interface definition (`Init`/`SetSize`/`View`) |
+| `wizard.go` | — | Orchestrator: step transitions, `NewWizard`/`NewWizardForEdit`/`NewWizardFromTemplate` |
+| `step.go` | — | `WizardStep` interface definition |
 | `wizard_name.go` | — | Step 1: Profile naming + validation |
-| `wizard_categories.go` | 1289 | Step 2: Category CRUD with dynamic form injection |
-| `wizard_categories_defaults.go` | — | Category default prompts/model presets |
-| `wizard_agents.go` | 2699 | Step 3: Agent config forms with nested viewport scrolling |
-| `wizard_hooks.go` | 372 | Step 4: Event trigger configuration |
-| `wizard_other.go` | 3786 | Step 5: Catch-all settings (50+ fields, 21 collapsible sections) |
+| `wizard_categories.go` | 980 | Step 2: Category CRUD with dynamic form injection |
+| `wizard_agents.go` | 1230 | Step 3: Agent config forms with nested viewport scrolling |
+| `wizard_hooks.go` | — | Step 4: Event trigger configuration |
+| `wizard_other.go` | 2460 | Step 5: Catch-all settings (50+ fields, 21 collapsible sections) |
 | `wizard_review.go` | — | Step 6: JSON validation + persistence |
 | `dashboard.go` | — | Main menu with active profile overview |
 | `list.go` | — | Profile list with filtering, switch/edit/delete actions |
-| `diff.go` | 447 | Side-by-side profile comparison with dual viewports |
+| `diff.go` | — | Side-by-side profile comparison with dual viewports |
 | `import.go` | — | File-based profile import |
 | `export.go` | — | Profile export to file |
-| `model_selector.go` | 540 | Reusable searchable model dropdown (fuzzy, skip headers) |
-| `model_registry.go` | 655 | Local model CRUD with in-place form swapping |
-| `model_import.go` | 654 | Async models.dev fetcher with fuzzy filtering + multi-select |
+| `model_selector.go` | 528 | Reusable searchable model dropdown (fuzzy, skip headers) |
+| `model_registry.go` | 625 | Local model CRUD with in-place form swapping |
+| `model_import.go` | 546 | Async models.dev fetcher with fuzzy filtering + multi-select |
 | `template_select.go` | — | Profile template picker for wizard initialization |
 | `schema_check.go` | — | Upstream schema diff viewer with save-to-file |
 
@@ -61,9 +60,9 @@ Wizard holds config.Config
 
 ## COMPLEXITY HOTSPOTS
 
-- **wizard_other.go** (3786L): Manual focus management across 21 sections. Every upstream `Config` field change requires boilerplate in both `SetConfig` and `Apply`.
-- **wizard_agents.go** (2699L): Nested "form-in-list" pattern with manual scroll offset calculations (`getLineForField`).
-- **wizard_categories.go** (1289L): Dynamic form list — user can add/delete categories, requiring viewport rebuild.
+- **wizard_other.go** (2460L): Manual focus management across 21 sections. Every upstream `Config` field change requires boilerplate in both `SetConfig` and `Apply`.
+- **wizard_agents.go** (1230L): Nested "form-in-list" pattern with manual scroll offset calculations (`getLineForField`).
+- **wizard_categories.go** (980L): Dynamic form list — user can add/delete categories, requiring viewport rebuild.
 - **model_selector.go**: Reused by both agents and categories steps. Heterogeneous list with non-selectable headers (`findNextSelectable`).
 
 ## ANTI-PATTERNS

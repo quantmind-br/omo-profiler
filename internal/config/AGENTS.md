@@ -8,7 +8,7 @@ Schema authority and path resolution. **Source of Truth** for `oh-my-openagent.j
 
 | File | Role |
 |------|------|
-| `types.go` | Root `Config` struct + 33+ nested structs (~37 top-level fields) |
+| `types.go` | Root `Config` struct + 33 nested structs (33 top-level fields) |
 | `paths.go` | `ConfigDir`, `ProfilesDir`, `ConfigFile`, `ModelsFile`, `EnsureDirs` |
 | `paths_test.go` | Path resolution + `SetBaseDir` isolation tests |
 | `types_test.go` | Schema compliance + round-trip serialization tests |
@@ -25,7 +25,7 @@ Schema authority and path resolution. **Source of Truth** for `oh-my-openagent.j
 
 ## KEY TYPES
 
-- `Config`: Root container. ~37 top-level fields including `Agents map[string]*AgentConfig`, `Categories map[string]*CategoryConfig`
+- `Config`: Root container. 33 top-level fields including `Agents map[string]*AgentConfig`, `Categories map[string]*CategoryConfig`
 - `AgentConfig`: 23 fields — model, variant, prompt, tools, permissions, thinking config
 - `CategoryConfig`: 15 fields — model settings for task categories
 - `ThinkingConfig`: Nested in agents/categories for reasoning budget control
@@ -35,9 +35,6 @@ Schema authority and path resolution. **Source of Truth** for `oh-my-openagent.j
 - `TmuxConfig`: 6 fields — layout, isolation, pane sizing
 - `SisyphusAgentConfig`: 5 fields — TDD mode, replace plan, staleness control
 - `WebsearchConfig`: 1 field — provider selection
-- `ModelCapabilitiesConfig`: 4 fields — auto-refresh, source URL for model capability data
-- `OpenclawConfig`: 5 fields — gateways, hooks, reply listener for external communication
-- `NotificationConfig`: 1 field — force enable notifications
 
 ## PATH RESOLUTION
 
