@@ -36,20 +36,27 @@ func (w WizardOther) renderContent() string {
 			switch section {
 			case sectionAutoUpdate:
 				value = onOff(w.autoUpdate)
-				valid = w.autoUpdate
+				valid = w.fieldSelected(path)
 			case sectionNewTaskSystemEnabled:
 				value = onOff(w.newTaskSystemEnabled)
-				valid = w.newTaskSystemEnabled
+				valid = w.fieldSelected(path)
 			case sectionHashlineEdit:
 				value = onOff(w.hashlineEdit)
-				valid = w.hashlineEdit
+				valid = w.fieldSelected(path)
 			case sectionModelFallback:
 				value = onOff(w.modelFallback)
-				valid = w.modelFallback
+				valid = w.fieldSelected(path)
+			case sectionStartWork:
+				value = onOff(w.startWorkAutoCommit)
+				valid = w.fieldSelected(path)
 			}
 			if value != "" {
 				if valid {
 					value += wizOtherEnabledStyle.Render(" ✓")
+				}
+				// Highlight value when in simpleValueFocused mode
+				if w.simpleValueFocused && section == w.currentSection && !w.inSubSection {
+					value = labelStyle.Render(value)
 				}
 				line := fmt.Sprintf("%s%s %s: %s", cursor, checkbox, labelStyle.Render(name), value)
 				lines = append(lines, line)
@@ -105,7 +112,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			style = labelStyle
 		}
 		valueRender := onOff(value)
-		if value {
+		if w.fieldSelected(path) {
 			valueRender += enabledStyle.Render(" ✓")
 		}
 		if w.inSubSection && w.currentSection == section && w.subCursor == idx && w.subValueFocused {
@@ -236,8 +243,6 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderBoolField(2, "sisyphus.tasks.claude_code_compat", "tasks.claude_code_compat", w.sisyphusTasksClaudeCodeCompat))
 	case sectionDefaultRunAgent:
 		lines = append(lines, renderValueField(0, defaultRunAgentFieldPath, "value", w.defaultRunAgent.View()))
-	case sectionStartWork:
-		lines = append(lines, renderBoolField(0, startWorkAutoCommitFieldPath, "auto_commit", w.startWorkAutoCommit))
 	case sectionModelCapabilities:
 		lines = append(lines, renderBoolField(0, "model_capabilities.enabled", "enabled", w.mcEnabled))
 		lines = append(lines, renderBoolField(1, "model_capabilities.auto_refresh_on_start", "auto_refresh_on_start", w.mcAutoRefreshOnStart))
@@ -260,4 +265,3 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	lines = append(lines, "")
 	return lines
 }
-

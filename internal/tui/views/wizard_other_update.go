@@ -242,19 +242,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 				}
 			}
 
-			if w.currentSection == sectionStartWork {
-				switch msg.String() {
-				case "esc", "tab":
-					w.inSubSection = false
-					w.refreshView()
-					return w, nil
-				case "enter", " ":
-					w.startWorkAutoCommit = !w.startWorkAutoCommit
-					w.refreshView()
-					return w, nil
-				}
-			}
-
 			if w.currentSection == sectionBrowserAutomationEngine && w.subCursor == 0 {
 				switch msg.String() {
 				case "right", "l":
@@ -331,6 +318,11 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 		case key.Matches(msg, w.keys.Toggle):
 			w.toggleSection()
 		case key.Matches(msg, w.keys.Expand):
+			if w.isSimpleBooleanSection(w.currentSection) {
+				// Simple booleans toggle value directly, don't expand
+				w.toggleSection()
+				break
+			}
 			w.sectionExpanded[w.currentSection] = !w.sectionExpanded[w.currentSection]
 			if w.sectionExpanded[w.currentSection] {
 				w.inSubSection = true
@@ -395,6 +387,12 @@ func (w *WizardOther) toggleSection() {
 			w.modelFallback = !w.modelFallback
 		} else {
 			w.toggleFieldSelection(modelFallbackFieldPath)
+		}
+	case sectionStartWork:
+		if w.simpleValueFocused {
+			w.startWorkAutoCommit = !w.startWorkAutoCommit
+		} else {
+			w.toggleFieldSelection(startWorkAutoCommitFieldPath)
 		}
 	case sectionDisabledMcps:
 		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledMcps))
