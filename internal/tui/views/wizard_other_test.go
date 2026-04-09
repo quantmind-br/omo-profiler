@@ -1077,3 +1077,109 @@ func TestWizardOtherRoundTrip_DisabledToolsOmitted(t *testing.T) {
 
 	assertJSONOmits(t, result, "disabled_tools")
 }
+
+// --- Checkmark indicator tests (Bug 1 + 1b fixes) ---
+// These tests verify that the ✓ indicator reflects field selection state,
+// not the boolean field value.
+
+func TestWizardOtherCheckmarkReflectsSelection_NotValue_SimpleBoolean(t *testing.T) {
+	// Test: selected + value=false → ✓ present
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("auto_update", true)
+	w.selection = selection
+	w.autoUpdate = false
+	w.currentSection = sectionAutoUpdate
+
+	content := w.renderContent()
+	if !strings.Contains(content, "[off]") {
+		t.Fatal("expected [off] in render output")
+	}
+	if !strings.Contains(content, "✓") {
+		t.Fatal("expected ✓ indicator when field is selected, even with value=false")
+	}
+}
+
+func TestWizardOtherCheckmarkReflectsSelection_NotValue_Unselected(t *testing.T) {
+	// Test: NOT selected + value=true → ✓ absent
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	// auto_update NOT selected
+	w.selection = selection
+	w.autoUpdate = true
+	w.currentSection = sectionAutoUpdate
+
+	content := w.renderContent()
+	if !strings.Contains(content, "[on]") {
+		t.Fatal("expected [on] in render output")
+	}
+	// The checkbox [✓] should NOT be present (field not selected)
+	// But the value ✓ after [on] should also NOT be present
+	// We need to check that the line doesn't have the green ✓ after the value
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Auto Update") {
+			// Should have [on] but NOT the green ✓ after it
+			if strings.Contains(line, "[on] ✓") {
+				t.Fatalf("expected NO ✓ after [on] when field not selected, got: %s", line)
+			}
+			// Should have [ ] checkbox, not [✓]
+			if strings.Contains(line, "[✓]") {
+				t.Fatalf("expected [ ] checkbox when field not selected, got: %s", line)
+			}
+		}
+	}
+}
+
+func TestWizardOtherCheckmarkReflectsSelection_SubSectionBoolField(t *testing.T) {
+	// Test: sub-section boolean selected + value=false → ✓ present
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("experimental.aggressive_truncation", true)
+	w.selection = selection
+	w.expAggressiveTrunc = false
+	w.currentSection = sectionExperimental
+	w.sectionExpanded[sectionExperimental] = true
+
+	content := w.renderSubSection(sectionExperimental)
+	joined := strings.Join(content, "\n")
+	if !strings.Contains(joined, "aggressive_truncation:") {
+		t.Fatal("expected aggressive_truncation in render output")
+	}
+	if !strings.Contains(joined, "[off]") {
+		t.Fatal("expected [off] in render output")
+	}
+	// The ✓ should be present because the field is selected, even though value=false
+	if !strings.Contains(joined, "✓") {
+		t.Fatalf("expected ✓ indicator when field is selected, even with value=false, got: %s", joined)
+	}
+}
+
+func TestWizardOtherCheckmarkReflectsSelection_SubSectionBoolField_Unselected(t *testing.T) {
+	// Test: sub-section boolean NOT selected + value=true → ✓ absent
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	// experimental.aggressive_truncation NOT selected
+	w.selection = selection
+	w.expAggressiveTrunc = true
+	w.currentSection = sectionExperimental
+	w.sectionExpanded[sectionExperimental] = true
+
+	content := w.renderSubSection(sectionExperimental)
+	joined := strings.Join(content, "\n")
+	if !strings.Contains(joined, "aggressive_truncation:") {
+		t.Fatal("expected aggressive_truncation in render output")
+	}
+	if !strings.Contains(joined, "[on]") {
+		t.Fatal("expected [on] in render output")
+	}
+	// The ✓ after [on] should NOT be present because the field is not selected
+	lines := strings.Split(joined, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "aggressive_truncation") {
+			if strings.Contains(line, "[on] ✓") {
+				t.Fatalf("expected NO ✓ after [on] when field not selected, got: %s", line)
+			}
+		}
+	}
+}

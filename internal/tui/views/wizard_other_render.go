@@ -36,16 +36,16 @@ func (w WizardOther) renderContent() string {
 			switch section {
 			case sectionAutoUpdate:
 				value = onOff(w.autoUpdate)
-				valid = w.autoUpdate
+				valid = w.fieldSelected(path)
 			case sectionNewTaskSystemEnabled:
 				value = onOff(w.newTaskSystemEnabled)
-				valid = w.newTaskSystemEnabled
+				valid = w.fieldSelected(path)
 			case sectionHashlineEdit:
 				value = onOff(w.hashlineEdit)
-				valid = w.hashlineEdit
+				valid = w.fieldSelected(path)
 			case sectionModelFallback:
 				value = onOff(w.modelFallback)
-				valid = w.modelFallback
+				valid = w.fieldSelected(path)
 			}
 			if value != "" {
 				if valid {
@@ -105,7 +105,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			style = labelStyle
 		}
 		valueRender := onOff(value)
-		if value {
+		if w.fieldSelected(path) {
 			valueRender += enabledStyle.Render(" ✓")
 		}
 		if w.inSubSection && w.currentSection == section && w.subCursor == idx && w.subValueFocused {
@@ -260,4 +260,3 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	lines = append(lines, "")
 	return lines
 }
-
