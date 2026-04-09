@@ -105,7 +105,14 @@ var modelsEditCmd = &cobra.Command{
 			return fmt.Errorf("failed to load models: %w", err)
 		}
 
-		existing := registry.Get(modelId)
+		// Search for the model by ModelID across all providers
+		var existing *models.RegisteredModel
+		for i := range registry.Models {
+			if registry.Models[i].ModelID == modelId {
+				existing = &registry.Models[i]
+				break
+			}
+		}
 		if existing == nil {
 			return fmt.Errorf("model '%s' not found", modelId)
 		}
@@ -141,7 +148,7 @@ var modelsEditCmd = &cobra.Command{
 			Provider:    provider,
 		}
 
-		if err := registry.Update(modelId, updatedModel); err != nil {
+		if err := registry.Update(existing.Provider, modelId, updatedModel); err != nil {
 			return err
 		}
 
@@ -162,7 +169,14 @@ var modelsDeleteCmd = &cobra.Command{
 			return fmt.Errorf("failed to load models: %w", err)
 		}
 
-		existing := registry.Get(modelId)
+		// Search for the model by ModelID across all providers
+		var existing *models.RegisteredModel
+		for i := range registry.Models {
+			if registry.Models[i].ModelID == modelId {
+				existing = &registry.Models[i]
+				break
+			}
+		}
 		if existing == nil {
 			return fmt.Errorf("model '%s' not found", modelId)
 		}
@@ -177,7 +191,7 @@ var modelsDeleteCmd = &cobra.Command{
 			return nil
 		}
 
-		if err := registry.Delete(modelId); err != nil {
+		if err := registry.Delete(existing.Provider, modelId); err != nil {
 			return err
 		}
 

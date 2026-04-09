@@ -12,8 +12,21 @@ import (
 
 type RegisteredModel struct {
 	DisplayName string `json:"displayName"`
-	ModelID     string `json:"modelId"` // unique key
+	ModelID     string `json:"modelId"`
 	Provider    string `json:"provider"`
+}
+
+// ModelExistsError is returned when a model with the same (Provider, ModelID) already exists.
+type ModelExistsError struct {
+	Provider string
+	ModelID  string
+}
+
+func (e *ModelExistsError) Error() string {
+	if e.Provider == "" {
+		return fmt.Sprintf("model with ID '%s' (no provider) already exists", e.ModelID)
+	}
+	return fmt.Sprintf("model with provider '%s' and ID '%s' already exists", e.Provider, e.ModelID)
 }
 
 type ProviderGroup struct {
@@ -79,36 +92,36 @@ func (r *ModelsRegistry) Save() error {
 	return os.WriteFile(config.ModelsFile(), data, 0644)
 }
 
-// Add adds a new model to the registry. Errors if duplicate ModelID.
+// Add adds a new model to the registry. Errors if the (Provider, ModelID) pair already exists.
 func (r *ModelsRegistry) Add(m RegisteredModel) error {
 	for _, existing := range r.Models {
-		if existing.ModelID == m.ModelID {
-			return fmt.Errorf("model with ID '%s' already exists", m.ModelID)
+		if existing.ModelID == m.ModelID && existing.Provider == m.Provider {
+			return &ModelExistsError{Provider: m.Provider, ModelID: m.ModelID}
 		}
 	}
 	r.Models = append(r.Models, m)
 	return r.Save()
 }
 
-// Update updates an existing model. Support renaming ModelID.
-func (r *ModelsRegistry) Update(modelId string, m RegisteredModel) error {
+// Update updates an existing model identified by (provider, modelId). Supports renaming ModelID.
+func (r *ModelsRegistry) Update(provider, modelId string, m RegisteredModel) error {
 	idx := -1
 	for i, existing := range r.Models {
-		if existing.ModelID == modelId {
+		if existing.ModelID == modelId && existing.Provider == provider {
 			idx = i
 			break
 		}
 	}
 
 	if idx == -1 {
-		return fmt.Errorf("model '%s' not found", modelId)
+		return fmt.Errorf("model with provider '%s' and ID '%s' not found", provider, modelId)
 	}
 
 	// Check for conflict if renaming
-	if m.ModelID != modelId {
+	if m.ModelID != modelId || m.Provider != provider {
 		for _, existing := range r.Models {
-			if existing.ModelID == m.ModelID {
-				return fmt.Errorf("model with ID '%s' already exists", m.ModelID)
+			if existing.ModelID == m.ModelID && existing.Provider == m.Provider {
+				return &ModelExistsError{Provider: m.Provider, ModelID: m.ModelID}
 			}
 		}
 	}
@@ -117,28 +130,28 @@ func (r *ModelsRegistry) Update(modelId string, m RegisteredModel) error {
 	return r.Save()
 }
 
-// Delete removes a model by ID.
-func (r *ModelsRegistry) Delete(modelId string) error {
+// Delete removes a model identified by (provider, modelId).
+func (r *ModelsRegistry) Delete(provider, modelId string) error {
 	idx := -1
 	for i, existing := range r.Models {
-		if existing.ModelID == modelId {
+		if existing.ModelID == modelId && existing.Provider == provider {
 			idx = i
 			break
 		}
 	}
 
 	if idx == -1 {
-		return fmt.Errorf("model '%s' not found", modelId)
+		return fmt.Errorf("model with provider '%s' and ID '%s' not found", provider, modelId)
 	}
 
 	r.Models = append(r.Models[:idx], r.Models[idx+1:]...)
 	return r.Save()
 }
 
-// Get retrieves a model by ID.
-func (r *ModelsRegistry) Get(modelId string) *RegisteredModel {
+// Get retrieves a model by (provider, modelId).
+func (r *ModelsRegistry) Get(provider, modelId string) *RegisteredModel {
 	for i := range r.Models {
-		if r.Models[i].ModelID == modelId {
+		if r.Models[i].ModelID == modelId && r.Models[i].Provider == provider {
 			return &r.Models[i]
 		}
 	}
@@ -190,11 +203,11 @@ func (r *ModelsRegistry) ListByProvider() []ProviderGroup {
 	return result
 }
 
-// Exists checks if a model ID exists in the registry.
-func Exists(modelId string) bool {
+// Exists checks if a model with the given (provider, modelId) exists in the registry.
+func Exists(provider, modelId string) bool {
 	r, err := Load()
 	if err != nil {
 		return false
 	}
-	return r.Get(modelId) != nil
+	return r.Get(provider, modelId) != nil
 }
