@@ -260,6 +260,8 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 		return runtimeFallbackFieldPath
 	case sectionSkillsJson:
 		return skillsFieldPath
+	case sectionStartWork:
+		return startWorkAutoCommitFieldPath
 	default:
 		return ""
 	}
@@ -267,7 +269,7 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 
 func (w WizardOther) isSimpleBooleanSection(section otherSection) bool {
 	switch section {
-	case sectionAutoUpdate, sectionNewTaskSystemEnabled, sectionHashlineEdit, sectionModelFallback:
+	case sectionAutoUpdate, sectionNewTaskSystemEnabled, sectionHashlineEdit, sectionModelFallback, sectionStartWork:
 		return true
 	default:
 		return false
@@ -382,4 +384,3 @@ func onOff(v bool) string {
 	}
 	return "[off]"
 }
-

@@ -46,6 +46,9 @@ func (w WizardOther) renderContent() string {
 			case sectionModelFallback:
 				value = onOff(w.modelFallback)
 				valid = w.fieldSelected(path)
+			case sectionStartWork:
+				value = onOff(w.startWorkAutoCommit)
+				valid = w.fieldSelected(path)
 			}
 			if value != "" {
 				if valid {
@@ -240,8 +243,6 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderBoolField(2, "sisyphus.tasks.claude_code_compat", "tasks.claude_code_compat", w.sisyphusTasksClaudeCodeCompat))
 	case sectionDefaultRunAgent:
 		lines = append(lines, renderValueField(0, defaultRunAgentFieldPath, "value", w.defaultRunAgent.View()))
-	case sectionStartWork:
-		lines = append(lines, renderBoolField(0, startWorkAutoCommitFieldPath, "auto_commit", w.startWorkAutoCommit))
 	case sectionModelCapabilities:
 		lines = append(lines, renderBoolField(0, "model_capabilities.enabled", "enabled", w.mcEnabled))
 		lines = append(lines, renderBoolField(1, "model_capabilities.auto_refresh_on_start", "auto_refresh_on_start", w.mcAutoRefreshOnStart))

@@ -1299,3 +1299,137 @@ func TestWizardOtherSimpleValueFocused_NoHighlightOnNonCurrentSection(t *testing
 		t.Fatalf("expected [off] in New Task System line, got: %s", newTaskLine)
 	}
 }
+
+// --- sectionStartWork consistency tests (Bug 4 + 5 fixes) ---
+// These tests verify that sectionStartWork behaves like other simple boolean sections.
+
+func TestWizardOtherSectionStartWork_IsSimpleBoolean(t *testing.T) {
+	w := NewWizardOther()
+	if !w.isSimpleBooleanSection(sectionStartWork) {
+		t.Fatal("expected sectionStartWork to be a simple boolean section")
+	}
+}
+
+func TestWizardOtherSectionStartWork_RendersAsSimpleBoolean(t *testing.T) {
+	// Test: sectionStartWork renders as simple boolean (no expand icon)
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("start_work.auto_commit", true)
+	w.selection = selection
+	w.startWorkAutoCommit = false
+
+	content := w.renderContent()
+	lines := strings.Split(content, "\n")
+
+	var startWorkLine string
+	for _, line := range lines {
+		if strings.Contains(line, "Start Work") {
+			startWorkLine = line
+			break
+		}
+	}
+
+	if startWorkLine == "" {
+		t.Fatal("expected Start Work line in output")
+	}
+
+	// Should have [✓] checkbox and [off] value (simple boolean format)
+	if !strings.Contains(startWorkLine, "[✓]") {
+		t.Fatalf("expected [✓] checkbox in Start Work line, got: %s", startWorkLine)
+	}
+	if !strings.Contains(startWorkLine, "[off]") {
+		t.Fatalf("expected [off] value in Start Work line, got: %s", startWorkLine)
+	}
+	// Should NOT have expand icons
+	if strings.Contains(startWorkLine, "▶") || strings.Contains(startWorkLine, "▼") {
+		t.Fatalf("expected NO expand icons in Start Work line, got: %s", startWorkLine)
+	}
+}
+
+func TestWizardOtherSectionStartWork_ToggleSelectionWhenNotFocused(t *testing.T) {
+	// Test: Space toggles field selection when simpleValueFocused=false
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("start_work.auto_commit", true)
+	w.selection = selection
+	w.currentSection = sectionStartWork
+	w.simpleValueFocused = false
+	w.startWorkAutoCommit = false
+
+	originalValue := w.startWorkAutoCommit
+	w.toggleSection()
+
+	// Field selection should be toggled off
+	if w.selection.IsSelected("start_work.auto_commit") {
+		t.Fatal("expected field selection to be toggled off")
+	}
+	// Value should be unchanged
+	if w.startWorkAutoCommit != originalValue {
+		t.Fatal("expected value to remain unchanged when toggling selection")
+	}
+}
+
+func TestWizardOtherSectionStartWork_ToggleValueWhenFocused(t *testing.T) {
+	// Test: Space toggles value when simpleValueFocused=true
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("start_work.auto_commit", true)
+	w.selection = selection
+	w.currentSection = sectionStartWork
+	w.simpleValueFocused = true
+	w.startWorkAutoCommit = false
+
+	w.toggleSection()
+
+	// Value should be toggled to true
+	if !w.startWorkAutoCommit {
+		t.Fatal("expected value to be toggled to true")
+	}
+	// Selection should remain selected
+	if !w.selection.IsSelected("start_work.auto_commit") {
+		t.Fatal("expected field to remain selected when toggling value")
+	}
+}
+
+func TestWizardOtherSectionStartWork_EnterDoesNotExpand(t *testing.T) {
+	// Test: Enter on sectionStartWork toggles, does NOT expand
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("start_work.auto_commit", true)
+	w.selection = selection
+	w.currentSection = sectionStartWork
+	w.simpleValueFocused = false
+
+	// Simulate pressing Enter
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Should NOT be in subsection mode
+	if updated.inSubSection {
+		t.Fatal("expected inSubSection to be false after Enter on simple boolean")
+	}
+	// Section should NOT be expanded
+	if updated.sectionExpanded[sectionStartWork] {
+		t.Fatal("expected sectionExpanded to be false for simple boolean")
+	}
+}
+
+func TestWizardOtherSectionStartWork_ExpandableSectionsStillWork(t *testing.T) {
+	// Test: Enter on non-simple-boolean section still expands normally
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("experimental.aggressive_truncation", true)
+	w.selection = selection
+	w.currentSection = sectionExperimental
+
+	// Simulate pressing Enter
+	updated, _ := w.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Should be in subsection mode
+	if !updated.inSubSection {
+		t.Fatal("expected inSubSection to be true after Enter on expandable section")
+	}
+	// Section should be expanded
+	if !updated.sectionExpanded[sectionExperimental] {
+		t.Fatal("expected sectionExpanded to be true for expandable section")
+	}
+}
