@@ -17,8 +17,8 @@ func TestNewModelSelector(t *testing.T) {
 		t.Errorf("expected filteredCount >= 0, got %d", ms.filteredCount)
 	}
 
-	if ms.customInput.Placeholder != "e.g., gpt-4o-mini" {
-		t.Errorf("expected custom input placeholder 'e.g., gpt-4o-mini', got %q", ms.customInput.Placeholder)
+	if ms.customInput.Placeholder != "anthropic/claude-sonnet-4-20250514" {
+		t.Errorf("expected custom input placeholder 'anthropic/claude-sonnet-4-20250514', got %q", ms.customInput.Placeholder)
 	}
 
 	if ms.searchInput.Placeholder != "Search models..." {
@@ -126,7 +126,7 @@ func TestModelSelectorListHeight(t *testing.T) {
 func TestModelSelectorHeaderHeight(t *testing.T) {
 	ms := NewModelSelector()
 
-	baseHeight := 2 // title + empty line
+	baseHeight := 2   // title + empty line
 	searchHeight := 2 // search line + empty line
 	expectedBase := baseHeight + searchHeight
 

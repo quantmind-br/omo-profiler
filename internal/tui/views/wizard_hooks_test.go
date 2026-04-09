@@ -178,7 +178,7 @@ func TestWizardHooksLoadsDisabledHooksSelectionFromJSONPresence(t *testing.T) {
 	}
 
 	content := wh.renderContent()
-	if !contains(content, "Include disabled_hooks in profile") {
+	if !contains(content, "Include 'disabled_hooks' field in profile") {
 		t.Fatal("expected inclusion checkbox label in rendered content")
 	}
 	if !contains(content, "[✓]") {
@@ -484,7 +484,7 @@ func TestWizardHooksView(t *testing.T) {
 		t.Error("expected 'hooks disabled' in view")
 	}
 
-	if !contains(view, "Include disabled_hooks in profile") {
+	if !contains(view, "Include 'disabled_hooks' field in profile") {
 		t.Error("expected inclusion checkbox label in view")
 	}
 }
@@ -521,7 +521,7 @@ func TestWizardHooksRenderContent(t *testing.T) {
 		t.Error("expected cursor marker in content")
 	}
 
-	if !contains(content, "Include disabled_hooks in profile") {
+	if !contains(content, "Include 'disabled_hooks' field in profile") {
 		t.Error("expected inclusion checkbox label in content")
 	}
 

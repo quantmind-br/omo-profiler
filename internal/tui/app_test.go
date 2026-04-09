@@ -256,16 +256,16 @@ func TestRenderShortHelp(t *testing.T) {
 		state        appState
 		expectedHint []string
 	}{
-		{stateDashboard, []string{"↑↓ navigate", "enter select", "? help", "q quit"}},
-		{stateList, []string{"enter switch", "e edit", "d delete", "n new", "/ search", "esc back"}},
-		{stateWizard, []string{"tab/enter next", "shift+tab back", "ctrl+s save", "ctrl+c cancel"}},
-		{stateDiff, []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}},
+		{stateDashboard, []string{"[↑↓] navigate", "[Enter] select", "[?] help", "[q] quit"}},
+		{stateList, []string{"[Enter] switch", "[e] edit", "[d] delete", "[n] new", "[/] search", "[Esc] back"}},
+		{stateWizard, []string{"[Tab/Enter] next", "[Shift+Tab] back", "[Ctrl+S] save", "[Ctrl+C] cancel"}},
+		{stateDiff, []string{"[Tab] switch pane", "[Enter] select", "[↑↓] scroll", "[Esc] back"}},
 		// stateImport and stateExport use default help
-		{stateImport, []string{"? help", "q quit"}},
-		{stateExport, []string{"? help", "q quit"}},
-		{stateModels, []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}},
-		{stateModelImport, []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}},
-		{stateTemplateSelect, []string{"↑↓ navigate", "enter select", "esc cancel"}},
+		{stateImport, []string{"[?] help", "[q] quit"}},
+		{stateExport, []string{"[?] help", "[q] quit"}},
+		{stateModels, []string{"[n] new", "[i] import", "[e] edit", "[d] delete", "[↑↓] navigate", "[Esc] back"}},
+		{stateModelImport, []string{"[Space] toggle", "[Enter] import", "[/] search", "[↑↓] navigate", "[Esc] back"}},
+		{stateTemplateSelect, []string{"[↑↓] navigate", "[Enter] select", "[Esc] cancel"}},
 	}
 
 	for _, tt := range states {
@@ -293,8 +293,8 @@ func TestRenderFullHelp(t *testing.T) {
 
 	// Test a few states
 	tests := []struct {
-		name    string
-		state   appState
+		name     string
+		state    appState
 		contains []string
 	}{
 		{

@@ -79,7 +79,7 @@ type ModelSelector struct {
 
 func NewModelSelector() ModelSelector {
 	customInput := textinput.New()
-	customInput.Placeholder = "e.g., gpt-4o-mini"
+	customInput.Placeholder = "anthropic/claude-sonnet-4-20250514"
 	customInput.Width = 40
 
 	searchInput := textinput.New()

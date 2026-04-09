@@ -464,7 +464,7 @@ func (m ModelRegistry) View() string {
 			"",
 			errorStyle.Render(fmt.Sprintf("Error loading models: %v", m.loadError)),
 			"",
-			grayStyle.Render("[esc] back"),
+			grayStyle.Render("[Esc] back"),
 		)
 		return errorView
 	}
@@ -496,7 +496,7 @@ func (m ModelRegistry) renderList() string {
 		content = m.renderModelsList(filteredModels)
 	}
 
-	help := grayStyle.Render("[/] search  [n] new  [i] import  [e] edit  [d] delete  [esc] back")
+	help := grayStyle.Render("[/] search  [n] new  [i] import  [e] edit  [d] delete  [Esc] back")
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
@@ -607,7 +607,7 @@ func (m ModelRegistry) renderForm() string {
 
 	if m.errorMsg != "" {
 		formLines = append(formLines, "")
-		formLines = append(formLines, errorStyle.Render("Error: "+m.errorMsg))
+		formLines = append(formLines, errorStyle.Render("⚠ Error: "+m.errorMsg))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, formLines...)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +25,18 @@ var thinkingTypes = []string{"", "enabled", "disabled"}
 var effortLevels = []string{"", "none", "minimal", "low", "medium", "high", "xhigh"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
+var wizCatValidationHexRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+
+func validateCategoryName(name string) string {
+	if name == "" {
+		return ""
+	}
+	if err := profile.ValidateName(name); err != nil {
+		return wizCatErrorStyle.Render(" ✗ " + err.Error())
+	}
+	return wizCatValidStyle.Render(" ✓")
+}
+
 var (
 	wizCatPurple = lipgloss.Color("#7D56F4")
 	wizCatGray   = lipgloss.Color("#6C7086")
@@ -42,9 +55,17 @@ var (
 )
 
 // validateCategoryField returns an inline validation indicator for range fields (temperature, top_p).
-// Validation runs on field-exit (focused=false).
+// Validation runs on field-exit (focused=false). For color, runs on every keystroke.
 func validateCategoryField(label, value string, focused bool) string {
 	switch label {
+	case "color":
+		if value == "" {
+			return ""
+		}
+		if !wizCatValidationHexRe.MatchString(value) {
+			return wizCatErrorStyle.Render(" ✗ invalid hex")
+		}
+		return wizCatValidStyle.Render(" ✓")
 	case "temperature":
 		if value == "" {
 			return ""
@@ -1138,7 +1159,8 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, renderField("name", catFieldName, cc.nameInput.View()))
+	nameValue := cc.nameInput.Value()
+	lines = append(lines, renderField("name", catFieldName, cc.nameInput.View())+validateCategoryName(nameValue))
 	modelDisplayValue := cc.modelDisplay
 	if modelDisplayValue == "" {
 		modelDisplayValue = "[Select model...]"

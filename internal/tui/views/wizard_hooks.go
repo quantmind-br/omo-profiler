@@ -157,9 +157,9 @@ func (w WizardHooks) Init() tea.Cmd {
 func (w *WizardHooks) SetSize(width, height int) {
 	w.width = width
 	w.height = height
-	overhead := 4
+	overhead := layout.ViewportOverheadNormal
 	if layout.IsShort(height) {
-		overhead = 2
+		overhead = layout.ViewportOverheadShort
 	}
 	if !w.ready {
 		w.viewport = viewport.New(width, height-overhead)
@@ -303,7 +303,7 @@ func (w WizardHooks) renderContent() string {
 		includeLabelStyle = wizHooksNameStyle
 	}
 
-	lines = append(lines, fmt.Sprintf("%s%s %s", includeCursor, includeCheckbox, includeLabelStyle.Render("Include disabled_hooks in profile")))
+	lines = append(lines, fmt.Sprintf("%s%s %s", includeCursor, includeCheckbox, includeLabelStyle.Render("Include 'disabled_hooks' field in profile")))
 	lines = append(lines, "")
 
 	for i, hook := range allHooks {
@@ -353,7 +353,7 @@ func (w WizardHooks) View() string {
 
 	if layout.IsShort(w.height) {
 		title := titleStyle.Render("Hooks")
-		stats := helpStyle.Render(fmt.Sprintf(" (%d/%d disabled)", disabledCount, len(allHooks)))
+		stats := helpStyle.Render(fmt.Sprintf("[compact] (%d/%d disabled)", disabledCount, len(allHooks)))
 		return lipgloss.JoinVertical(lipgloss.Left,
 			title+stats,
 			content,

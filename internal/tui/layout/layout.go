@@ -25,6 +25,12 @@ const (
 	MinTerminalWidth  = 40
 	MinTerminalHeight = 12
 	MaxFieldWidth     = 120
+
+	// ViewportOverhead constants for calculating viewport height
+	// Normal mode: title + help + 2 spacing lines
+	ViewportOverheadNormal = 4
+	// Short/compact mode: title + help only
+	ViewportOverheadShort = 2
 )
 
 func FixedSmallWidth() int {

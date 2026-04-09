@@ -142,7 +142,7 @@ func (t TemplateSelect) View() string {
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, normalStyle.Render("↑/↓ navigate • enter select • esc cancel"))
+	lines = append(lines, normalStyle.Render("[↑↓] navigate  [Enter] select  [Esc] cancel"))
 	if layout.IsShort(t.height) {
 		compact := make([]string, 0, len(lines))
 		for _, line := range lines {

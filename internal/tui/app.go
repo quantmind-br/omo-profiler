@@ -728,29 +728,29 @@ func (a App) renderShortHelp() string {
 
 	switch a.state {
 	case stateDashboard:
-		hints = []string{"↑↓ navigate", "enter select", "? help", "q quit"}
+		hints = []string{"[↑↓] navigate", "[Enter] select", "[?] help", "[q] quit"}
 	case stateList:
-		hints = []string{"enter switch", "e edit", "d delete", "n new", "/ search", "esc back"}
+		hints = []string{"[Enter] switch", "[e] edit", "[d] delete", "[n] new", "[/] search", "[Esc] back"}
 	case stateWizard:
-		hints = []string{"tab/enter next", "shift+tab back", "ctrl+s save", "ctrl+c cancel"}
+		hints = []string{"[Tab/Enter] next", "[Shift+Tab] back", "[Ctrl+S] save", "[Ctrl+C] cancel"}
 	case stateDiff:
-		hints = []string{"tab switch pane", "enter select", "↑↓ scroll", "esc back"}
+		hints = []string{"[Tab] switch pane", "[Enter] select", "[↑↓] scroll", "[Esc] back"}
 	case stateModels:
 		if a.modelRegistry.IsEditing() {
-			hints = []string{"tab next field", "enter save", "esc cancel"}
+			hints = []string{"[Tab] next field", "[Enter] save", "[Esc] cancel"}
 		} else {
-			hints = []string{"n new", "i import", "e edit", "d delete", "↑↓ navigate", "esc back"}
+			hints = []string{"[n] new", "[i] import", "[e] edit", "[d] delete", "[↑↓] navigate", "[Esc] back"}
 		}
 	case stateModelImport:
 		if a.modelImport.IsEditing() {
-			hints = []string{"enter confirm", "esc cancel search"}
+			hints = []string{"[Enter] confirm", "[Esc] cancel search"}
 		} else {
-			hints = []string{"space toggle", "enter import", "/ search", "↑↓ navigate", "esc back"}
+			hints = []string{"[Space] toggle", "[Enter] import", "[/] search", "[↑↓] navigate", "[Esc] back"}
 		}
 	case stateTemplateSelect:
-		hints = []string{"↑↓ navigate", "enter select", "esc cancel"}
+		hints = []string{"[↑↓] navigate", "[Enter] select", "[Esc] cancel"}
 	default:
-		hints = []string{"? help", "q quit"}
+		hints = []string{"[?] help", "[q] quit"}
 	}
 
 	if a.width < 45 && len(hints) > 3 {

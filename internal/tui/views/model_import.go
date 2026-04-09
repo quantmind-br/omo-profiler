@@ -491,7 +491,7 @@ func (m ModelImport) renderProviderList() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	help := grayStyle.Render("[↑↓] navigate  [/] search  [enter] select  [esc] back")
+	help := grayStyle.Render("[↑↓] navigate  [PgUp/PgDn] scroll  [/] search  [Enter] select  [Esc] back")
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
@@ -595,7 +595,7 @@ func (m ModelImport) renderModelList() string {
 		}
 	}
 
-	help := grayStyle.Render(fmt.Sprintf("%d selected  [space] toggle  [enter] import  [esc] back", selectedCount))
+	help := grayStyle.Render(fmt.Sprintf("%d selected  [Space] toggle  [Enter] import  [Esc] back", selectedCount))
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
@@ -621,7 +621,7 @@ func (m ModelImport) renderModelList() string {
 func (m ModelImport) renderError() string {
 	title := titleStyle.Render("Import from models.dev")
 	errorText := errorStyle.Render(fmt.Sprintf("Error: %s", m.errorMsg))
-	help := grayStyle.Render("[r] retry  [esc] back")
+	help := grayStyle.Render("[r] retry  [Esc] back")
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,

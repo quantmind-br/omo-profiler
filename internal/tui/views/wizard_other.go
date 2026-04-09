@@ -3538,17 +3538,25 @@ func (w WizardOther) renderContent() string {
 				checkbox = enabledStyle.Render("[✓]")
 			}
 			value := ""
+			var valid bool
 			switch section {
 			case sectionAutoUpdate:
 				value = onOff(w.autoUpdate)
+				valid = w.autoUpdate
 			case sectionNewTaskSystemEnabled:
 				value = onOff(w.newTaskSystemEnabled)
+				valid = w.newTaskSystemEnabled
 			case sectionHashlineEdit:
 				value = onOff(w.hashlineEdit)
+				valid = w.hashlineEdit
 			case sectionModelFallback:
 				value = onOff(w.modelFallback)
+				valid = w.modelFallback
 			}
 			if value != "" {
+				if valid {
+					value += wizOtherEnabledStyle.Render(" ✓")
+				}
 				line := fmt.Sprintf("%s%s %s: %s", cursor, checkbox, labelStyle.Render(name), value)
 				lines = append(lines, line)
 				continue
@@ -3603,6 +3611,9 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 			style = labelStyle
 		}
 		valueRender := onOff(value)
+		if value {
+			valueRender += enabledStyle.Render(" ✓")
+		}
 		if w.inSubSection && w.currentSection == section && w.subCursor == idx && w.subValueFocused {
 			valueRender = labelStyle.Render(valueRender)
 		}

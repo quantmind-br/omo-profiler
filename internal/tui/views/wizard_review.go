@@ -100,9 +100,9 @@ func (w WizardReview) Init() tea.Cmd {
 func (w *WizardReview) SetSize(width, height int) {
 	w.width = width
 	w.height = height
-	overhead := 8
+	overhead := layout.ViewportOverheadNormal
 	if layout.IsShort(height) {
-		overhead = 4
+		overhead = layout.ViewportOverheadShort
 	}
 	if !w.ready {
 		w.viewport = viewport.New(width, height-overhead)
