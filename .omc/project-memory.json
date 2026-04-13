@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775051071412,
+  "lastScanned": 1776067381923,
   "projectRoot": "/home/diogo/dev/omo-profiler",
   "techStack": {
     "languages": [
@@ -53,14 +53,14 @@
       "path": "cmd",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775051071411,
+      "lastAccessed": 1776067381922,
       "keyFiles": []
     },
     "diff.md": {
       "path": "diff.md",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775051071411,
+      "lastAccessed": 1776067381922,
       "keyFiles": [
         "schema-diff.md"
       ]
@@ -69,27 +69,27 @@
       "path": "internal",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775051071411,
+      "lastAccessed": 1776067381922,
       "keyFiles": []
     },
     "oh-my-openagent": {
       "path": "oh-my-openagent",
       "purpose": null,
-      "fileCount": 17,
-      "lastAccessed": 1775051071411,
+      "fileCount": 18,
+      "lastAccessed": 1776067381923,
       "keyFiles": [
         "AGENTS.md",
         "CLA.md",
         "CONTRIBUTING.md",
         "LICENSE.md",
-        "README.ja.md"
+        "PLANO-COBERTURA-TESTES.md"
       ]
     },
     "template": {
       "path": "template",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775051071411,
+      "lastAccessed": 1776067381923,
       "keyFiles": [
         "oh-my-openagent.json"
       ]
@@ -98,7 +98,7 @@
       "path": "internal/config",
       "purpose": "Configuration files",
       "fileCount": 5,
-      "lastAccessed": 1775051071412,
+      "lastAccessed": 1776067381923,
       "keyFiles": [
         "AGENTS.md",
         "paths.go",
@@ -109,7 +109,7 @@
       "path": "internal/models",
       "purpose": "Data models",
       "fileCount": 5,
-      "lastAccessed": 1775051071412,
+      "lastAccessed": 1776067381923,
       "keyFiles": [
         "AGENTS.md",
         "models.go",
@@ -117,37 +117,6 @@
       ]
     }
   },
-  "hotPaths": [
-    {
-      "path": "internal/config/types.go",
-      "accessCount": 4,
-      "lastAccessed": 1774626209274,
-      "type": "file"
-    },
-    {
-      "path": "internal/config/types_test.go",
-      "accessCount": 4,
-      "lastAccessed": 1774626253632,
-      "type": "file"
-    },
-    {
-      "path": "internal/testdata/valid-config.json",
-      "accessCount": 3,
-      "lastAccessed": 1774626238701,
-      "type": "file"
-    },
-    {
-      "path": "internal/config/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1774626105791,
-      "type": "file"
-    },
-    {
-      "path": "internal/schema/schema.json",
-      "accessCount": 1,
-      "lastAccessed": 1774630487436,
-      "type": "file"
-    }
-  ],
+  "hotPaths": [],
   "userDirectives": []
 }
