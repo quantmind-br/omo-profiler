@@ -96,16 +96,15 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 			return w.updateTextInputField(&w.btSyncPollTimeoutMs, msg)
 		}},
 		{section: sectionBackgroundTask, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxDepth, msg) }},
-		{section: sectionBackgroundTask, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxDescendants, msg) }},
-		{section: sectionBackgroundTask, subCursor: 8, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btTaskTtlMs, msg) }},
-		{section: sectionBackgroundTask, subCursor: 9, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionBackgroundTask, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btTaskTtlMs, msg) }},
+		{section: sectionBackgroundTask, subCursor: 8, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.btSessionGoneTimeoutMs, msg)
 		}},
-		{section: sectionBackgroundTask, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxToolCalls, msg) }},
-		{section: sectionBackgroundTask, subCursor: 12, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionBackgroundTask, subCursor: 9, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.btMaxToolCalls, msg) }},
+		{section: sectionBackgroundTask, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.btCircuitBreakerMaxCalls, msg)
 		}},
-		{section: sectionBackgroundTask, subCursor: 13, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionBackgroundTask, subCursor: 11, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.btCircuitBreakerConsecutive, msg)
 		}},
 		{section: sectionDisabledMcps, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledMcps, msg) }},

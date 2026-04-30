@@ -28,6 +28,7 @@ type Config struct {
 	NewTaskSystemEnabled    *bool                          `json:"new_task_system_enabled,omitempty"`
 	DisabledTools           []string                       `json:"disabled_tools,omitempty"`
 	MCPEnvAllowlist         []string                       `json:"mcp_env_allowlist,omitempty"`
+	AgentDefinitions        []string                       `json:"agent_definitions,omitempty"`
 	Babysitting             *BabysittingConfig             `json:"babysitting,omitempty"`
 	BrowserAutomationEngine *BrowserAutomationEngineConfig `json:"browser_automation_engine,omitempty"`
 	Tmux                    *TmuxConfig                    `json:"tmux,omitempty"`
@@ -207,7 +208,6 @@ type BackgroundTaskConfig struct {
 	ProviderConcurrency       map[string]int            `json:"providerConcurrency,omitempty"`
 	ModelConcurrency          map[string]int            `json:"modelConcurrency,omitempty"`
 	MaxDepth                  *int64                    `json:"maxDepth,omitempty"`
-	MaxDescendants            *int64                    `json:"maxDescendants,omitempty"`
 	StaleTimeoutMs            *int                      `json:"staleTimeoutMs,omitempty"`
 	MessageStalenessTimeoutMs *int                      `json:"messageStalenessTimeoutMs,omitempty"`
 	TaskTtlMs                 *int                      `json:"taskTtlMs,omitempty"`

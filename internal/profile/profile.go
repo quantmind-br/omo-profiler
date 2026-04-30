@@ -46,6 +46,7 @@ var knownConfigTags = []string{
 	"new_task_system_enabled",
 	"disabled_tools",
 	"mcp_env_allowlist",
+	"agent_definitions",
 	"babysitting",
 	"browser_automation_engine",
 	"tmux",

@@ -229,9 +229,6 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		if cfg.BackgroundTask.MaxDepth != nil {
 			w.btMaxDepth.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MaxDepth))
 		}
-		if cfg.BackgroundTask.MaxDescendants != nil {
-			w.btMaxDescendants.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.MaxDescendants))
-		}
 		if cfg.BackgroundTask.StaleTimeoutMs != nil {
 			w.btStaleTimeoutMs.SetValue(fmt.Sprintf("%d", *cfg.BackgroundTask.StaleTimeoutMs))
 		}
@@ -695,9 +692,6 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		}
 		if w.fieldSelected("background_task.max_depth") {
 			bt.MaxDepth = parsePositiveInt64(w.btMaxDepth.Value())
-		}
-		if w.fieldSelected("background_task.max_descendants") {
-			bt.MaxDescendants = parsePositiveInt64(w.btMaxDescendants.Value())
 		}
 		if w.fieldSelected("background_task.stale_timeout_ms") {
 			bt.StaleTimeoutMs = parsePositiveIntWithMinimum(w.btStaleTimeoutMs.Value(), 60000)

@@ -198,7 +198,7 @@ func (w WizardOther) rlHasData() bool {
 func (w WizardOther) btHasData() bool {
 	if w.selection == nil {
 		return w.btDefaultConcurrency.Value() != "" || w.btProviderConcurrency.Value() != "" || w.btModelConcurrency.Value() != "" ||
-			w.btMaxDepth.Value() != "" || w.btMaxDescendants.Value() != "" || w.btStaleTimeoutMs.Value() != "" ||
+			w.btMaxDepth.Value() != "" || w.btStaleTimeoutMs.Value() != "" ||
 			w.btMessageStalenessTimeoutMs.Value() != "" || w.btTaskTtlMs.Value() != "" || w.btSessionGoneTimeoutMs.Value() != "" ||
 			w.btSyncPollTimeoutMs.Value() != "" || w.btMaxToolCalls.Value() != "" || w.btCircuitBreakerEnabled ||
 			w.btCircuitBreakerMaxCalls.Value() != "" || w.btCircuitBreakerConsecutive.Value() != ""
@@ -324,7 +324,7 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 			return paths[idx]
 		}
 	case sectionBackgroundTask:
-		paths := []string{"background_task.provider_concurrency", "background_task.model_concurrency", "background_task.default_concurrency", "background_task.stale_timeout_ms", "background_task.message_staleness_timeout_ms", "background_task.sync_poll_timeout_ms", "background_task.max_depth", "background_task.max_descendants", "background_task.task_ttl_ms", "background_task.session_gone_timeout_ms", "background_task.max_tool_calls", "background_task.circuit_breaker.enabled", "background_task.circuit_breaker.max_tool_calls", "background_task.circuit_breaker.consecutive_threshold"}
+		paths := []string{"background_task.provider_concurrency", "background_task.model_concurrency", "background_task.default_concurrency", "background_task.stale_timeout_ms", "background_task.message_staleness_timeout_ms", "background_task.sync_poll_timeout_ms", "background_task.max_depth", "background_task.task_ttl_ms", "background_task.session_gone_timeout_ms", "background_task.max_tool_calls", "background_task.circuit_breaker.enabled", "background_task.circuit_breaker.max_tool_calls", "background_task.circuit_breaker.consecutive_threshold"}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}

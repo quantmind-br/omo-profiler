@@ -1,7 +1,0 @@
-{
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"/home/diogo/dev/omo-profiler/internal/schema/schema.json\"}",
-  "error": "File content (37903 tokens) exceeds maximum allowed tokens (10000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
-  "timestamp": "2026-04-13T08:03:17.302Z",
-  "retry_count": 1
-}

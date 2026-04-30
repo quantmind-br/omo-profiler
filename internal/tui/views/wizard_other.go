@@ -291,7 +291,6 @@ type WizardOther struct {
 	btProviderConcurrency       textinput.Model
 	btModelConcurrency          textinput.Model
 	btMaxDepth                  textinput.Model
-	btMaxDescendants            textinput.Model
 	btStaleTimeoutMs            textinput.Model
 	btMessageStalenessTimeoutMs textinput.Model
 	btTaskTtlMs                 textinput.Model
@@ -412,10 +411,6 @@ func NewWizardOther() WizardOther {
 	btMaxDepth := textinput.New()
 	btMaxDepth.Placeholder = "8"
 	btMaxDepth.Width = 10
-
-	btMaxDescendants := textinput.New()
-	btMaxDescendants.Placeholder = "100"
-	btMaxDescendants.Width = 10
 
 	btMsgStaleTimeout := textinput.New()
 	btMsgStaleTimeout.Placeholder = "60000"
@@ -566,7 +561,6 @@ func NewWizardOther() WizardOther {
 		btProviderConcurrency:       btProviderConcurrency,
 		btModelConcurrency:          btModelConcurrency,
 		btMaxDepth:                  btMaxDepth,
-		btMaxDescendants:            btMaxDescendants,
 		btStaleTimeoutMs:            btStaleTimeoutMs,
 		btMessageStalenessTimeoutMs: btMsgStaleTimeout,
 		btTaskTtlMs:                 btTaskTtlMs,
@@ -636,7 +630,6 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.btModelConcurrency.Width = wide
 	w.btStaleTimeoutMs.Width = layout.FixedSmallWidth()
 	w.btMaxDepth.Width = layout.FixedSmallWidth()
-	w.btMaxDescendants.Width = layout.FixedSmallWidth()
 	w.btMessageStalenessTimeoutMs.Width = layout.FixedSmallWidth()
 	w.btTaskTtlMs.Width = layout.FixedSmallWidth()
 	w.btSessionGoneTimeoutMs.Width = layout.FixedSmallWidth()
