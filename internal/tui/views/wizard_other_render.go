@@ -291,6 +291,26 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	case sectionSkillsJson:
 		lines = append(lines, renderInclude(0, skillsFieldPath, "skills"))
 		lines = append(lines, rowPrefix(1)+w.skillsEditor.View())
+	case sectionAgentOrder:
+		lines = append(lines, renderInclude(0, agentOrderFieldPath, "agent_order"))
+		lines = append(lines, renderValueField(1, agentOrderFieldPath, "values", w.agentOrder.View()))
+	case sectionKeywordDetector:
+		lines = append(lines, renderInclude(0, keywordDetectorFieldPath, "disabled_keywords"))
+		for i, kw := range disableableKeywords {
+			lines = append(lines, renderValueField(i+1, keywordDetectorFieldPath, kw, onOff(w.disabledKeywords[kw])))
+		}
+	case sectionTeamMode:
+		lines = append(lines, renderBoolField(0, "team_mode.enabled", "enabled", w.tmEnabled))
+		lines = append(lines, renderBoolField(1, "team_mode.tmux_visualization", "tmux_visualization", w.tmTmuxVisualization))
+		lines = append(lines, renderValueField(2, "team_mode.max_parallel_members", "max_parallel_members", w.tmMaxParallelMembers.View()))
+		lines = append(lines, renderValueField(3, "team_mode.max_members", "max_members", w.tmMaxMembers.View()))
+		lines = append(lines, renderValueField(4, "team_mode.max_messages_per_run", "max_messages_per_run", w.tmMaxMessagesPerRun.View()))
+		lines = append(lines, renderValueField(5, "team_mode.max_wall_clock_minutes", "max_wall_clock_minutes", w.tmMaxWallClockMinutes.View()))
+		lines = append(lines, renderValueField(6, "team_mode.max_member_turns", "max_member_turns", w.tmMaxMemberTurns.View()))
+		lines = append(lines, renderValueField(7, "team_mode.base_dir", "base_dir", w.tmBaseDir.View()))
+		lines = append(lines, renderValueField(8, "team_mode.message_payload_max_bytes", "message_payload_max_bytes", w.tmMessagePayloadMaxBytes.View()))
+		lines = append(lines, renderValueField(9, "team_mode.recipient_unread_max_bytes", "recipient_unread_max_bytes", w.tmRecipientUnreadMaxBytes.View()))
+		lines = append(lines, renderValueField(10, "team_mode.mailbox_poll_interval_ms", "mailbox_poll_interval_ms", w.tmMailboxPollIntervalMs.View()))
 	}
 
 	lines = append(lines, "")

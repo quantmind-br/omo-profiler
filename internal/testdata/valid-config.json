@@ -10,6 +10,7 @@
   "hashline_edit": true,
   "new_task_system_enabled": true,
   "default_run_agent": "build",
+  "agent_order": ["sisyphus", "hephaestus", "oracle"],
   "agents": {
     "build": {
       "model": "claude-sonnet-4-20250514",
@@ -219,5 +220,21 @@
     "auto_refresh_on_start": false,
     "refresh_timeout_ms": 30000,
     "source_url": "https://models.dev/api/models"
+  },
+  "keyword_detector": {
+    "disabled_keywords": ["ultrawork", "hyperplan-ultrawork"]
+  },
+  "team_mode": {
+    "enabled": true,
+    "tmux_visualization": false,
+    "max_parallel_members": 4,
+    "max_members": 8,
+    "max_messages_per_run": 10000,
+    "max_wall_clock_minutes": 120,
+    "max_member_turns": 500,
+    "base_dir": "/tmp/team-mode",
+    "message_payload_max_bytes": 32768,
+    "recipient_unread_max_bytes": 262144,
+    "mailbox_poll_interval_ms": 3000
   }
 }

@@ -22,7 +22,7 @@ import (
 )
 
 var thinkingTypes = []string{"", "enabled", "disabled"}
-var effortLevels = []string{"", "none", "minimal", "low", "medium", "high", "xhigh"}
+var effortLevels = []string{"", "none", "minimal", "low", "medium", "high", "xhigh", "max"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
 var wizCatValidationHexRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)

@@ -412,6 +412,58 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		}
 	}
 
+	// Agent Order
+	if len(cfg.AgentOrder) > 0 {
+		w.agentOrder.SetValue(strings.Join(cfg.AgentOrder, ", "))
+	}
+
+	// Keyword Detector
+	if cfg.KeywordDetector != nil {
+		for _, k := range cfg.KeywordDetector.DisabledKeywords {
+			if _, ok := w.disabledKeywords[k]; ok {
+				w.disabledKeywords[k] = true
+			}
+		}
+	}
+
+	// Team Mode
+	if cfg.TeamMode != nil {
+		tm := cfg.TeamMode
+		if tm.Enabled != nil {
+			w.tmEnabled = *tm.Enabled
+		}
+		if tm.TmuxVisualization != nil {
+			w.tmTmuxVisualization = *tm.TmuxVisualization
+		}
+		if tm.MaxParallelMembers != nil {
+			w.tmMaxParallelMembers.SetValue(fmt.Sprintf("%d", *tm.MaxParallelMembers))
+		}
+		if tm.MaxMembers != nil {
+			w.tmMaxMembers.SetValue(fmt.Sprintf("%d", *tm.MaxMembers))
+		}
+		if tm.MaxMessagesPerRun != nil {
+			w.tmMaxMessagesPerRun.SetValue(fmt.Sprintf("%d", *tm.MaxMessagesPerRun))
+		}
+		if tm.MaxWallClockMinutes != nil {
+			w.tmMaxWallClockMinutes.SetValue(fmt.Sprintf("%d", *tm.MaxWallClockMinutes))
+		}
+		if tm.MaxMemberTurns != nil {
+			w.tmMaxMemberTurns.SetValue(fmt.Sprintf("%d", *tm.MaxMemberTurns))
+		}
+		if tm.BaseDir != "" {
+			w.tmBaseDir.SetValue(tm.BaseDir)
+		}
+		if tm.MessagePayloadMaxBytes != nil {
+			w.tmMessagePayloadMaxBytes.SetValue(fmt.Sprintf("%d", *tm.MessagePayloadMaxBytes))
+		}
+		if tm.RecipientUnreadMaxBytes != nil {
+			w.tmRecipientUnreadMaxBytes.SetValue(fmt.Sprintf("%d", *tm.RecipientUnreadMaxBytes))
+		}
+		if tm.MailboxPollIntervalMs != nil {
+			w.tmMailboxPollIntervalMs.SetValue(fmt.Sprintf("%d", *tm.MailboxPollIntervalMs))
+		}
+	}
+
 }
 
 func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelection) {
@@ -897,6 +949,51 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		if v := strings.TrimSpace(w.skillsEditor.Value()); v != "" {
 			cfg.Skills = json.RawMessage(v)
 		}
+	}
+
+	cfg.AgentOrder = nil
+	if w.fieldSelected(agentOrderFieldPath) {
+		var order []string
+		for _, a := range strings.Split(w.agentOrder.Value(), ",") {
+			if s := strings.TrimSpace(a); s != "" {
+				order = append(order, s)
+			}
+		}
+		cfg.AgentOrder = emptySliceIfSelected(true, order)
+	}
+
+	cfg.KeywordDetector = nil
+	if w.fieldSelected(keywordDetectorFieldPath) {
+		var kws []string
+		for _, k := range disableableKeywords {
+			if w.disabledKeywords[k] {
+				kws = append(kws, k)
+			}
+		}
+		cfg.KeywordDetector = &config.KeywordDetectorConfig{DisabledKeywords: emptySliceIfSelected(true, kws)}
+	}
+
+	cfg.TeamMode = nil
+	if w.tmHasData() {
+		// team_mode marks most properties as required in the schema, so whenever any
+		// option is touched we emit the complete object — parsed inputs where available,
+		// upstream defaults otherwise. base_dir is optional and only emitted when set.
+		tm := &config.TeamModeConfig{
+			Enabled:                 wizardOtherBoolPtr(w.tmEnabled),
+			TmuxVisualization:       wizardOtherBoolPtr(w.tmTmuxVisualization),
+			MaxParallelMembers:      teamModeIntOrDefault(w.tmMaxParallelMembers.Value(), 1, 4),
+			MaxMembers:              teamModeIntOrDefault(w.tmMaxMembers.Value(), 1, 8),
+			MaxMessagesPerRun:       teamModeIntOrDefault(w.tmMaxMessagesPerRun.Value(), 1, 10000),
+			MaxWallClockMinutes:     teamModeIntOrDefault(w.tmMaxWallClockMinutes.Value(), 1, 120),
+			MaxMemberTurns:          teamModeIntOrDefault(w.tmMaxMemberTurns.Value(), 1, 500),
+			MessagePayloadMaxBytes:  teamModeIntOrDefault(w.tmMessagePayloadMaxBytes.Value(), 1024, 32768),
+			RecipientUnreadMaxBytes: teamModeIntOrDefault(w.tmRecipientUnreadMaxBytes.Value(), 1024, 262144),
+			MailboxPollIntervalMs:   teamModeIntOrDefault(w.tmMailboxPollIntervalMs.Value(), 500, 3000),
+		}
+		if v := strings.TrimSpace(w.tmBaseDir.Value()); v != "" {
+			tm.BaseDir = v
+		}
+		cfg.TeamMode = tm
 	}
 }
 

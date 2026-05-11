@@ -1198,3 +1198,96 @@ func TestFallbackModelsObjectRoundTrip(t *testing.T) {
 	assert.Contains(t, string(marshaled), `"model":"gpt-4o"`)
 	assert.Contains(t, string(marshaled), `"reasoningEffort":"minimal"`)
 }
+
+func TestAgentOrderRoundTrip(t *testing.T) {
+	jsonData := `{"agent_order": ["sisyphus", "hephaestus", "oracle"]}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"sisyphus", "hephaestus", "oracle"}, cfg.AgentOrder)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"agent_order":["sisyphus","hephaestus","oracle"]`)
+}
+
+func TestKeywordDetectorRoundTrip(t *testing.T) {
+	jsonData := `{"keyword_detector": {"disabled_keywords": ["ultrawork", "hyperplan-ultrawork"]}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.KeywordDetector)
+	assert.Equal(t, []string{"ultrawork", "hyperplan-ultrawork"}, cfg.KeywordDetector.DisabledKeywords)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"keyword_detector":{"disabled_keywords":["ultrawork","hyperplan-ultrawork"]}`)
+}
+
+func TestKeywordDetectorOmitempty(t *testing.T) {
+	cfg := Config{}
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "keyword_detector")
+}
+
+func TestTeamModeRoundTrip(t *testing.T) {
+	jsonData := `{
+		"team_mode": {
+			"enabled": true,
+			"tmux_visualization": false,
+			"max_parallel_members": 4,
+			"max_members": 8,
+			"max_messages_per_run": 10000,
+			"max_wall_clock_minutes": 120,
+			"max_member_turns": 500,
+			"base_dir": "/tmp/team",
+			"message_payload_max_bytes": 32768,
+			"recipient_unread_max_bytes": 262144,
+			"mailbox_poll_interval_ms": 3000
+		}
+	}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.TeamMode)
+	tm := cfg.TeamMode
+	require.NotNil(t, tm.Enabled)
+	assert.True(t, *tm.Enabled)
+	require.NotNil(t, tm.TmuxVisualization)
+	assert.False(t, *tm.TmuxVisualization)
+	require.NotNil(t, tm.MaxParallelMembers)
+	assert.Equal(t, 4, *tm.MaxParallelMembers)
+	require.NotNil(t, tm.MaxMembers)
+	assert.Equal(t, 8, *tm.MaxMembers)
+	require.NotNil(t, tm.MaxMessagesPerRun)
+	assert.Equal(t, 10000, *tm.MaxMessagesPerRun)
+	require.NotNil(t, tm.MaxWallClockMinutes)
+	assert.Equal(t, 120, *tm.MaxWallClockMinutes)
+	require.NotNil(t, tm.MaxMemberTurns)
+	assert.Equal(t, 500, *tm.MaxMemberTurns)
+	assert.Equal(t, "/tmp/team", tm.BaseDir)
+	require.NotNil(t, tm.MessagePayloadMaxBytes)
+	assert.Equal(t, 32768, *tm.MessagePayloadMaxBytes)
+	require.NotNil(t, tm.RecipientUnreadMaxBytes)
+	assert.Equal(t, 262144, *tm.RecipientUnreadMaxBytes)
+	require.NotNil(t, tm.MailboxPollIntervalMs)
+	assert.Equal(t, 3000, *tm.MailboxPollIntervalMs)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"team_mode"`)
+	assert.Contains(t, string(marshaled), `"max_parallel_members":4`)
+	assert.Contains(t, string(marshaled), `"mailbox_poll_interval_ms":3000`)
+	assert.Contains(t, string(marshaled), `"base_dir":"/tmp/team"`)
+}
+
+func TestTeamModeOmitempty(t *testing.T) {
+	cfg := Config{}
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "team_mode")
+}

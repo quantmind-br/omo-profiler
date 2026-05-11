@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
+	"github.com/diogenes/omo-profiler/internal/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1629,4 +1630,59 @@ func TestWizardOtherBackFromSectionGoesToCategory(t *testing.T) {
 	if w.inCategory {
 		t.Fatal("expected inCategory to be false after Esc from section level")
 	}
+}
+
+func TestWizardOtherTeamModeEmitsCompleteRequiredObject(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	// User only touched team_mode.enabled; numeric inputs left at placeholder.
+	selection.SetSelected("team_mode.enabled", true)
+	w.tmEnabled = true
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.TeamMode, "team_mode must be emitted when any field is selected")
+	tm := cfg.TeamMode
+	require.NotNil(t, tm.Enabled)
+	assert.True(t, *tm.Enabled)
+	// All schema-required numeric/bool fields must be populated with defaults.
+	require.NotNil(t, tm.TmuxVisualization)
+	require.NotNil(t, tm.MaxParallelMembers)
+	assert.Equal(t, 4, *tm.MaxParallelMembers)
+	require.NotNil(t, tm.MaxMembers)
+	assert.Equal(t, 8, *tm.MaxMembers)
+	require.NotNil(t, tm.MaxMessagesPerRun)
+	assert.Equal(t, 10000, *tm.MaxMessagesPerRun)
+	require.NotNil(t, tm.MaxWallClockMinutes)
+	assert.Equal(t, 120, *tm.MaxWallClockMinutes)
+	require.NotNil(t, tm.MaxMemberTurns)
+	assert.Equal(t, 500, *tm.MaxMemberTurns)
+	require.NotNil(t, tm.MessagePayloadMaxBytes)
+	assert.Equal(t, 32768, *tm.MessagePayloadMaxBytes)
+	require.NotNil(t, tm.RecipientUnreadMaxBytes)
+	assert.Equal(t, 262144, *tm.RecipientUnreadMaxBytes)
+	require.NotNil(t, tm.MailboxPollIntervalMs)
+	assert.Equal(t, 3000, *tm.MailboxPollIntervalMs)
+	// base_dir is optional and was left blank.
+	assert.Equal(t, "", tm.BaseDir)
+
+	// git_master is required at root, so add it before schema-validating the result.
+	coAuth := true
+	cfg.GitMaster = &config.GitMasterConfig{CommitFooter: true, IncludeCoAuthoredBy: &coAuth, GitEnvPrefix: "GIT_MASTER=1"}
+	v, err := schema.GetValidator()
+	require.NoError(t, err)
+	errs, err := v.Validate(cfg)
+	require.NoError(t, err)
+	assert.Nil(t, errs, "wizard-produced team_mode object must satisfy the schema, got %v", errs)
+}
+
+func TestWizardOtherTeamModeOmittedWhenUntouched(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	assert.Nil(t, cfg.TeamMode, "team_mode must stay omitted when nothing is selected")
 }

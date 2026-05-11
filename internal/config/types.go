@@ -38,6 +38,9 @@ type Config struct {
 	StartWork               *StartWorkConfig               `json:"start_work,omitempty"`
 	Openclaw                *OpenclawConfig                `json:"openclaw,omitempty"`
 	ModelCapabilities       *ModelCapabilitiesConfig       `json:"model_capabilities,omitempty"`
+	AgentOrder              []string                       `json:"agent_order,omitempty"`
+	KeywordDetector         *KeywordDetectorConfig         `json:"keyword_detector,omitempty"`
+	TeamMode                *TeamModeConfig                `json:"team_mode,omitempty"`
 	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
@@ -323,4 +326,24 @@ type ModelCapabilitiesConfig struct {
 	AutoRefreshOnStart *bool   `json:"auto_refresh_on_start,omitempty"`
 	RefreshTimeoutMs   *int64  `json:"refresh_timeout_ms,omitempty"`
 	SourceURL          string  `json:"source_url,omitempty"`
+}
+
+// KeywordDetectorConfig - per-keyword disable list for the keyword-detector transform hook
+type KeywordDetectorConfig struct {
+	DisabledKeywords []string `json:"disabled_keywords,omitempty"`
+}
+
+// TeamModeConfig
+type TeamModeConfig struct {
+	Enabled                 *bool  `json:"enabled,omitempty"`
+	TmuxVisualization       *bool  `json:"tmux_visualization,omitempty"`
+	MaxParallelMembers      *int   `json:"max_parallel_members,omitempty"`
+	MaxMembers              *int   `json:"max_members,omitempty"`
+	MaxMessagesPerRun       *int   `json:"max_messages_per_run,omitempty"`
+	MaxWallClockMinutes     *int   `json:"max_wall_clock_minutes,omitempty"`
+	MaxMemberTurns          *int   `json:"max_member_turns,omitempty"`
+	BaseDir                 string `json:"base_dir,omitempty"`
+	MessagePayloadMaxBytes  *int   `json:"message_payload_max_bytes,omitempty"`
+	RecipientUnreadMaxBytes *int   `json:"recipient_unread_max_bytes,omitempty"`
+	MailboxPollIntervalMs   *int   `json:"mailbox_poll_interval_ms,omitempty"`
 }

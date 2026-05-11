@@ -56,6 +56,9 @@ var knownConfigTags = []string{
 	"start_work",
 	"openclaw",
 	"model_capabilities",
+	"agent_order",
+	"keyword_detector",
+	"team_mode",
 	"_migrations",
 }
 

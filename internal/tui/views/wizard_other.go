@@ -40,7 +40,7 @@ var disableableAgents = []string{
 	"atlas",
 }
 
-// Disableable skills (3) - matches schema disabled_skills enum
+// Disableable skills - matches schema disabled_skills enum
 var disableableSkills = []string{
 	"playwright",
 	"agent-browser",
@@ -49,9 +49,10 @@ var disableableSkills = []string{
 	"review-work",
 	"frontend-ui-ux",
 	"git-master",
+	"team-mode",
 }
 
-// Disableable commands
+// Disableable commands - matches schema disabled_commands enum
 var disableableCommands = []string{
 	"init-deep",
 	"ralph-loop",
@@ -61,6 +62,17 @@ var disableableCommands = []string{
 	"start-work",
 	"stop-continuation",
 	"remove-ai-slops",
+	"hyperplan",
+}
+
+// Disableable keyword-detector keywords - matches schema keyword_detector.disabled_keywords enum
+var disableableKeywords = []string{
+	"ultrawork",
+	"search",
+	"analyze",
+	"team",
+	"hyperplan",
+	"hyperplan-ultrawork",
 }
 
 var dcpNotificationValues = []string{"", "off", "minimal", "detailed"}
@@ -103,6 +115,9 @@ const (
 	sectionMcpEnvAllowlist
 	sectionRuntimeFallback
 	sectionSkillsJson
+	sectionAgentOrder
+	sectionKeywordDetector
+	sectionTeamMode
 )
 
 var otherSectionNames = []string{
@@ -135,6 +150,9 @@ var otherSectionNames = []string{
 	"MCP Env Allowlist",
 	"Runtime Fallback (JSON)",
 	"Skills (JSON)",
+	"Agent Order",
+	"Keyword Detector",
+	"Team Mode",
 }
 
 // Category grouping for sections
@@ -161,13 +179,13 @@ var otherCategoryNames = []string{
 
 var categorySections = [][]otherSection{
 	// categoryDisabledFeatures
-	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools},
+	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools, sectionKeywordDetector},
 	// categoryGeneralSettings
 	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist},
 	// categoryClaudeCode
 	{sectionClaudeCode, sectionModelCapabilities},
 	// categoryAgentsLoops
-	{sectionDefaultRunAgent, sectionSisyphusAgent, sectionSisyphus, sectionRalphLoop, sectionBabysitting, sectionCommentChecker},
+	{sectionDefaultRunAgent, sectionAgentOrder, sectionSisyphusAgent, sectionSisyphus, sectionRalphLoop, sectionBabysitting, sectionCommentChecker, sectionTeamMode},
 	// categoryInfrastructure
 	{sectionBackgroundTask, sectionTmux, sectionBrowserAutomationEngine, sectionWebsearch, sectionNotification, sectionGitMaster},
 	// categoryAdvanced
@@ -352,6 +370,25 @@ type WizardOther struct {
 	runtimeFallbackEditor textarea.Model
 	skillsEditor          textarea.Model
 
+	// Agent Order
+	agentOrder textinput.Model
+
+	// Keyword Detector
+	disabledKeywords map[string]bool
+
+	// Team Mode
+	tmEnabled                 bool
+	tmTmuxVisualization       bool
+	tmMaxParallelMembers      textinput.Model
+	tmMaxMembers              textinput.Model
+	tmMaxMessagesPerRun       textinput.Model
+	tmMaxWallClockMinutes     textinput.Model
+	tmMaxMemberTurns          textinput.Model
+	tmBaseDir                 textinput.Model
+	tmMessagePayloadMaxBytes  textinput.Model
+	tmRecipientUnreadMaxBytes textinput.Model
+	tmMailboxPollIntervalMs   textinput.Model
+
 	// UI State — category navigation
 	currentCategory  otherCategory
 	categoryExpanded map[otherCategory]bool
@@ -484,6 +521,11 @@ func NewWizardOther() WizardOther {
 		disabledCommands[c] = false
 	}
 
+	disabledKeywords := make(map[string]bool)
+	for _, k := range disableableKeywords {
+		disabledKeywords[k] = false
+	}
+
 	sectionExpanded := make(map[otherSection]bool)
 
 	skillsEditor := textarea.New()
@@ -546,6 +588,46 @@ func NewWizardOther() WizardOther {
 	openclawEditor.SetWidth(60)
 	openclawEditor.SetHeight(6)
 
+	agentOrder := textinput.New()
+	agentOrder.Placeholder = "sisyphus, hephaestus, ..."
+	agentOrder.Width = 50
+
+	tmMaxParallelMembers := textinput.New()
+	tmMaxParallelMembers.Placeholder = "4"
+	tmMaxParallelMembers.Width = 10
+
+	tmMaxMembers := textinput.New()
+	tmMaxMembers.Placeholder = "8"
+	tmMaxMembers.Width = 10
+
+	tmMaxMessagesPerRun := textinput.New()
+	tmMaxMessagesPerRun.Placeholder = "10000"
+	tmMaxMessagesPerRun.Width = 12
+
+	tmMaxWallClockMinutes := textinput.New()
+	tmMaxWallClockMinutes.Placeholder = "120"
+	tmMaxWallClockMinutes.Width = 10
+
+	tmMaxMemberTurns := textinput.New()
+	tmMaxMemberTurns.Placeholder = "500"
+	tmMaxMemberTurns.Width = 10
+
+	tmBaseDir := textinput.New()
+	tmBaseDir.Placeholder = "/path/to/team-mode"
+	tmBaseDir.Width = 40
+
+	tmMessagePayloadMaxBytes := textinput.New()
+	tmMessagePayloadMaxBytes.Placeholder = "32768"
+	tmMessagePayloadMaxBytes.Width = 12
+
+	tmRecipientUnreadMaxBytes := textinput.New()
+	tmRecipientUnreadMaxBytes.Placeholder = "262144"
+	tmRecipientUnreadMaxBytes.Width = 12
+
+	tmMailboxPollIntervalMs := textinput.New()
+	tmMailboxPollIntervalMs.Placeholder = "3000"
+	tmMailboxPollIntervalMs.Width = 12
+
 	return WizardOther{
 		disabledMcps:                disabledMcps,
 		disabledAgents:              disabledAgents,
@@ -588,6 +670,17 @@ func NewWizardOther() WizardOther {
 		openclawEditor:              openclawEditor,
 		runtimeFallbackEditor:       runtimeFallbackEditor,
 		skillsEditor:                skillsEditor,
+		agentOrder:                  agentOrder,
+		disabledKeywords:            disabledKeywords,
+		tmMaxParallelMembers:        tmMaxParallelMembers,
+		tmMaxMembers:                tmMaxMembers,
+		tmMaxMessagesPerRun:         tmMaxMessagesPerRun,
+		tmMaxWallClockMinutes:       tmMaxWallClockMinutes,
+		tmMaxMemberTurns:            tmMaxMemberTurns,
+		tmBaseDir:                   tmBaseDir,
+		tmMessagePayloadMaxBytes:    tmMessagePayloadMaxBytes,
+		tmRecipientUnreadMaxBytes:   tmRecipientUnreadMaxBytes,
+		tmMailboxPollIntervalMs:     tmMailboxPollIntervalMs,
 		tmuxLayoutIdx:               2,
 		tmuxIsolationIdx:            3,
 		sectionExpanded:  sectionExpanded,
@@ -658,6 +751,16 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.openclawEditor.SetWidth(wide)
 	w.runtimeFallbackEditor.SetWidth(wide)
 	w.skillsEditor.SetWidth(wide)
+	w.agentOrder.Width = wide
+	w.tmMaxParallelMembers.Width = layout.FixedSmallWidth()
+	w.tmMaxMembers.Width = layout.FixedSmallWidth()
+	w.tmMaxMessagesPerRun.Width = layout.FixedSmallWidth()
+	w.tmMaxWallClockMinutes.Width = layout.FixedSmallWidth()
+	w.tmMaxMemberTurns.Width = layout.FixedSmallWidth()
+	w.tmBaseDir.Width = wide
+	w.tmMessagePayloadMaxBytes.Width = layout.FixedSmallWidth()
+	w.tmRecipientUnreadMaxBytes.Width = layout.FixedSmallWidth()
+	w.tmMailboxPollIntervalMs.Width = layout.FixedSmallWidth()
 	w.refreshView()
 }
 

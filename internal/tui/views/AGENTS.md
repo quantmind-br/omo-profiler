@@ -14,7 +14,7 @@
 | `wizard_categories.go` | 980 | Step 2: Category CRUD with dynamic form injection |
 | `wizard_agents.go` | 1230 | Step 3: Agent config forms with nested viewport scrolling |
 | `wizard_hooks.go` | — | Step 4: Event trigger configuration |
-| `wizard_other.go` | 2460 | Step 5: Catch-all settings (50+ fields, 21 collapsible sections) |
+| `wizard_other.go` | 2460 | Step 5: Catch-all settings (60+ fields, 33 sections) |
 | `wizard_review.go` | — | Step 6: JSON validation + persistence |
 | `dashboard.go` | — | Main menu with active profile overview |
 | `list.go` | — | Profile list with filtering, switch/edit/delete actions |
@@ -60,7 +60,7 @@ Wizard holds config.Config
 
 ## COMPLEXITY HOTSPOTS
 
-- **wizard_other.go** (2460L): Manual focus management across 21 sections. Every upstream `Config` field change requires boilerplate in both `SetConfig` and `Apply`.
+- **wizard_other.go** (split across `wizard_other*.go`): Manual focus management across 33 sections. Every upstream `Config` field change requires boilerplate in both `SetConfig` and `Apply`.
 - **wizard_agents.go** (1230L): Nested "form-in-list" pattern with manual scroll offset calculations (`getLineForField`).
 - **wizard_categories.go** (980L): Dynamic form list — user can add/delete categories, requiring viewport rebuild.
 - **model_selector.go**: Reused by both agents and categories steps. Heterogeneous list with non-selectable headers (`findNextSelectable`).

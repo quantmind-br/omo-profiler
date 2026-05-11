@@ -145,6 +145,28 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 			return w.updateTextareaField(&w.runtimeFallbackEditor, msg)
 		}},
 		{section: sectionSkillsJson, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextareaField(&w.skillsEditor, msg) }},
+		{section: sectionAgentOrder, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.agentOrder, msg) }},
+		{section: sectionTeamMode, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmMaxParallelMembers, msg)
+		}},
+		{section: sectionTeamMode, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.tmMaxMembers, msg) }},
+		{section: sectionTeamMode, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmMaxMessagesPerRun, msg)
+		}},
+		{section: sectionTeamMode, subCursor: 5, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmMaxWallClockMinutes, msg)
+		}},
+		{section: sectionTeamMode, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.tmMaxMemberTurns, msg) }},
+		{section: sectionTeamMode, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.tmBaseDir, msg) }},
+		{section: sectionTeamMode, subCursor: 8, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmMessagePayloadMaxBytes, msg)
+		}},
+		{section: sectionTeamMode, subCursor: 9, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmRecipientUnreadMaxBytes, msg)
+		}},
+		{section: sectionTeamMode, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.tmMailboxPollIntervalMs, msg)
+		}},
 	}
 }
 
@@ -448,6 +470,10 @@ func (w *WizardOther) toggleSection() {
 		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledCommands))
 	case sectionDisabledTools:
 		w.toggleFieldSelection(w.topLevelFieldPath(sectionDisabledTools))
+	case sectionAgentOrder:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionAgentOrder))
+	case sectionKeywordDetector:
+		w.toggleFieldSelection(w.topLevelFieldPath(sectionKeywordDetector))
 	}
 }
 
@@ -456,7 +482,7 @@ func (w *WizardOther) toggleSubItem() {
 	if w.subCursor == 0 {
 		switch w.currentSection {
 		case sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills,
-			sectionDisabledCommands, sectionDisabledTools:
+			sectionDisabledCommands, sectionDisabledTools, sectionAgentOrder, sectionKeywordDetector:
 			w.toggleFieldSelection(w.topLevelFieldPath(w.currentSection))
 			return
 		}
@@ -486,6 +512,19 @@ func (w *WizardOther) toggleSubItem() {
 		if idx >= 0 && idx < len(disableableCommands) {
 			cmd := disableableCommands[idx]
 			w.disabledCommands[cmd] = !w.disabledCommands[cmd]
+		}
+	case sectionKeywordDetector:
+		idx := w.subCursor - 1
+		if idx >= 0 && idx < len(disableableKeywords) {
+			kw := disableableKeywords[idx]
+			w.disabledKeywords[kw] = !w.disabledKeywords[kw]
+		}
+	case sectionTeamMode:
+		switch w.subCursor {
+		case 0:
+			w.tmEnabled = !w.tmEnabled
+		case 1:
+			w.tmTmuxVisualization = !w.tmTmuxVisualization
 		}
 	case sectionExperimental:
 		switch w.subCursor {

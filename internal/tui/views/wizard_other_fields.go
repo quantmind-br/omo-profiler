@@ -69,6 +69,8 @@ const (
 	openclawGatewaysFieldPath           = "openclaw.gateways.*.type"
 	openclawHooksFieldPath              = "openclaw.hooks.*.enabled"
 	openclawReplyListenerFieldPath      = "openclaw.reply_listener.discord_bot_token"
+	agentOrderFieldPath                 = "agent_order"
+	keywordDetectorFieldPath            = "keyword_detector.disabled_keywords"
 )
 
 func parsePositiveInt64(input string) *int64 {
@@ -99,6 +101,16 @@ func parsePositiveIntWithMinimum(input string, minimum int) *int {
 		return nil
 	}
 	return value
+}
+
+// teamModeIntOrDefault parses a positive integer >= minimum; otherwise falls back
+// to the upstream schema default. team_mode marks most numeric properties as
+// required, so the wizard must always emit a value for them.
+func teamModeIntOrDefault(input string, minimum, def int) *int {
+	if v := parsePositiveIntWithMinimum(input, minimum); v != nil {
+		return v
+	}
+	return intPtr(def)
 }
 
 func wizardOtherBoolPtr(v bool) *bool {
@@ -214,6 +226,18 @@ func (w WizardOther) tmuxHasData() bool {
 	return w.selectedWithPrefix("tmux.")
 }
 
+func (w WizardOther) tmHasData() bool {
+	if w.selection == nil {
+		return w.tmEnabled || w.tmTmuxVisualization ||
+			w.tmMaxParallelMembers.Value() != "" || w.tmMaxMembers.Value() != "" ||
+			w.tmMaxMessagesPerRun.Value() != "" || w.tmMaxWallClockMinutes.Value() != "" ||
+			w.tmMaxMemberTurns.Value() != "" || strings.TrimSpace(w.tmBaseDir.Value()) != "" ||
+			w.tmMessagePayloadMaxBytes.Value() != "" || w.tmRecipientUnreadMaxBytes.Value() != "" ||
+			w.tmMailboxPollIntervalMs.Value() != ""
+	}
+	return w.selectedWithPrefix("team_mode.")
+}
+
 func (w WizardOther) sisyphusHasData() bool {
 	if w.selection == nil {
 		return w.sisyphusTasksStoragePath.Value() != "" || w.sisyphusTasksTaskListID.Value() != "" || w.sisyphusTasksClaudeCodeCompat
@@ -265,6 +289,10 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 		return skillsFieldPath
 	case sectionStartWork:
 		return startWorkAutoCommitFieldPath
+	case sectionAgentOrder:
+		return agentOrderFieldPath
+	case sectionKeywordDetector:
+		return keywordDetectorFieldPath
 	default:
 		return ""
 	}
@@ -374,6 +402,23 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 		}
 	case sectionOpenclaw:
 		paths := []string{openclawEnabledFieldPath, openclawGatewaysFieldPath, openclawHooksFieldPath, openclawReplyListenerFieldPath}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionTeamMode:
+		paths := []string{
+			"team_mode.enabled",
+			"team_mode.tmux_visualization",
+			"team_mode.max_parallel_members",
+			"team_mode.max_members",
+			"team_mode.max_messages_per_run",
+			"team_mode.max_wall_clock_minutes",
+			"team_mode.max_member_turns",
+			"team_mode.base_dir",
+			"team_mode.message_payload_max_bytes",
+			"team_mode.recipient_unread_max_bytes",
+			"team_mode.mailbox_poll_interval_ms",
+		}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}
