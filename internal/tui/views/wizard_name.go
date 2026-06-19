@@ -127,7 +127,7 @@ func (w WizardName) Update(msg tea.Msg) (WizardName, tea.Cmd) {
 
 func (w WizardName) View() string {
 	label := wizNameLabelStyle.Render("Profile Name")
-	desc := wizNameDescStyle.Render("Enter a name for your profile (letters, numbers, hyphens, underscores only)")
+	desc := wizNameDescStyle.Render("Enter a name for your profile (ASCII letters, numbers, hyphens, underscores only)")
 	if layout.IsCompact(w.width) {
 		desc = wizNameDescStyle.Render("Name: a-z, 0-9, hyphens, underscores")
 	}
@@ -138,12 +138,19 @@ func (w WizardName) View() string {
 	if w.input.Value() == "" {
 		status = wizNameDescStyle.Render("Required")
 	} else if w.err != nil {
-		status = wizNameErrorStyle.Render(fmt.Sprintf("✗ %s", w.err.Error()))
+		// Wrap the (long) validation message to the available width instead of
+		// letting it truncate off the right edge of the terminal.
+		errStyle := wizNameErrorStyle
+		if w.width > 0 {
+			errStyle = errStyle.Width(w.width)
+		}
+		status = errStyle.Render(fmt.Sprintf("✗ %s", w.err.Error()))
 	} else {
 		status = wizNameValidStyle.Render("✓ Valid name")
 	}
 
-	help := wizNameDescStyle.Render("tab/enter: next • shift+tab/esc: cancel")
+	hints := []string{"tab/enter: next", "shift+tab/esc: cancel"}
+	help := wizNameDescStyle.Render(layout.RenderHintLine(hints, w.width))
 
 	if layout.IsShort(w.height) {
 		return lipgloss.JoinVertical(lipgloss.Left, label, desc, input, status, "", help)
@@ -160,4 +167,9 @@ func (w WizardName) IsComplete() bool {
 // GetName returns the validated profile name
 func (w WizardName) GetName() string {
 	return w.name
+}
+
+// HasInput reports whether the user has typed anything into the name field.
+func (w WizardName) HasInput() bool {
+	return w.input.Value() != ""
 }

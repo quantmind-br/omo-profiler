@@ -132,9 +132,7 @@ func TestBashPermission_String(t *testing.T) {
 	}
 
 	perm := cfg.Agents["build"].Permission
-	if perm == nil {
-		t.Fatal("permission is nil")
-	}
+	require.NotNil(t, perm, "permission is nil")
 
 	bash, ok := perm.Bash.(string)
 	if !ok {
@@ -164,9 +162,7 @@ func TestBashPermission_Object(t *testing.T) {
 	}
 
 	perm := cfg.Agents["build"].Permission
-	if perm == nil {
-		t.Fatal("permission is nil")
-	}
+	require.NotNil(t, perm, "permission is nil")
 
 	bashObj, ok := perm.Bash.(map[string]interface{})
 	if !ok {
@@ -299,9 +295,7 @@ func TestCategoryConfigExtendedFields(t *testing.T) {
 	}
 
 	cat := cfg.Categories["quick"]
-	if cat == nil {
-		t.Fatal("quick category is nil")
-	}
+	require.NotNil(t, cat, "quick category is nil")
 
 	// Verify MaxTokens
 	if cat.MaxTokens == nil || *cat.MaxTokens != 8192 {
@@ -1290,4 +1284,126 @@ func TestTeamModeOmitempty(t *testing.T) {
 	marshaled, err := json.Marshal(&cfg)
 	require.NoError(t, err)
 	assert.NotContains(t, string(marshaled), "team_mode")
+}
+
+func TestDisabledProvidersRoundTrip(t *testing.T) {
+	jsonData := `{"disabled_providers": ["github-copilot", "openrouter"]}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"github-copilot", "openrouter"}, cfg.DisabledProviders)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"disabled_providers":["github-copilot","openrouter"]`)
+}
+
+func TestDisabledProvidersOmitempty(t *testing.T) {
+	cfg := Config{}
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "disabled_providers")
+}
+
+func TestI18nRoundTrip(t *testing.T) {
+	jsonData := `{"i18n": {"locale": "zh"}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.I18n)
+	assert.Equal(t, "zh", cfg.I18n.Locale)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"i18n":{"locale":"zh"}`)
+}
+
+func TestI18nOmitempty(t *testing.T) {
+	cfg := Config{}
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "i18n")
+}
+
+func TestDefaultModeRoundTrip(t *testing.T) {
+	jsonData := `{"default_mode": {"ultrawork": true, "ralph_loop": false}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.DefaultMode)
+	require.NotNil(t, cfg.DefaultMode.Ultrawork)
+	require.NotNil(t, cfg.DefaultMode.RalphLoop)
+	assert.True(t, *cfg.DefaultMode.Ultrawork)
+	assert.False(t, *cfg.DefaultMode.RalphLoop)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"default_mode":{"ultrawork":true,"ralph_loop":false}`)
+}
+
+func TestDefaultModeOmitempty(t *testing.T) {
+	cfg := Config{}
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "default_mode")
+}
+
+func TestAgentDisplayNameRoundTrip(t *testing.T) {
+	jsonData := `{"agents": {"build": {"displayName": "Builder"}}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Agents["build"])
+	assert.Equal(t, "Builder", cfg.Agents["build"].DisplayName)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"displayName":"Builder"`)
+}
+
+func TestBackgroundTaskCleanupDelayRoundTrip(t *testing.T) {
+	jsonData := `{"background_task": {"taskCleanupDelayMs": 600000}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BackgroundTask)
+	require.NotNil(t, cfg.BackgroundTask.TaskCleanupDelayMs)
+	assert.Equal(t, 600000, *cfg.BackgroundTask.TaskCleanupDelayMs)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"taskCleanupDelayMs":600000`)
+}
+
+func TestKeywordDetectorEnabledExpansionsRoundTrip(t *testing.T) {
+	jsonData := `{"keyword_detector": {"enabled_expansions": ["ultrawork", "team"]}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.KeywordDetector)
+	assert.Equal(t, []string{"ultrawork", "team"}, cfg.KeywordDetector.EnabledExpansions)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"enabled_expansions":["ultrawork","team"]`)
+}
+
+func TestClaudeCodeAnthropicProviderRoundTrip(t *testing.T) {
+	jsonData := `{"claude_code": {"anthropic_provider": "anthropic"}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.ClaudeCode)
+	assert.Equal(t, "anthropic", cfg.ClaudeCode.AnthropicProvider)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"anthropic_provider":"anthropic"`)
 }

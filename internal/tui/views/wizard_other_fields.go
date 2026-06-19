@@ -113,6 +113,38 @@ func teamModeIntOrDefault(input string, minimum, def int) *int {
 	return intPtr(def)
 }
 
+func parsePositiveInt64WithMinimum(input string, minimum int64) *int64 {
+	if strings.TrimSpace(input) == "" {
+		return nil
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
+	if err != nil || value < minimum {
+		return nil
+	}
+	return &value
+}
+
+// monitorInt64OrDefault / monitorIntOrDefault — the upstream monitor schema marks
+// most numeric fields required, so the wizard always emits the upstream default
+// when input is missing or below the schema minimum.
+func monitorInt64OrDefault(input string, minimum, def int64) *int64 {
+	if v := parsePositiveInt64WithMinimum(input, minimum); v != nil {
+		return v
+	}
+	return int64Ptr(def)
+}
+
+func monitorIntOrDefault(input string, minimum, def int) *int {
+	if v := parsePositiveIntWithMinimum(input, minimum); v != nil {
+		return v
+	}
+	return intPtr(def)
+}
+
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
 func wizardOtherBoolPtr(v bool) *bool {
 	return &v
 }
@@ -173,7 +205,7 @@ func (w WizardOther) selectedWithPrefix(prefix string) bool {
 
 func (w WizardOther) expHasData() bool {
 	if w.selection == nil {
-		return w.expAggressiveTrunc || w.expAutoResume ||
+		return w.expAggressiveTrunc || w.expDisableLiveParentWakeRouting ||
 			w.expTruncateAllOutputs || w.expPreemptiveCompaction || w.expTaskSystem ||
 			w.expPluginLoadTimeoutMs.Value() != "" || w.expSafeHookCreation || w.expHashlineEdit ||
 			w.expDisableOmoEnv || w.expModelFallbackTitle || w.expMaxTools.Value() != "" ||
@@ -188,7 +220,7 @@ func (w WizardOther) expHasData() bool {
 
 func (w WizardOther) ccHasData() bool {
 	if w.selection == nil {
-		return w.ccMcp || w.ccCommands || w.ccSkills || w.ccAgents || w.ccHooks || w.ccPlugins || w.ccPluginsOverride.Value() != ""
+		return w.ccMcp || w.ccCommands || w.ccSkills || w.ccAgents || w.ccHooks || w.ccPlugins || w.ccPluginsOverride.Value() != "" || w.ccAnthropicProvider.Value() != ""
 	}
 	return w.selectedWithPrefix("claude_code.")
 }
@@ -252,6 +284,23 @@ func (w WizardOther) modelCapabilitiesHasData() bool {
 	return w.selectedWithPrefix("model_capabilities.")
 }
 
+func (w WizardOther) monHasData() bool {
+	if w.selection == nil {
+		return w.monEnabled || w.monLiveModeEnabled || strings.TrimSpace(w.monAllowedCommands.Value()) != "" ||
+			w.monMaxMonitors.Value() != "" || w.monMaxRuntimeMs.Value() != "" || w.monBatchMaxLines.Value() != "" ||
+			w.monBatchMaxBytes.Value() != "" || w.monFlushIntervalMs.Value() != "" || w.monRingMaxLines.Value() != "" ||
+			w.monLineMaxBytes.Value() != "" || w.monPatternMaxLength.Value() != ""
+	}
+	return w.selectedWithPrefix("monitor.")
+}
+
+func (w WizardOther) cgHasData() bool {
+	if w.selection == nil {
+		return w.cgEnabled || w.cgAutoProvision || w.cgTelemetry || strings.TrimSpace(w.cgInstallDir.Value()) != "" || strings.TrimSpace(w.cgWatchDebounceMs.Value()) != ""
+	}
+	return w.selectedWithPrefix("codegraph.")
+}
+
 func (w WizardOther) openclawHasData() bool {
 	if w.selection == nil {
 		return strings.TrimSpace(w.openclawEditor.Value()) != ""
@@ -312,7 +361,7 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 	case sectionExperimental:
 		paths := []string{
 			"experimental.aggressive_truncation",
-			"experimental.auto_resume",
+			"experimental.disable_live_parent_wake_routing",
 			"experimental.truncate_all_tool_outputs",
 			"experimental.dynamic_context_pruning.enabled",
 			"experimental.dynamic_context_pruning.notification",
@@ -337,7 +386,7 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 			return paths[idx]
 		}
 	case sectionClaudeCode:
-		paths := []string{"claude_code.mcp", "claude_code.commands", "claude_code.skills", "claude_code.agents", "claude_code.hooks", "claude_code.plugins", "claude_code.plugins_override"}
+		paths := []string{"claude_code.mcp", "claude_code.commands", "claude_code.skills", "claude_code.agents", "claude_code.hooks", "claude_code.plugins", "claude_code.plugins_override", "claude_code.anthropic_provider"}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}
@@ -421,6 +470,32 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 		}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
+		}
+	case sectionMonitor:
+		paths := []string{
+			"monitor.enabled",
+			"monitor.live_mode_enabled",
+			"monitor.allowed_commands",
+			"monitor.max_monitors_per_session",
+			"monitor.max_runtime_ms",
+			"monitor.batch_max_lines",
+			"monitor.batch_max_bytes",
+			"monitor.flush_interval_ms",
+			"monitor.ring_max_lines",
+			"monitor.line_max_bytes",
+			"monitor.pattern_max_length",
+		}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionCodegraph:
+		paths := []string{"codegraph.enabled", "codegraph.auto_provision", "codegraph.install_dir", "codegraph.telemetry", "codegraph.watch_debounce_ms"}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
+		}
+	case sectionTui:
+		if idx == 0 {
+			return "tui.sidebar.enabled"
 		}
 	}
 	return ""

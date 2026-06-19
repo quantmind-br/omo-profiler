@@ -32,12 +32,14 @@ const (
 )
 
 type modelImportKeyMap struct {
-	Up    key.Binding
-	Down  key.Binding
-	Enter key.Binding
-	Space key.Binding
-	Esc   key.Binding
-	Retry key.Binding
+	Up      key.Binding
+	Down    key.Binding
+	PageUp  key.Binding
+	PageDown key.Binding
+	Enter   key.Binding
+	Space   key.Binding
+	Esc     key.Binding
+	Retry   key.Binding
 }
 
 func newModelImportKeyMap() modelImportKeyMap {
@@ -49,6 +51,14 @@ func newModelImportKeyMap() modelImportKeyMap {
 		Down: key.NewBinding(
 			key.WithKeys("down", "j"),
 			key.WithHelp("↓/j", "down"),
+		),
+		PageUp: key.NewBinding(
+			key.WithKeys("pgup"),
+			key.WithHelp("pgup", "page up"),
+		),
+		PageDown: key.NewBinding(
+			key.WithKeys("pgdown"),
+			key.WithHelp("pgdown", "page down"),
 		),
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
@@ -181,6 +191,8 @@ func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cm
 		case "enter":
 			m.providerSearchInput.Blur()
 			return m, nil
+		case " ", "tab", "pgup", "pgdown", "up", "down", "j", "k":
+			m.providerSearchInput.Blur()
 		default:
 			oldValue := m.providerSearchInput.Value()
 			var cmd tea.Cmd
@@ -211,6 +223,24 @@ func (m ModelImport) handleProviderListKeys(msg tea.KeyMsg) (ModelImport, tea.Cm
 	case key.Matches(msg, m.keys.Down):
 		if m.cursor < len(filteredProviders)-1 {
 			m.cursor++
+			if m.cursor >= m.providerOffset+visibleHeight {
+				m.providerOffset = m.cursor - visibleHeight + 1
+			}
+		}
+	case key.Matches(msg, m.keys.PageUp):
+		if m.cursor > 0 {
+			m.cursor -= visibleHeight
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+			m.providerOffset = m.cursor
+		}
+	case key.Matches(msg, m.keys.PageDown):
+		if m.cursor < len(filteredProviders)-1 {
+			m.cursor += visibleHeight
+			if m.cursor >= len(filteredProviders) {
+				m.cursor = len(filteredProviders) - 1
+			}
 			if m.cursor >= m.providerOffset+visibleHeight {
 				m.providerOffset = m.cursor - visibleHeight + 1
 			}
@@ -493,7 +523,8 @@ func (m ModelImport) renderProviderList() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	help := grayStyle.Render("[↑↓] navigate  [PgUp/PgDn] scroll  [/] search  [Enter] select  [Esc] back")
+	browseHints := []string{"[↑↓] navigate", "[PgUp/PgDn] scroll", "[/] search", "[Enter] select", "[Esc] back"}
+	help := grayStyle.Render(layout.RenderHintLine(browseHints, m.width))
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
@@ -597,7 +628,8 @@ func (m ModelImport) renderModelList() string {
 		}
 	}
 
-	help := grayStyle.Render(fmt.Sprintf("%d selected  [Space] toggle  [Enter] import  [Esc] back", selectedCount))
+	selectedHints := []string{fmt.Sprintf("%d selected", selectedCount), "[Space] toggle", "[Enter] import", "[Esc] back"}
+	help := grayStyle.Render(layout.RenderHintLine(selectedHints, m.width))
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
@@ -623,7 +655,7 @@ func (m ModelImport) renderModelList() string {
 func (m ModelImport) renderError() string {
 	title := titleStyle.Render("Import from models.dev")
 	errorText := errorStyle.Render(fmt.Sprintf("Error: %s", m.errorMsg))
-	help := grayStyle.Render("[r] retry  [Esc] back")
+		help := grayStyle.Render(layout.RenderHintLine([]string{"[r] retry", "[Esc] back"}, m.width))
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,

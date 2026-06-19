@@ -27,6 +27,7 @@ type Config struct {
 	GitMaster               *GitMasterConfig               `json:"git_master,omitempty"`
 	NewTaskSystemEnabled    *bool                          `json:"new_task_system_enabled,omitempty"`
 	DisabledTools           []string                       `json:"disabled_tools,omitempty"`
+	DisabledProviders       []string                       `json:"disabled_providers,omitempty"`
 	MCPEnvAllowlist         []string                       `json:"mcp_env_allowlist,omitempty"`
 	AgentDefinitions        []string                       `json:"agent_definitions,omitempty"`
 	Babysitting             *BabysittingConfig             `json:"babysitting,omitempty"`
@@ -41,6 +42,11 @@ type Config struct {
 	AgentOrder              []string                       `json:"agent_order,omitempty"`
 	KeywordDetector         *KeywordDetectorConfig         `json:"keyword_detector,omitempty"`
 	TeamMode                *TeamModeConfig                `json:"team_mode,omitempty"`
+	I18n                    *I18nConfig                    `json:"i18n,omitempty"`
+	DefaultMode             *DefaultModeConfig             `json:"default_mode,omitempty"`
+	Monitor                 *MonitorConfig                 `json:"monitor,omitempty"`
+	Codegraph               *CodegraphConfig               `json:"codegraph,omitempty"`
+	Tui                     *TuiConfig                     `json:"tui,omitempty"`
 	Migrations              []string                       `json:"_migrations,omitempty"`
 }
 
@@ -59,6 +65,7 @@ type AgentConfig struct {
 	Description      string                 `json:"description,omitempty"`
 	Mode             string                 `json:"mode,omitempty"`
 	Color            string                 `json:"color,omitempty"`
+	DisplayName      string                 `json:"displayName,omitempty"`
 	Permission       *PermissionConfig      `json:"permission,omitempty"`
 	MaxTokens        *float64               `json:"maxTokens,omitempty"`
 	Thinking         *ThinkingConfig        `json:"thinking,omitempty"`
@@ -124,13 +131,14 @@ type StartWorkConfig struct {
 
 // ClaudeCodeConfig
 type ClaudeCodeConfig struct {
-	MCP             *bool           `json:"mcp,omitempty"`
-	Commands        *bool           `json:"commands,omitempty"`
-	Skills          *bool           `json:"skills,omitempty"`
-	Agents          *bool           `json:"agents,omitempty"`
-	Hooks           *bool           `json:"hooks,omitempty"`
-	Plugins         *bool           `json:"plugins,omitempty"`
-	PluginsOverride map[string]bool `json:"plugins_override,omitempty"`
+	MCP               *bool           `json:"mcp,omitempty"`
+	Commands          *bool           `json:"commands,omitempty"`
+	Skills            *bool           `json:"skills,omitempty"`
+	Agents            *bool           `json:"agents,omitempty"`
+	Hooks             *bool           `json:"hooks,omitempty"`
+	Plugins           *bool           `json:"plugins,omitempty"`
+	PluginsOverride   map[string]bool `json:"plugins_override,omitempty"`
+	AnthropicProvider string          `json:"anthropic_provider,omitempty"`
 }
 
 // SisyphusAgentConfig
@@ -144,18 +152,18 @@ type SisyphusAgentConfig struct {
 
 // ExperimentalConfig
 type ExperimentalConfig struct {
-	AggressiveTruncation   *bool                        `json:"aggressive_truncation,omitempty"`
-	AutoResume             *bool                        `json:"auto_resume,omitempty"`
-	PreemptiveCompaction   *bool                        `json:"preemptive_compaction,omitempty"`
-	TruncateAllToolOutputs *bool                        `json:"truncate_all_tool_outputs,omitempty"`
-	DynamicContextPruning  *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
-	TaskSystem             *bool                        `json:"task_system,omitempty"`
-	PluginLoadTimeoutMs    *int                         `json:"plugin_load_timeout_ms,omitempty"`
-	SafeHookCreation       *bool                        `json:"safe_hook_creation,omitempty"`
-	DisableOmoEnv          *bool                        `json:"disable_omo_env,omitempty"`
-	HashlineEdit           *bool                        `json:"hashline_edit,omitempty"`
-	ModelFallbackTitle     *bool                        `json:"model_fallback_title,omitempty"`
-	MaxTools               *int64                       `json:"max_tools,omitempty"`
+	AggressiveTruncation         *bool                        `json:"aggressive_truncation,omitempty"`
+	DisableLiveParentWakeRouting *bool                        `json:"disable_live_parent_wake_routing,omitempty"`
+	PreemptiveCompaction         *bool                        `json:"preemptive_compaction,omitempty"`
+	TruncateAllToolOutputs       *bool                        `json:"truncate_all_tool_outputs,omitempty"`
+	DynamicContextPruning        *DynamicContextPruningConfig `json:"dynamic_context_pruning,omitempty"`
+	TaskSystem                   *bool                        `json:"task_system,omitempty"`
+	PluginLoadTimeoutMs          *int                         `json:"plugin_load_timeout_ms,omitempty"`
+	SafeHookCreation             *bool                        `json:"safe_hook_creation,omitempty"`
+	DisableOmoEnv                *bool                        `json:"disable_omo_env,omitempty"`
+	HashlineEdit                 *bool                        `json:"hashline_edit,omitempty"`
+	ModelFallbackTitle           *bool                        `json:"model_fallback_title,omitempty"`
+	MaxTools                     *int64                       `json:"max_tools,omitempty"`
 }
 
 // DynamicContextPruningConfig
@@ -215,6 +223,7 @@ type BackgroundTaskConfig struct {
 	MessageStalenessTimeoutMs *int                      `json:"messageStalenessTimeoutMs,omitempty"`
 	TaskTtlMs                 *int                      `json:"taskTtlMs,omitempty"`
 	SessionGoneTimeoutMs      *int                      `json:"sessionGoneTimeoutMs,omitempty"`
+	TaskCleanupDelayMs        *int                      `json:"taskCleanupDelayMs,omitempty"`
 	SyncPollTimeoutMs         *int                      `json:"syncPollTimeoutMs,omitempty"`
 	MaxToolCalls              *int64                    `json:"maxToolCalls,omitempty"`
 	CircuitBreaker            *BackgroundCircuitBreaker `json:"circuitBreaker,omitempty"`
@@ -283,10 +292,10 @@ type SisyphusTasksConfig struct {
 
 // OpenclawConfig
 type OpenclawConfig struct {
-	Enabled       *bool                          `json:"enabled,omitempty"`
-	Gateways      map[string]*OpenclawGateway    `json:"gateways,omitempty"`
-	Hooks         map[string]*OpenclawHook       `json:"hooks,omitempty"`
-	ReplyListener *OpenclawReplyListenerConfig   `json:"replyListener,omitempty"`
+	Enabled       *bool                        `json:"enabled,omitempty"`
+	Gateways      map[string]*OpenclawGateway  `json:"gateways,omitempty"`
+	Hooks         map[string]*OpenclawHook     `json:"hooks,omitempty"`
+	ReplyListener *OpenclawReplyListenerConfig `json:"replyListener,omitempty"`
 }
 
 // OpenclawGateway
@@ -322,15 +331,27 @@ type OpenclawReplyListenerConfig struct {
 
 // ModelCapabilitiesConfig
 type ModelCapabilitiesConfig struct {
-	Enabled            *bool   `json:"enabled,omitempty"`
-	AutoRefreshOnStart *bool   `json:"auto_refresh_on_start,omitempty"`
-	RefreshTimeoutMs   *int64  `json:"refresh_timeout_ms,omitempty"`
-	SourceURL          string  `json:"source_url,omitempty"`
+	Enabled            *bool  `json:"enabled,omitempty"`
+	AutoRefreshOnStart *bool  `json:"auto_refresh_on_start,omitempty"`
+	RefreshTimeoutMs   *int64 `json:"refresh_timeout_ms,omitempty"`
+	SourceURL          string `json:"source_url,omitempty"`
 }
 
-// KeywordDetectorConfig - per-keyword disable list for the keyword-detector transform hook
+// KeywordDetectorConfig - per-keyword allowlist/disable list for the keyword-detector transform hook
 type KeywordDetectorConfig struct {
-	DisabledKeywords []string `json:"disabled_keywords,omitempty"`
+	EnabledExpansions []string `json:"enabled_expansions,omitempty"`
+	DisabledKeywords  []string `json:"disabled_keywords,omitempty"`
+}
+
+// I18nConfig - plugin i18n settings
+type I18nConfig struct {
+	Locale string `json:"locale,omitempty"`
+}
+
+// DefaultModeConfig - default mode auto-activation settings (ultrawork, ralph loop)
+type DefaultModeConfig struct {
+	Ultrawork *bool `json:"ultrawork,omitempty"`
+	RalphLoop *bool `json:"ralph_loop,omitempty"`
 }
 
 // TeamModeConfig
@@ -346,4 +367,38 @@ type TeamModeConfig struct {
 	MessagePayloadMaxBytes  *int   `json:"message_payload_max_bytes,omitempty"`
 	RecipientUnreadMaxBytes *int   `json:"recipient_unread_max_bytes,omitempty"`
 	MailboxPollIntervalMs   *int   `json:"mailbox_poll_interval_ms,omitempty"`
+}
+
+// MonitorConfig - output/log monitor subsystem (oh-my-openagent v4.11.0)
+type MonitorConfig struct {
+	Enabled               *bool    `json:"enabled,omitempty"`
+	LiveModeEnabled       *bool    `json:"live_mode_enabled,omitempty"`
+	AllowedCommands       []string `json:"allowed_commands,omitempty"`
+	MaxMonitorsPerSession *int     `json:"max_monitors_per_session,omitempty"`
+	MaxRuntimeMs          *int64   `json:"max_runtime_ms,omitempty"`
+	BatchMaxLines         *int64   `json:"batch_max_lines,omitempty"`
+	BatchMaxBytes         *int64   `json:"batch_max_bytes,omitempty"`
+	FlushIntervalMs       *int64   `json:"flush_interval_ms,omitempty"`
+	RingMaxLines          *int64   `json:"ring_max_lines,omitempty"`
+	LineMaxBytes          *int64   `json:"line_max_bytes,omitempty"`
+	PatternMaxLength      *int64   `json:"pattern_max_length,omitempty"`
+}
+
+// CodegraphConfig - code-graph indexing subsystem (oh-my-openagent v4.11.0)
+type CodegraphConfig struct {
+	AutoProvision   *bool    `json:"auto_provision,omitempty"`
+	Enabled         *bool    `json:"enabled,omitempty"`
+	InstallDir      string   `json:"install_dir,omitempty"`
+	Telemetry       *bool    `json:"telemetry,omitempty"`
+	WatchDebounceMs *float64 `json:"watch_debounce_ms,omitempty"`
+}
+
+// TuiConfig - oh-my-openagent TUI (sidebar) settings (v4.11.0)
+type TuiConfig struct {
+	Sidebar *TuiSidebarConfig `json:"sidebar,omitempty"`
+}
+
+// TuiSidebarConfig
+type TuiSidebarConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
 }

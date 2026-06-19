@@ -616,7 +616,10 @@ func TestWizardAgentsUpdateExpandKey(t *testing.T) {
 	}
 }
 
-func TestWizardAgentsUpdateFormEsc(t *testing.T) {
+// Esc is not a "back" key inside the agent form: it is consumed by the parent
+// Wizard as cancel/discard before reaching this step, so the step itself must
+// leave the form open (ctrl+← is the key that backs out to the list).
+func TestWizardAgentsUpdateFormEscDoesNotCollapse(t *testing.T) {
 	wa := NewWizardAgents()
 	wa.SetSize(80, 24)
 
@@ -627,18 +630,14 @@ func TestWizardAgentsUpdateFormEsc(t *testing.T) {
 	wa.focusedField = fieldModel
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	updated, cmd := wa.Update(msg)
+	updated, _ := wa.Update(msg)
 
-	if cmd != nil {
-		t.Error("expected nil command for Esc in form mode")
+	if !updated.inForm {
+		t.Error("expected inForm to stay true: Esc is handled by the Wizard, not this step")
 	}
 
-	if updated.inForm {
-		t.Error("expected inForm to be false after Esc")
-	}
-
-	if updated.agents["build"].expanded {
-		t.Error("expected agent to be collapsed after Esc")
+	if !updated.agents["build"].expanded {
+		t.Error("expected agent to stay expanded: Esc must not collapse the form here")
 	}
 }
 

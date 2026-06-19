@@ -313,11 +313,17 @@ func newAgentConfig() agentConfig {
 	prompt.Placeholder = "Custom prompt..."
 	prompt.SetWidth(50)
 	prompt.SetHeight(3)
+	prompt.ShowLineNumbers = false
+	prompt.FocusedStyle.Base = prompt.FocusedStyle.Base.Border(lipgloss.HiddenBorder())
+	prompt.BlurredStyle.Base = prompt.BlurredStyle.Base.Border(lipgloss.HiddenBorder())
 
 	promptAppend := textarea.New()
 	promptAppend.Placeholder = "Append to prompt..."
 	promptAppend.SetWidth(50)
 	promptAppend.SetHeight(3)
+	promptAppend.ShowLineNumbers = false
+	promptAppend.FocusedStyle.Base = promptAppend.FocusedStyle.Base.Border(lipgloss.HiddenBorder())
+	promptAppend.BlurredStyle.Base = promptAppend.BlurredStyle.Base.Border(lipgloss.HiddenBorder())
 
 	description := textinput.New()
 	description.Placeholder = "description"
@@ -558,12 +564,12 @@ func newWizardAgentsKeyMap() wizardAgentsKeyMap {
 			key.WithHelp("↑/k", "prev field"),
 		),
 		Left: key.NewBinding(
-			key.WithKeys("left", "h"),
-			key.WithHelp("←/h", "collapse"),
+			key.WithKeys("ctrl+left"),
+			key.WithHelp("ctrl+←", "collapse"),
 		),
 		Right: key.NewBinding(
-			key.WithKeys("right", "l"),
-			key.WithHelp("→/l", "expand"),
+			key.WithKeys("ctrl+right"),
+			key.WithHelp("ctrl+→", "expand"),
 		),
 	}
 }
@@ -1705,12 +1711,15 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					w.focusedField = lastField
 				}
 			}
-			switch msg.String() {
-			case "esc":
+			// ctrl+← backs out of the form to the agent list, mirroring ctrl+→
+			// on the way in. Plain ←/→ are left for the focused text input.
+			if msg.String() == "ctrl+left" {
 				w.inForm = false
 				ac.expanded = false
 				w.viewport.SetContent(w.renderContent())
 				return w, nil
+			}
+			switch msg.String() {
 			case "down", "j":
 				nextField()
 				w.updateFieldFocus(ac)
@@ -2664,10 +2673,12 @@ func (w WizardAgents) View() string {
 	}
 
 	title := wizAgentLabelStyle.Render("Configure Agents")
-	desc := wizAgentDimStyle.Render("[Space] toggle  [Enter] expand  [Tab] next step")
+	agentHints := []string{"[Space] toggle", "[Enter] expand", "[ctrl+→] expand", "[ctrl+←] collapse", "[Tab] next step"}
+	desc := wizAgentDimStyle.Render(layout.RenderHintLine(agentHints, w.width))
 
 	if w.inForm {
-		desc = wizAgentDimStyle.Render("↑/↓/Tab: navigate • Space: toggle include • Enter: edit/value • Esc: close form")
+		formHints := []string{"↑/↓/Tab: navigate", "Space: toggle include", "Enter: edit/value", "ctrl+←: back", "Esc: cancel"}
+		desc = wizAgentDimStyle.Render(layout.RenderHintLine(formHints, w.width))
 	}
 
 	content := w.viewport.View()
@@ -2698,7 +2709,7 @@ func (w WizardAgents) renderSaveCustomPrompt(ac *agentConfig) string {
 	if ac.savePromptAnswer == "" {
 		lines = append(lines, wizAgentTextStyle.Render("Save this model for future use? (y/n)"))
 		lines = append(lines, "")
-		lines = append(lines, wizAgentDimStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+		lines = append(lines, wizAgentDimStyle.Render(layout.RenderHintLine([]string{"[y] yes", "[n] no", "[Esc] cancel"}, w.width)))
 	} else {
 		lines = append(lines, wizAgentTextStyle.Render("Display name:"))
 		lines = append(lines, ac.saveDisplayNameInput.View())
@@ -2710,7 +2721,7 @@ func (w WizardAgents) renderSaveCustomPrompt(ac *agentConfig) string {
 			lines = append(lines, wizAgentErrorStyle.Render("Error: "+ac.saveError))
 			lines = append(lines, "")
 		}
-		lines = append(lines, wizAgentDimStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+		lines = append(lines, wizAgentDimStyle.Render(layout.RenderHintLine([]string{"[Enter] save", "[Tab] next field", "[Esc] cancel"}, w.width)))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)

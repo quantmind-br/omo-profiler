@@ -353,15 +353,19 @@ func (w WizardHooks) View() string {
 
 	if layout.IsShort(w.height) {
 		title := titleStyle.Render("Hooks")
+		hookHints := []string{"[Space] toggle", "[Tab] next", "[Shift+Tab] back", "[✓] enabled", "[✗] disabled"}
+		desc := helpStyle.Render(layout.RenderHintLine(hookHints, w.width))
 		stats := helpStyle.Render(fmt.Sprintf("[compact] (%d/%d disabled)", disabledCount, len(allHooks)))
 		return lipgloss.JoinVertical(lipgloss.Left,
 			title+stats,
+			desc,
 			content,
 		)
 	}
 
 	title := titleStyle.Render("Configure Hooks")
-	desc := helpStyle.Render("[Space] toggle  [Tab] next  [Shift+Tab] back  [✓] enabled  [✗] disabled")
+	hookHints := []string{"[Space] toggle", "[Tab] next", "[Shift+Tab] back", "[✓] enabled", "[✗] disabled"}
+	desc := helpStyle.Render(layout.RenderHintLine(hookHints, w.width))
 	stats := helpStyle.Render(fmt.Sprintf("%d/%d hooks disabled", disabledCount, len(allHooks)))
 
 	return lipgloss.JoinVertical(lipgloss.Left,

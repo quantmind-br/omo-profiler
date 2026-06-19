@@ -45,6 +45,15 @@ var stepNames = map[int]string{
 	StepReview:     "Review & Save",
 }
 
+var stepAbbreviations = map[int]string{
+	StepName:       "N",
+	StepCategories: "C",
+	StepAgents:     "A",
+	StepHooks:      "H",
+	StepOther:      "O",
+	StepReview:     "R",
+}
+
 type wizardKeyMap struct {
 	Next   key.Binding
 	Back   key.Binding
@@ -59,12 +68,12 @@ func newWizardKeyMap() wizardKeyMap {
 			key.WithHelp("tab/enter", "next"),
 		),
 		Back: key.NewBinding(
-			key.WithKeys("shift+tab", "esc"),
-			key.WithHelp("shift+tab/esc", "back"),
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "back"),
 		),
 		Cancel: key.NewBinding(
-			key.WithKeys("ctrl+c"),
-			key.WithHelp("ctrl+c", "cancel"),
+			key.WithKeys("ctrl+c", "esc"),
+			key.WithHelp("ctrl+c/esc", "cancel"),
 		),
 		Save: key.NewBinding(
 			key.WithKeys("ctrl+s"),
@@ -82,6 +91,7 @@ type Wizard struct {
 	selection           *profile.FieldSelection
 	preservedUnknown    map[string]json.RawMessage
 	editMode            bool // true when editing existing profile, false when creating new
+	returnToList        bool // true when wizard was entered from list view
 
 	// Sub-views for each step
 	nameStep       WizardName
@@ -91,11 +101,12 @@ type Wizard struct {
 	otherStep      WizardOther
 	reviewStep     WizardReview
 
-	width    int
-	height   int
-	keys     wizardKeyMap
-	err      error
-	flashMsg string
+	width         int
+	height        int
+	keys          wizardKeyMap
+	err           error
+	flashMsg      string
+	confirmCancel bool // awaiting y/N confirmation to discard the wizard
 }
 
 // NewWizard creates a new wizard for creating a profile
@@ -207,6 +218,9 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 		return w.prevStep()
 
 	case WizardCancelMsg:
+		if w.returnToList {
+			return w, func() tea.Msg { return NavigateToListMsg{} }
+		}
 		return w, func() tea.Msg { return NavigateToDashboardMsg{} }
 
 	case WizardSaveMsg:
@@ -221,7 +235,24 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 
 	case tea.KeyMsg:
 		w.flashMsg = ""
+		// While confirming a discard, intercept y/N before anything else.
+		if w.confirmCancel {
+			switch msg.String() {
+			case "y", "Y":
+				w.confirmCancel = false
+				return w, func() tea.Msg { return WizardCancelMsg{} }
+			default:
+				// n / N / esc / any other key resumes editing.
+				w.confirmCancel = false
+				return w, nil
+			}
+		}
 		if key.Matches(msg, w.keys.Cancel) {
+			// Guard against discarding unsaved work; cancel immediately if nothing entered.
+			if w.hasUnsavedInput() {
+				w.confirmCancel = true
+				return w, nil
+			}
 			return w, func() tea.Msg { return WizardCancelMsg{} }
 		}
 	}
@@ -416,6 +447,23 @@ func (w Wizard) prevStep() (Wizard, tea.Cmd) {
 func (w Wizard) View() string {
 	header := w.renderHeader()
 
+	if w.confirmCancel {
+		target := w.profileName
+		if target == "" {
+			target = w.nameStep.GetName()
+		}
+		if target == "" {
+			target = "this profile"
+		}
+		dialog := layout.RenderConfirmDialog(target, "Discard")
+		hint := wizNameDescStyle.Render("Your changes will be lost. Press y to discard, any other key to keep editing.")
+		body := lipgloss.JoinVertical(lipgloss.Left, dialog, "", hint)
+		if w.width > 0 && w.height > 0 {
+			return lipgloss.Place(w.width, w.height, lipgloss.Center, lipgloss.Center, body)
+		}
+		return body
+	}
+
 	errorDisplay := ""
 	if w.err != nil {
 		errorDisplay = errorStyle.Render("⚠ " + w.err.Error())
@@ -493,28 +541,92 @@ func (w Wizard) renderHeader() string {
 	progressStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
 
+	// Use abbreviated names at narrow widths to avoid flickering between
+	// full names and abbreviations as the step (and checkmark prefix) changes.
+	useAbbrev := w.width <= 100
+
 	var steps []string
 	for i := StepName; i <= StepReview; i++ {
 		stepNum := lipgloss.NewStyle().Bold(i == w.step)
-		if i == w.step {
-			steps = append(steps, progressStyle.Render(stepNum.Render(stepNames[i])))
-		} else if i < w.step {
-			steps = append(steps, successStyle.Render("✓ "+stepNames[i]))
+		if useAbbrev {
+			if i == w.step {
+				steps = append(steps, progressStyle.Render(stepAbbreviations[i]))
+			} else if i < w.step {
+				steps = append(steps, successStyle.Render(stepAbbreviations[i]))
+			} else {
+				steps = append(steps, dimStyle.Render(stepAbbreviations[i]))
+			}
 		} else {
-			steps = append(steps, dimStyle.Render(stepNames[i]))
+			if i == w.step {
+				steps = append(steps, progressStyle.Render(stepNum.Render(stepNames[i])))
+			} else if i < w.step {
+				steps = append(steps, successStyle.Render("✓ "+stepNames[i]))
+			} else {
+				steps = append(steps, dimStyle.Render(stepNames[i]))
+			}
 		}
 	}
 
+	var sep string
+	if useAbbrev {
+		sep = " > "
+	} else {
+		sep = " → "
+	}
+
 	progress := lipgloss.JoinHorizontal(lipgloss.Top,
-		steps[0], dimStyle.Render(" → "),
-		steps[1], dimStyle.Render(" → "),
-		steps[2], dimStyle.Render(" → "),
-		steps[3], dimStyle.Render(" → "),
-		steps[4], dimStyle.Render(" → "),
+		steps[0], dimStyle.Render(sep),
+		steps[1], dimStyle.Render(sep),
+		steps[2], dimStyle.Render(sep),
+		steps[3], dimStyle.Render(sep),
+		steps[4], dimStyle.Render(sep),
 		steps[5],
 	)
 
 	headerLine := lipgloss.JoinHorizontal(lipgloss.Top, progress, "  ", dimStyle.Render(progressText))
+
+	// If still too wide, try abbreviated names (fallback for edge cases)
+	if !useAbbrev && lipgloss.Width(headerLine) > w.width {
+		var abbrSteps []string
+		for i := StepName; i <= StepReview; i++ {
+			if i == w.step {
+				abbrSteps = append(abbrSteps, progressStyle.Render(stepAbbreviations[i]))
+			} else if i < w.step {
+				abbrSteps = append(abbrSteps, successStyle.Render(stepAbbreviations[i]))
+			} else {
+				abbrSteps = append(abbrSteps, dimStyle.Render(stepAbbreviations[i]))
+			}
+		}
+		progress = lipgloss.JoinHorizontal(lipgloss.Top,
+			abbrSteps[0], dimStyle.Render(" > "),
+			abbrSteps[1], dimStyle.Render(" > "),
+			abbrSteps[2], dimStyle.Render(" > "),
+			abbrSteps[3], dimStyle.Render(" > "),
+			abbrSteps[4], dimStyle.Render(" > "),
+			abbrSteps[5],
+		)
+		headerLine = lipgloss.JoinHorizontal(lipgloss.Top, progress, "  ", dimStyle.Render(progressText))
+	}
+
+	// If still too wide, drop intermediates keeping first, current, last
+	if lipgloss.Width(headerLine) > w.width {
+		var minimal []string
+		for i := StepName; i <= StepReview; i++ {
+			if i == StepName || i == StepReview || i == w.step {
+				if i == w.step {
+					minimal = append(minimal, progressStyle.Render(stepAbbreviations[i]))
+				} else if i < w.step {
+					minimal = append(minimal, successStyle.Render(stepAbbreviations[i]))
+				} else {
+					minimal = append(minimal, dimStyle.Render(stepAbbreviations[i]))
+				}
+			}
+		}
+		progress = lipgloss.JoinHorizontal(lipgloss.Top,
+			minimal[0], dimStyle.Render(" … "), minimal[1], dimStyle.Render(" … "), minimal[2],
+		)
+		headerLine = lipgloss.JoinHorizontal(lipgloss.Top, progress, "  ", dimStyle.Render(progressText))
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, title, headerLine)
 }
@@ -530,4 +642,29 @@ func (w Wizard) GetProfile() *profile.Profile {
 // IsEditMode returns true if editing an existing profile
 func (w Wizard) IsEditMode() bool {
 	return w.editMode
+}
+
+// SetReturnToList sets the flag so cancel returns to list instead of dashboard
+func (w *Wizard) SetReturnToList() {
+	w.returnToList = true
+}
+
+// IsReviewStep returns true when on the final review step
+func (w Wizard) IsReviewStep() bool {
+	return w.step == StepReview
+}
+
+// IsConfirmingCancel reports whether the discard-confirmation prompt is showing.
+func (w Wizard) IsConfirmingCancel() bool {
+	return w.confirmCancel
+}
+
+// hasUnsavedInput reports whether cancelling now would discard user work.
+// In edit mode there is always existing content to protect; otherwise it's
+// "unsaved" once the user advances past step 1 or types a profile name.
+func (w Wizard) hasUnsavedInput() bool {
+	if w.editMode {
+		return true
+	}
+	return w.step > StepName || w.nameStep.HasInput()
 }

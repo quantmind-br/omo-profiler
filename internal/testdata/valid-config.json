@@ -1,23 +1,48 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
-  "disabled_mcps": ["context7"],
-  "disabled_agents": ["oracle", "librarian"],
-  "disabled_skills": ["playwright"],
-  "disabled_hooks": ["auto-update-checker", "startup-toast"],
-  "disabled_commands": ["init-deep"],
-  "disabled_tools": ["mcp_bash"],
-  "_migrations": ["v1_to_v2"],
+  "disabled_mcps": [
+    "context7"
+  ],
+  "disabled_agents": [
+    "oracle",
+    "librarian"
+  ],
+  "disabled_skills": [
+    "playwright"
+  ],
+  "disabled_hooks": [
+    "auto-update-checker",
+    "startup-toast"
+  ],
+  "disabled_commands": [
+    "init-deep"
+  ],
+  "disabled_tools": [
+    "mcp_bash"
+  ],
+  "_migrations": [
+    "v1_to_v2"
+  ],
   "hashline_edit": true,
   "new_task_system_enabled": true,
   "default_run_agent": "build",
-  "agent_order": ["sisyphus", "hephaestus", "oracle"],
+  "agent_order": [
+    "sisyphus",
+    "hephaestus",
+    "oracle"
+  ],
   "agents": {
     "build": {
       "model": "claude-sonnet-4-20250514",
-      "fallback_models": ["claude-haiku", "gpt-4o"],
+      "fallback_models": [
+        "claude-haiku",
+        "gpt-4o"
+      ],
       "variant": "fast",
       "category": "general",
-      "skills": ["git-master"],
+      "skills": [
+        "git-master"
+      ],
       "temperature": 0.7,
       "top_p": 0.9,
       "prompt": "You are a helpful coding assistant.",
@@ -38,10 +63,15 @@
         "external_directory": "ask"
       },
       "maxTokens": 8192,
-      "thinking": {"type": "enabled", "budgetTokens": 4096},
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 4096
+      },
       "reasoningEffort": "medium",
       "textVerbosity": "low",
-      "providerOptions": {"custom_option": true},
+      "providerOptions": {
+        "custom_option": true
+      },
       "ultrawork": {
         "model": "claude-sonnet-4-20250514",
         "variant": "fast"
@@ -63,7 +93,9 @@
   "categories": {
     "general": {
       "model": "claude-sonnet-4-20250514",
-      "fallback_models": ["claude-haiku"],
+      "fallback_models": [
+        "claude-haiku"
+      ],
       "variant": "balanced",
       "temperature": 0.5,
       "top_p": 0.95,
@@ -110,7 +142,6 @@
   },
   "experimental": {
     "aggressive_truncation": true,
-    "auto_resume": false,
     "truncate_all_tool_outputs": false,
     "hashline_edit": true,
     "disable_omo_env": true,
@@ -122,7 +153,10 @@
         "enabled": true,
         "turns": 5
       },
-      "protected_tools": ["task", "todowrite"],
+      "protected_tools": [
+        "task",
+        "todowrite"
+      ],
       "strategies": {
         "deduplication": {
           "enabled": true
@@ -136,10 +170,14 @@
           "turns": 10
         }
       }
-    }
+    },
+    "disable_live_parent_wake_routing": false
   },
   "auto_update": true,
-  "skills": ["git-master", "playwright"],
+  "skills": [
+    "git-master",
+    "playwright"
+  ],
   "ralph_loop": {
     "enabled": true,
     "default_max_iterations": 50,
@@ -191,7 +229,9 @@
         "type": "http",
         "url": "https://discord.example.com/webhook",
         "method": "POST",
-        "headers": {"Authorization": "Bot token123"},
+        "headers": {
+          "Authorization": "Bot token123"
+        },
         "timeout": 5000
       }
     },
@@ -206,7 +246,9 @@
       "discordBotToken": "token123",
       "discordChannelId": "123456",
       "discordMention": "<@bot>",
-      "authorizedDiscordUserIds": ["user1"],
+      "authorizedDiscordUserIds": [
+        "user1"
+      ],
       "telegramBotToken": "tg-token",
       "telegramChatId": "chat123",
       "pollIntervalMs": 3000,
@@ -222,7 +264,10 @@
     "source_url": "https://models.dev/api/models"
   },
   "keyword_detector": {
-    "disabled_keywords": ["ultrawork", "hyperplan-ultrawork"]
+    "disabled_keywords": [
+      "ultrawork",
+      "hyperplan-ultrawork"
+    ]
   },
   "team_mode": {
     "enabled": true,
@@ -236,5 +281,33 @@
     "message_payload_max_bytes": 32768,
     "recipient_unread_max_bytes": 262144,
     "mailbox_poll_interval_ms": 3000
+  },
+  "monitor": {
+    "enabled": false,
+    "live_mode_enabled": false,
+    "allowed_commands": [
+      "ls",
+      "git status"
+    ],
+    "max_monitors_per_session": 3,
+    "max_runtime_ms": 1800000,
+    "batch_max_lines": 50,
+    "batch_max_bytes": 16384,
+    "flush_interval_ms": 1000,
+    "ring_max_lines": 1000,
+    "line_max_bytes": 8192,
+    "pattern_max_length": 512
+  },
+  "codegraph": {
+    "auto_provision": true,
+    "enabled": true,
+    "install_dir": "/opt/codegraph",
+    "telemetry": false,
+    "watch_debounce_ms": 300
+  },
+  "tui": {
+    "sidebar": {
+      "enabled": true
+    }
   }
 }

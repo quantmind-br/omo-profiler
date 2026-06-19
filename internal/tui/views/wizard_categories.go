@@ -262,12 +262,12 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 			key.WithHelp("↓/j", "down"),
 		),
 		Left: key.NewBinding(
-			key.WithKeys("left", "h"),
-			key.WithHelp("←/h", "collapse"),
+			key.WithKeys("ctrl+left"),
+			key.WithHelp("ctrl+←", "collapse"),
 		),
 		Right: key.NewBinding(
-			key.WithKeys("right", "l"),
-			key.WithHelp("→/l", "expand"),
+			key.WithKeys("ctrl+right"),
+			key.WithHelp("ctrl+→", "expand"),
 		),
 		New: key.NewBinding(
 			key.WithKeys("n"),
@@ -848,11 +848,15 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 		if w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
 			cc := w.categories[w.cursor]
 			if cc.expanded {
-				switch msg.String() {
-				case "esc":
+				// ctrl+← backs out of the form to the category list, mirroring
+				// ctrl+→ on the way in. Plain ←/→ are left for the focused text
+				// input so the cursor can move within field values.
+				if msg.String() == "ctrl+left" {
 					w.inForm = false
 					cc.expanded = false
 					return w, nil
+				}
+				switch msg.String() {
 				case "down", "j":
 					w.focusedField++
 					if w.focusedField > catFieldFallbackModels {
@@ -1098,11 +1102,14 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	var lines []string
 
 	indent := "      "
-	labelFmt := "%-16s: "
+	labelWidth := 17 // widest label is "max_prompt_tokens" (17 chars)
 	if layout.IsCompact(w.width) {
 		indent = "    "
-		labelFmt = "%-8s: "
+		labelWidth = 8
 	}
+	labelFmt := fmt.Sprintf("%%-%ds: ", labelWidth)
+	// Column where field values begin: indent + "[ ] " checkbox + padded label + ": ".
+	valueColumn := len(indent) + len("[ ] ") + labelWidth + len(": ")
 
 	renderField := func(label string, field categoryFormField, value string) string {
 		style := wizCatDimStyle
@@ -1167,7 +1174,13 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	}
 	lines = append(lines, renderSelectableField("model", catFieldModel, modelDisplayValue))
 	lines = append(lines, renderSelectableField("variant", catFieldVariant, cc.variant.View()))
-	lines = append(lines, renderSelectableField("description", catFieldDescription, cc.description.View()))
+	descValue := cc.description.Value()
+	if w.inForm && w.focusedField == catFieldDescription {
+		descValue = cc.description.View()
+	} else if avail := w.width - valueColumn; avail > 0 {
+		descValue = layout.TruncateWithEllipsis(descValue, avail)
+	}
+	lines = append(lines, renderSelectableField("description", catFieldDescription, descValue))
 	lines = append(lines, renderBool("is_unstable", catFieldIsUnstable, cc.isUnstable))
 	lines = append(lines, renderBool("disable", catFieldDisable, cc.disable))
 	lines = append(lines, renderSelectableField("temperature", catFieldTemperature, cc.temperature.View())+validateCategoryField("temperature", cc.temperature.Value(), w.inForm && w.focusedField == catFieldTemperature))
@@ -1202,11 +1215,20 @@ func (w WizardCategories) View() string {
 	}
 
 	title := wizCatLabelStyle.Render("Configure Categories")
-	desc := wizCatDimStyle.Render("[↑↓] navigate  [n] new  [d] delete  [→] expand  [←] collapse  [Enter] edit  [Tab] next step")
+	var desc string
+	catHints := []string{"[↑↓] navigate", "[n] new", "[d] delete", "[ctrl+→] expand", "[ctrl+←] collapse", "[Enter] edit", "[Tab] next step"}
+	if layout.IsCompact(w.width) {
+		catHints = []string{"[↑↓] nav", "[n] new", "[d] del", "[ctrl+→] expand", "[Tab] next"}
+	}
+	desc = wizCatDimStyle.Render(layout.RenderHintLine(catHints, w.width))
 
 	if w.inForm {
 		cc := w.categories[w.cursor]
-		desc = wizCatDimStyle.Render(fmt.Sprintf("Editing: %s — [↑↓] navigate  [Space] toggle  [Esc] close", cc.nameInput.Value()))
+		if layout.IsCompact(w.width) {
+			desc = wizCatDimStyle.Render(fmt.Sprintf("Editing: %s — [↑↓] nav  [Space] toggle  [ctrl+←] back  [Esc] cancel", cc.nameInput.Value()))
+		} else {
+			desc = wizCatDimStyle.Render(fmt.Sprintf("Editing: %s — [↑↓] navigate  [Space] toggle  [ctrl+←] back  [Esc] cancel", cc.nameInput.Value()))
+		}
 	}
 
 	content := w.viewport.View()
@@ -1326,7 +1348,7 @@ func (w WizardCategories) renderSaveCustomPrompt(cc *categoryConfig) string {
 	if cc.savePromptAnswer == "" {
 		lines = append(lines, wizCatTextStyle.Render("Save this model for future use? (y/n)"))
 		lines = append(lines, "")
-		lines = append(lines, wizCatDimStyle.Render("[y] yes  [n] no  [Esc] cancel"))
+		lines = append(lines, wizCatDimStyle.Render(layout.RenderHintLine([]string{"[y] yes", "[n] no", "[Esc] cancel"}, w.width)))
 	} else {
 		lines = append(lines, wizCatTextStyle.Render("Display name:"))
 		lines = append(lines, cc.saveDisplayNameInput.View())
@@ -1338,7 +1360,7 @@ func (w WizardCategories) renderSaveCustomPrompt(cc *categoryConfig) string {
 			lines = append(lines, wizCatErrorStyle.Render("Error: "+cc.saveError))
 			lines = append(lines, "")
 		}
-		lines = append(lines, wizCatDimStyle.Render("[Enter] save  [Tab] next field  [Esc] cancel"))
+		lines = append(lines, wizCatDimStyle.Render(layout.RenderHintLine([]string{"[Enter] save", "[Tab] next field", "[Esc] cancel"}, w.width)))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)

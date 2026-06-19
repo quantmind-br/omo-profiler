@@ -95,6 +95,10 @@ func (e *Export) SetSize(width, height int) {
 	e.textInput.Width = layout.WideFieldWidth(width, 10)
 }
 
+func (e Export) IsFocused() bool {
+	return e.textInput.Focused()
+}
+
 // Update handles messages and user input
 func (e Export) Update(msg tea.Msg) (Export, tea.Cmd) {
 	var cmd tea.Cmd
@@ -145,7 +149,7 @@ func (e Export) View() string {
 	profileInfo := fmt.Sprintf("Exporting profile: %s", exportProfileStyle.Render(e.profileName))
 	desc := exportDescStyle.Render("Enter the destination path for the JSON file")
 	input := e.textInput.View()
-	help := exportHelpStyle.Render("[enter] export  [esc] cancel")
+	help := exportHelpStyle.Render(layout.RenderHintLine([]string{"[enter] export", "[esc] cancel"}, e.width))
 
 	content := []string{
 		"",

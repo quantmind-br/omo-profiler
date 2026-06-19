@@ -669,19 +669,19 @@ func TestWizardCategoriesUpdateRightKey(t *testing.T) {
 	newCat.nameInput.SetValue("cat1")
 	wc.categories = append(wc.categories, &newCat)
 
-	msg := tea.KeyMsg{Type: tea.KeyRight}
+	msg := tea.KeyMsg{Type: tea.KeyCtrlRight}
 	updated, cmd := wc.Update(msg)
 
 	if cmd != nil {
-		t.Error("expected nil command for Right key")
+		t.Error("expected nil command for ctrl+Right key")
 	}
 
 	if !updated.categories[0].expanded {
-		t.Error("expected category to be expanded after Right")
+		t.Error("expected category to be expanded after ctrl+Right")
 	}
 
 	if !updated.inForm {
-		t.Error("expected inForm to be true after Right")
+		t.Error("expected inForm to be true after ctrl+Right")
 	}
 }
 
@@ -689,22 +689,22 @@ func TestWizardCategoriesUpdateLeftKey(t *testing.T) {
 	wc := NewWizardCategories()
 
 	// Add an expanded category - but NOT in form mode
-	// The Left key only works when not in form mode
+	// The collapse key only works when not in form mode
 	newCat := newCategoryConfig()
 	newCat.nameInput.SetValue("cat1")
 	newCat.expanded = true
 	wc.categories = append(wc.categories, &newCat)
 	// Don't set inForm
 
-	msg := tea.KeyMsg{Type: tea.KeyLeft}
+	msg := tea.KeyMsg{Type: tea.KeyCtrlLeft}
 	updated, cmd := wc.Update(msg)
 
 	if cmd != nil {
-		t.Error("expected nil command for Left key")
+		t.Error("expected nil command for ctrl+Left key")
 	}
 
 	if updated.categories[0].expanded {
-		t.Error("expected category to be collapsed after Left")
+		t.Error("expected category to be collapsed after ctrl+Left")
 	}
 
 	if updated.inForm {
@@ -744,7 +744,10 @@ func TestWizardCategoriesUpdateBackKey(t *testing.T) {
 	}
 }
 
-func TestWizardCategoriesUpdateFormEsc(t *testing.T) {
+// Esc is not a "back" key inside the category form: it is consumed by the
+// parent Wizard as cancel/discard before reaching this step, so the step
+// itself must leave the form open (← is the key that backs out to the list).
+func TestWizardCategoriesUpdateFormEscDoesNotCollapse(t *testing.T) {
 	wc := NewWizardCategories()
 
 	// Add an expanded category
@@ -755,18 +758,14 @@ func TestWizardCategoriesUpdateFormEsc(t *testing.T) {
 	wc.inForm = true
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
-	updated, cmd := wc.Update(msg)
+	updated, _ := wc.Update(msg)
 
-	if cmd != nil {
-		t.Error("expected nil command for Esc in form mode")
+	if !updated.inForm {
+		t.Error("expected inForm to stay true: Esc is handled by the Wizard, not this step")
 	}
 
-	if updated.inForm {
-		t.Error("expected inForm to be false after Esc")
-	}
-
-	if updated.categories[0].expanded {
-		t.Error("expected category to be collapsed after Esc")
+	if !updated.categories[0].expanded {
+		t.Error("expected category to stay expanded: Esc must not collapse the form here")
 	}
 }
 
@@ -992,8 +991,8 @@ func TestWizardCategoriesViewExpanded(t *testing.T) {
 		t.Error("expected 'model' field in expanded view")
 	}
 
-	if !contains(view, "[Esc] close") {
-		t.Error("expected close form help in expanded view")
+	if !contains(view, "[ctrl+←] back") {
+		t.Error("expected back-out form help in expanded view")
 	}
 }
 

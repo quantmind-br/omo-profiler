@@ -40,21 +40,27 @@ var disableableAgents = []string{
 	"atlas",
 }
 
-// Disableable skills - matches schema disabled_skills enum
+// Disableable skills - curated toggle list. Upstream dropped the
+// disabled_skills items enum in v4.11.0 (the field is now a free-form string
+// array), so these are advisory defaults rather than schema-bound values.
 var disableableSkills = []string{
 	"playwright",
 	"agent-browser",
 	"dev-browser",
-	"ai-slop-remover",
-	"review-work",
 	"frontend-ui-ux",
 	"git-master",
+	"review-work",
+	"remove-ai-slops",
+	"init-deep",
+	"debugging",
+	"security-research",
+	"security-review",
+	"visual-qa",
 	"team-mode",
 }
 
 // Disableable commands - matches schema disabled_commands enum
 var disableableCommands = []string{
-	"init-deep",
 	"ralph-loop",
 	"ulw-loop",
 	"cancel-ralph",
@@ -68,8 +74,6 @@ var disableableCommands = []string{
 // Disableable keyword-detector keywords - matches schema keyword_detector.disabled_keywords enum
 var disableableKeywords = []string{
 	"ultrawork",
-	"search",
-	"analyze",
 	"team",
 	"hyperplan",
 	"hyperplan-ultrawork",
@@ -118,6 +122,9 @@ const (
 	sectionAgentOrder
 	sectionKeywordDetector
 	sectionTeamMode
+	sectionMonitor
+	sectionCodegraph
+	sectionTui
 )
 
 var otherSectionNames = []string{
@@ -153,6 +160,9 @@ var otherSectionNames = []string{
 	"Agent Order",
 	"Keyword Detector",
 	"Team Mode",
+	"Monitor",
+	"Codegraph",
+	"Tui",
 }
 
 // Category grouping for sections
@@ -181,13 +191,13 @@ var categorySections = [][]otherSection{
 	// categoryDisabledFeatures
 	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools, sectionKeywordDetector},
 	// categoryGeneralSettings
-	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist},
+	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist, sectionTui},
 	// categoryClaudeCode
 	{sectionClaudeCode, sectionModelCapabilities},
 	// categoryAgentsLoops
 	{sectionDefaultRunAgent, sectionAgentOrder, sectionSisyphusAgent, sectionSisyphus, sectionRalphLoop, sectionBabysitting, sectionCommentChecker, sectionTeamMode},
 	// categoryInfrastructure
-	{sectionBackgroundTask, sectionTmux, sectionBrowserAutomationEngine, sectionWebsearch, sectionNotification, sectionGitMaster},
+	{sectionBackgroundTask, sectionTmux, sectionBrowserAutomationEngine, sectionWebsearch, sectionNotification, sectionGitMaster, sectionMonitor, sectionCodegraph},
 	// categoryAdvanced
 	{sectionExperimental, sectionOpenclaw, sectionRuntimeFallback, sectionSkillsJson},
 }
@@ -230,12 +240,12 @@ func newWizardOtherKeyMap() wizardOtherKeyMap {
 			key.WithHelp("shift+tab/esc", "back"),
 		),
 		Left: key.NewBinding(
-			key.WithKeys("left", "h"),
-			key.WithHelp("←/h", "collapse"),
+			key.WithKeys("ctrl+left"),
+			key.WithHelp("ctrl+←", "collapse"),
 		),
 		Right: key.NewBinding(
-			key.WithKeys("right", "l"),
-			key.WithHelp("→/l", "expand"),
+			key.WithKeys("ctrl+right"),
+			key.WithHelp("ctrl+→", "expand"),
 		),
 	}
 }
@@ -259,17 +269,17 @@ type WizardOther struct {
 	startWorkAutoCommit bool
 
 	// Experimental flags
-	expAggressiveTrunc      bool
-	expAutoResume           bool
-	expTruncateAllOutputs   bool
-	expPreemptiveCompaction bool
-	expTaskSystem           bool
-	expPluginLoadTimeoutMs  textinput.Model
-	expSafeHookCreation     bool
-	expHashlineEdit         bool
-	expDisableOmoEnv        bool
-	expModelFallbackTitle   bool
-	expMaxTools             textinput.Model
+	expAggressiveTrunc              bool
+	expDisableLiveParentWakeRouting bool
+	expTruncateAllOutputs           bool
+	expPreemptiveCompaction         bool
+	expTaskSystem                   bool
+	expPluginLoadTimeoutMs          textinput.Model
+	expSafeHookCreation             bool
+	expHashlineEdit                 bool
+	expDisableOmoEnv                bool
+	expModelFallbackTitle           bool
+	expMaxTools                     textinput.Model
 
 	dcpEnabled                   bool
 	dcpNotificationIdx           int
@@ -283,13 +293,14 @@ type WizardOther struct {
 	dcpPurgeErrorsTurns          textinput.Model
 
 	// Claude Code
-	ccMcp             bool
-	ccCommands        bool
-	ccSkills          bool
-	ccAgents          bool
-	ccHooks           bool
-	ccPlugins         bool
-	ccPluginsOverride textinput.Model
+	ccMcp               bool
+	ccCommands          bool
+	ccSkills            bool
+	ccAgents            bool
+	ccHooks             bool
+	ccPlugins           bool
+	ccPluginsOverride   textinput.Model
+	ccAnthropicProvider textinput.Model
 
 	// Sisyphus Agent
 	saDisabled              bool
@@ -388,6 +399,29 @@ type WizardOther struct {
 	tmMessagePayloadMaxBytes  textinput.Model
 	tmRecipientUnreadMaxBytes textinput.Model
 	tmMailboxPollIntervalMs   textinput.Model
+
+	// Monitor
+	monEnabled          bool
+	monLiveModeEnabled  bool
+	monAllowedCommands  textinput.Model
+	monMaxMonitors      textinput.Model
+	monMaxRuntimeMs     textinput.Model
+	monBatchMaxLines    textinput.Model
+	monBatchMaxBytes    textinput.Model
+	monFlushIntervalMs  textinput.Model
+	monRingMaxLines     textinput.Model
+	monLineMaxBytes     textinput.Model
+	monPatternMaxLength textinput.Model
+
+	// Codegraph
+	cgAutoProvision   bool
+	cgEnabled         bool
+	cgInstallDir      textinput.Model
+	cgTelemetry       bool
+	cgWatchDebounceMs textinput.Model
+
+	// Tui
+	tuiSidebarEnabled bool
 
 	// UI State — category navigation
 	currentCategory  otherCategory
@@ -504,6 +538,10 @@ func NewWizardOther() WizardOther {
 	ccPluginsOverride := textinput.New()
 	ccPluginsOverride.Placeholder = "serena:false, context7:true"
 	ccPluginsOverride.Width = 40
+
+	ccAnthropicProvider := textinput.New()
+	ccAnthropicProvider.Placeholder = "anthropic"
+	ccAnthropicProvider.Width = 30
 
 	// Initialize disabled maps
 	disabledAgents := make(map[string]bool)
@@ -628,6 +666,50 @@ func NewWizardOther() WizardOther {
 	tmMailboxPollIntervalMs.Placeholder = "3000"
 	tmMailboxPollIntervalMs.Width = 12
 
+	monAllowedCommands := textinput.New()
+	monAllowedCommands.Placeholder = "cmd1, cmd2"
+	monAllowedCommands.Width = 40
+
+	monMaxMonitors := textinput.New()
+	monMaxMonitors.Placeholder = "3"
+	monMaxMonitors.Width = 10
+
+	monMaxRuntimeMs := textinput.New()
+	monMaxRuntimeMs.Placeholder = "1800000"
+	monMaxRuntimeMs.Width = 12
+
+	monBatchMaxLines := textinput.New()
+	monBatchMaxLines.Placeholder = "50"
+	monBatchMaxLines.Width = 10
+
+	monBatchMaxBytes := textinput.New()
+	monBatchMaxBytes.Placeholder = "16384"
+	monBatchMaxBytes.Width = 12
+
+	monFlushIntervalMs := textinput.New()
+	monFlushIntervalMs.Placeholder = "1000"
+	monFlushIntervalMs.Width = 10
+
+	monRingMaxLines := textinput.New()
+	monRingMaxLines.Placeholder = "1000"
+	monRingMaxLines.Width = 10
+
+	monLineMaxBytes := textinput.New()
+	monLineMaxBytes.Placeholder = "8192"
+	monLineMaxBytes.Width = 10
+
+	monPatternMaxLength := textinput.New()
+	monPatternMaxLength.Placeholder = "512"
+	monPatternMaxLength.Width = 10
+
+	cgInstallDir := textinput.New()
+	cgInstallDir.Placeholder = "/path/to/codegraph"
+	cgInstallDir.Width = 40
+
+	cgWatchDebounceMs := textinput.New()
+	cgWatchDebounceMs.Placeholder = "300"
+	cgWatchDebounceMs.Width = 10
+
 	return WizardOther{
 		disabledMcps:                disabledMcps,
 		disabledAgents:              disabledAgents,
@@ -667,6 +749,7 @@ func NewWizardOther() WizardOther {
 		dcpProtectedTools:           dcpProtectedTools,
 		dcpPurgeErrorsTurns:         dcpPurgeErrorsTurns,
 		ccPluginsOverride:           ccPluginsOverride,
+		ccAnthropicProvider:         ccAnthropicProvider,
 		openclawEditor:              openclawEditor,
 		runtimeFallbackEditor:       runtimeFallbackEditor,
 		skillsEditor:                skillsEditor,
@@ -681,11 +764,22 @@ func NewWizardOther() WizardOther {
 		tmMessagePayloadMaxBytes:    tmMessagePayloadMaxBytes,
 		tmRecipientUnreadMaxBytes:   tmRecipientUnreadMaxBytes,
 		tmMailboxPollIntervalMs:     tmMailboxPollIntervalMs,
+		monAllowedCommands:          monAllowedCommands,
+		monMaxMonitors:              monMaxMonitors,
+		monMaxRuntimeMs:             monMaxRuntimeMs,
+		monBatchMaxLines:            monBatchMaxLines,
+		monBatchMaxBytes:            monBatchMaxBytes,
+		monFlushIntervalMs:          monFlushIntervalMs,
+		monRingMaxLines:             monRingMaxLines,
+		monLineMaxBytes:             monLineMaxBytes,
+		monPatternMaxLength:         monPatternMaxLength,
+		cgInstallDir:                cgInstallDir,
+		cgWatchDebounceMs:           cgWatchDebounceMs,
 		tmuxLayoutIdx:               2,
 		tmuxIsolationIdx:            3,
-		sectionExpanded:  sectionExpanded,
-		categoryExpanded: make(map[otherCategory]bool),
-		keys:             newWizardOtherKeyMap(),
+		sectionExpanded:             sectionExpanded,
+		categoryExpanded:            make(map[otherCategory]bool),
+		keys:                        newWizardOtherKeyMap(),
 	}
 }
 
@@ -737,6 +831,7 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.expPluginLoadTimeoutMs.Width = layout.FixedSmallWidth()
 	w.expMaxTools.Width = layout.FixedSmallWidth()
 	w.ccPluginsOverride.Width = wide
+	w.ccAnthropicProvider.Width = wide
 	w.babysittingTimeoutMs.Width = layout.FixedSmallWidth()
 	w.gmCommitFooterText.Width = wide
 	w.gmGitEnvPrefix.Width = wide
@@ -761,6 +856,17 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.tmMessagePayloadMaxBytes.Width = layout.FixedSmallWidth()
 	w.tmRecipientUnreadMaxBytes.Width = layout.FixedSmallWidth()
 	w.tmMailboxPollIntervalMs.Width = layout.FixedSmallWidth()
+	w.monAllowedCommands.Width = wide
+	w.monMaxMonitors.Width = layout.FixedSmallWidth()
+	w.monMaxRuntimeMs.Width = layout.FixedSmallWidth()
+	w.monBatchMaxLines.Width = layout.FixedSmallWidth()
+	w.monBatchMaxBytes.Width = layout.FixedSmallWidth()
+	w.monFlushIntervalMs.Width = layout.FixedSmallWidth()
+	w.monRingMaxLines.Width = layout.FixedSmallWidth()
+	w.monLineMaxBytes.Width = layout.FixedSmallWidth()
+	w.monPatternMaxLength.Width = layout.FixedSmallWidth()
+	w.cgInstallDir.Width = wide
+	w.cgWatchDebounceMs.Width = layout.FixedSmallWidth()
 	w.refreshView()
 }
 
@@ -773,12 +879,14 @@ func (w WizardOther) View() string {
 	helpStyle := wizOtherHelpStyle
 
 	title := titleStyle.Render("Other Settings")
-	desc := helpStyle.Render("[Enter/→] expand  [←] collapse  [Space] toggle  [Tab] next  [Esc] back")
+	descHints := []string{"[Enter/ctrl+→] expand", "[ctrl+←] collapse", "[Space] toggle", "[Tab] next", "[Esc] back"}
+	desc := helpStyle.Render(layout.RenderHintLine(descHints, w.width))
 
 	if w.inSubSection {
-		desc = helpStyle.Render("Space/Enter to toggle • Esc to close section")
+		desc = helpStyle.Render("Space/Enter toggle • ←/→ change value • ctrl+←/Tab close section")
 	} else if w.inCategory {
-		desc = helpStyle.Render("[Enter/→] expand  [←] collapse  [Space] toggle  [Esc] back to category")
+		catHints := []string{"[Enter/ctrl+→] expand", "[ctrl+←] collapse", "[Space] toggle", "[Esc] back to category"}
+		desc = helpStyle.Render(layout.RenderHintLine(catHints, w.width))
 	}
 
 	content := w.viewport.View()

@@ -17,6 +17,7 @@ type DeleteProfileMsg struct{ Name string }
 type ConfirmDeleteMsg struct{ Confirmed bool }
 type NavigateToWizardMsg struct{}
 type NavigateToDashboardMsg struct{}
+type NavigateToListMsg struct{}
 
 type profileItem struct {
 	name     string
@@ -182,15 +183,14 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if l.confirmingDelete {
-			switch msg.String() {
-			case "y", "Y":
+			if msg.String() == "y" || msg.String() == "Y" {
 				l.confirmingDelete = false
 				target := l.deleteTarget
 				l.deleteTarget = ""
 				return l, func() tea.Msg {
 					return DeleteProfileMsg{Name: target}
 				}
-			case "n", "N", "esc":
+			} else if msg.String() == "n" || msg.String() == "N" || msg.String() == "esc" {
 				l.confirmingDelete = false
 				l.deleteTarget = ""
 				return l, nil
@@ -198,6 +198,8 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 			return l, nil
 		}
 
+		// During active filtering, delegate all keys to the bubbles list
+		// so it can handle Esc to cancel the filter natively.
 		if l.list.FilterState() == list.Filtering {
 			break
 		}
@@ -286,4 +288,12 @@ func (l List) SelectedProfile() string {
 
 func (l List) IsConfirmingDelete() bool {
 	return l.confirmingDelete
+}
+
+// IsFiltering reports whether the profile list filter input is actively
+// capturing text. While filtering, the global key router must NOT intercept
+// q, ?, or esc so the bubbles list can handle them as filter input (q/?) or
+// filter-cancel (esc). Mirrors the delegation guard in List.Update.
+func (l List) IsFiltering() bool {
+	return l.list.FilterState() == list.Filtering
 }

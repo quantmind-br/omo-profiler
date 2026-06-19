@@ -263,7 +263,18 @@ func (d Dashboard) View() string {
 		}, "\n")
 	}
 
-	return header + d.renderMenuContent()
+	// JoinVertical guarantees exactly one line break between the header and the
+	// menu. (The compact/short header has no trailing newline, so a plain
+	// string concat would render the stats line and the first menu item on the
+	// same row.)
+	content := lipgloss.JoinVertical(lipgloss.Left, header, d.renderMenuContent())
+	// Center content when there is extra horizontal or vertical space.
+	cw := lipgloss.Width(content)
+	ch := lipgloss.Height(content)
+	if cw < d.width && ch < d.height {
+		return lipgloss.Place(d.width, d.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	return content
 }
 
 func (d Dashboard) renderMenuContent() string {

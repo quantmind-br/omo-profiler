@@ -111,12 +111,12 @@ func TestLayoutIsBelowMinimumSize(t *testing.T) {
 		height int
 		want   bool
 	}{
-		{"below width 39x12", 39, 12, true},
-		{"below height 40x11", 40, 11, true},
-		{"at minimum 40x12", 40, 12, false},
-		{"above minimum 41x13", 41, 13, false},
-		{"old minimum still passes 60x25", 60, 25, false},
-		{"width zero", 0, 12, true},
+		{"below width 39x14", 39, 14, true},
+		{"below height 40x13", 40, 13, true},
+		{"at minimum 40x14", 40, 14, false},
+		{"above minimum 41x15", 41, 15, false},
+		{"comfortable size still passes 60x25", 60, 25, false},
+		{"width zero", 0, 14, true},
 		{"height zero", 80, 0, true},
 		{"both zero", 0, 0, true},
 		{"large terminal", 200, 50, false},
@@ -142,8 +142,8 @@ func TestLayoutRenderMinimumSizeWarning(t *testing.T) {
 	if !strings.Contains(result, "40") {
 		t.Errorf("RenderMinimumSizeWarning() should contain '40' (min width), got: %q", result)
 	}
-	if !strings.Contains(result, "12") {
-		t.Errorf("RenderMinimumSizeWarning() should contain '12' (min height), got: %q", result)
+	if !strings.Contains(result, "14") {
+		t.Errorf("RenderMinimumSizeWarning() should contain '14' (min height), got: %q", result)
 	}
 
 	if !strings.Contains(result, "35") {

@@ -581,8 +581,8 @@ func TestDiffRenderDiffPane(t *testing.T) {
 		{Type: diff.DiffRemoved, Text: "removed line"},
 	}
 
-	// Test left pane
-	result := d.renderDiffPane(lines, true)
+	// Test left pane (wide enough that short lines are not truncated)
+	result := d.renderDiffPane(lines, true, 80)
 
 	if result == "" {
 		t.Error("expected non-empty result")
@@ -593,7 +593,7 @@ func TestDiffRenderDiffPane(t *testing.T) {
 	}
 
 	// Test right pane
-	result = d.renderDiffPane(lines, false)
+	result = d.renderDiffPane(lines, false, 80)
 
 	if !contains(result, "+ added line") {
 		t.Error("expected '+ added line' in right pane")

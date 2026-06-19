@@ -232,6 +232,44 @@ func TestSparseSerializerOmitsEmptyParentObjects(t *testing.T) {
 	}
 }
 
+func TestSparseSerializerDoesNotHTMLEscape(t *testing.T) {
+	cfg := &config.Config{
+		Categories: map[string]*config.CategoryConfig{
+			"deep": {PromptAppend: "<Category_Context>\nWork & think</Category_Context>"},
+		},
+	}
+
+	selection := NewBlankSelection()
+	selection.SetSelected("categories.*.prompt_append", true)
+
+	data, err := MarshalSparse(cfg, selection, nil)
+	if err != nil {
+		t.Fatalf("MarshalSparse failed: %v", err)
+	}
+
+	// The literal characters must appear, not their \uXXXX HTML escapes, so the
+	// review preview and the saved file are human-readable.
+	for _, esc := range []string{"\\u003c", "\\u003e", "\\u0026"} {
+		if bytes.Contains(data, []byte(esc)) {
+			t.Fatalf("expected no HTML-escaped sequence %q, got:\n%s", esc, data)
+		}
+	}
+	if !bytes.Contains(data, []byte("<Category_Context>")) {
+		t.Fatalf("expected literal <Category_Context>, got:\n%s", data)
+	}
+	if !bytes.Contains(data, []byte("Work & think")) {
+		t.Fatalf("expected literal ampersand, got:\n%s", data)
+	}
+
+	// Output must still be valid JSON that round-trips back to the same value.
+	decoded := decodeSparseJSON(t, data)
+	categories := decodedObject(t, decoded["categories"], "categories")
+	deep := decodedObject(t, categories["deep"], "categories.deep")
+	if deep["prompt_append"] != "<Category_Context>\nWork & think</Category_Context>" {
+		t.Fatalf("prompt_append did not round-trip: %#v", deep["prompt_append"])
+	}
+}
+
 func decodeSparseJSON(t *testing.T, data []byte) map[string]interface{} {
 	t.Helper()
 

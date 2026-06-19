@@ -55,13 +55,13 @@ func TestWizardCategoriesRightExpands(t *testing.T) {
 	w.categories[0].expanded = false
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 
 	if !w.categories[0].expanded {
-		t.Error("expected category to be expanded after pressing right arrow")
+		t.Error("expected category to be expanded after pressing ctrl+right")
 	}
 	if !w.inForm {
-		t.Error("expected inForm to be true after expanding with right arrow")
+		t.Error("expected inForm to be true after expanding with ctrl+right")
 	}
 }
 
@@ -73,13 +73,13 @@ func TestWizardCategoriesLeftCollapses(t *testing.T) {
 	w.categories[0].expanded = true
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
 	if w.categories[0].expanded {
-		t.Error("expected category to be collapsed after pressing left arrow")
+		t.Error("expected category to be collapsed after pressing ctrl+left")
 	}
 	if w.inForm {
-		t.Error("expected inForm to be false after collapsing with left arrow")
+		t.Error("expected inForm to be false after collapsing with ctrl+left")
 	}
 }
 
@@ -91,7 +91,7 @@ func TestWizardCategoriesRightDoesNothingWhenExpanded(t *testing.T) {
 	w.categories[0].expanded = true
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 
 	if !w.categories[0].expanded {
 		t.Error("category should remain expanded")
@@ -106,14 +106,14 @@ func TestWizardCategoriesLeftDoesNothingWhenCollapsed(t *testing.T) {
 	w.categories[0].expanded = false
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
 	if w.categories[0].expanded {
 		t.Error("category should remain collapsed")
 	}
 }
 
-func TestWizardCategoriesLeftRightIgnoredInFormMode(t *testing.T) {
+func TestWizardCategoriesCtrlLeftBacksOutOfForm(t *testing.T) {
 	w := NewWizardCategories()
 	newCat := newCategoryConfig()
 	w.categories = append(w.categories, &newCat)
@@ -122,15 +122,42 @@ func TestWizardCategoriesLeftRightIgnoredInFormMode(t *testing.T) {
 	w.inForm = true
 	w.focusedField = catFieldName
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
-	if !w.categories[0].expanded {
-		t.Error("left arrow should be ignored in form mode")
+	// ctrl+← backs out of the form to the category list, mirroring ctrl+→.
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
+	if w.categories[0].expanded || w.inForm {
+		t.Error("ctrl+left should back out of the form to the category list")
 	}
+}
 
+func TestWizardCategoriesPlainLeftStaysInForm(t *testing.T) {
+	w := NewWizardCategories()
+	newCat := newCategoryConfig()
+	newCat.variant.SetValue("abc")
+	w.categories = append(w.categories, &newCat)
+	w.cursor = 0
+	w.categories[0].expanded = true
+	w.inForm = true
+	w.focusedField = catFieldVariant
+
+	// Plain ← stays in the form: it is reserved for cursor movement inside the
+	// focused text input, not for backing out.
+	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	if !w.categories[0].expanded || !w.inForm {
+		t.Error("plain left arrow should stay in the form for text-cursor navigation")
+	}
+}
+
+func TestWizardCategoriesRightIgnoredInFormMode(t *testing.T) {
+	w := NewWizardCategories()
+	newCat := newCategoryConfig()
+	w.categories = append(w.categories, &newCat)
+	w.cursor = 0
 	w.categories[0].expanded = false
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w.inForm = true
+
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 	if w.categories[0].expanded {
-		t.Error("right arrow should be ignored in form mode")
+		t.Error("ctrl+right should be ignored in form mode")
 	}
 }
 
@@ -142,10 +169,10 @@ func TestWizardAgentsRightExpands(t *testing.T) {
 	w.agents[agentName].expanded = false
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 
 	if !w.agents[agentName].expanded {
-		t.Error("expected agent to be expanded after pressing right arrow")
+		t.Error("expected agent to be expanded after pressing ctrl+right")
 	}
 	if !w.inForm {
 		t.Error("expected inForm to be true after expanding")
@@ -160,13 +187,29 @@ func TestWizardAgentsLeftCollapses(t *testing.T) {
 	w.agents[agentName].expanded = true
 	w.inForm = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
 	if w.agents[agentName].expanded {
-		t.Error("expected agent to be collapsed after pressing left arrow")
+		t.Error("expected agent to be collapsed after pressing ctrl+left")
 	}
 	if w.inForm {
 		t.Error("expected inForm to be false after collapsing")
+	}
+}
+
+func TestWizardAgentsCtrlLeftBacksOutOfForm(t *testing.T) {
+	w := NewWizardAgents()
+	w.cursor = 0
+	agentName := allAgents[0]
+	w.agents[agentName].enabled = true
+	w.agents[agentName].expanded = true
+	w.inForm = true
+	w.focusedField = fieldModel
+
+	// ctrl+← backs out of the agent form to the agent list.
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
+	if w.agents[agentName].expanded || w.inForm {
+		t.Error("ctrl+left should back out of the agent form to the list")
 	}
 }
 
@@ -200,13 +243,13 @@ func TestWizardOtherRightExpandsSection(t *testing.T) {
 	w.sectionExpanded[sectionDisabledMcps] = false
 	w.inSubSection = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 
 	if !w.sectionExpanded[sectionDisabledMcps] {
-		t.Error("expected section to be expanded after pressing right arrow")
+		t.Error("expected section to be expanded after pressing ctrl+right")
 	}
 	if !w.inSubSection {
-		t.Error("expected inSubSection to be true after expanding with right arrow")
+		t.Error("expected inSubSection to be true after expanding with ctrl+right")
 	}
 	if w.subCursor != 0 {
 		t.Errorf("expected subCursor to be 0, got %d", w.subCursor)
@@ -223,10 +266,10 @@ func TestWizardOtherLeftCollapsesSection(t *testing.T) {
 	w.sectionExpanded[sectionDisabledMcps] = true
 	w.inSubSection = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
 	if w.sectionExpanded[sectionDisabledMcps] {
-		t.Error("expected section to be collapsed after pressing left arrow")
+		t.Error("expected section to be collapsed after pressing ctrl+left")
 	}
 }
 
@@ -240,7 +283,7 @@ func TestWizardOtherRightDoesNothingWhenExpanded(t *testing.T) {
 	w.sectionExpanded[sectionDisabledMcps] = true
 	w.inSubSection = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyRight))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlRight))
 
 	if !w.sectionExpanded[sectionDisabledMcps] {
 		t.Error("section should remain expanded")
@@ -257,9 +300,9 @@ func TestWizardOtherLeftDoesNothingWhenCollapsed(t *testing.T) {
 	w.sectionExpanded[sectionDisabledMcps] = false
 	w.inSubSection = false
 
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
-	// Left on a collapsed section goes back to category header
+	// ctrl+left on a collapsed section goes back to category header
 	if w.inCategory {
 		t.Error("expected to go back to category header")
 	}

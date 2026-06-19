@@ -83,6 +83,8 @@ type diffComputedMsg struct {
 	err    error
 }
 
+type DiffBackMsg struct{}
+
 func (d Diff) loadProfiles() tea.Msg {
 	profiles, err := profile.List()
 	return diffProfilesLoadedMsg{profiles: profiles, err: err}
@@ -190,6 +192,8 @@ func (d *Diff) handleNavigationKeys(msg tea.KeyMsg) tea.Cmd {
 		d.scrollBoth(-d.leftViewport.Height)
 	case "pgdown":
 		d.scrollBoth(d.leftViewport.Height)
+	case "esc":
+		return func() tea.Msg { return DiffBackMsg{} }
 	}
 	return nil
 }
@@ -253,7 +257,7 @@ func (d *Diff) initViewports() {
 		paneWidth = d.width - 2
 		paneHeight = (d.height - overhead) / 2
 	} else {
-		paneWidth = (d.width - 3) / 2
+		paneWidth = (d.width - 5) / 2
 		paneHeight = d.height - overhead
 	}
 
@@ -281,15 +285,20 @@ func (d *Diff) updateViewportContent() {
 		return
 	}
 
-	leftContent := d.renderDiffPane(d.diffResult.Left, true)
-	rightContent := d.renderDiffPane(d.diffResult.Right, false)
+	leftContent := d.renderDiffPane(d.diffResult.Left, true, d.leftViewport.Width)
+	rightContent := d.renderDiffPane(d.diffResult.Right, false, d.rightViewport.Width)
 
 	d.leftViewport.SetContent(leftContent)
 	d.rightViewport.SetContent(rightContent)
 }
 
-func (d Diff) renderDiffPane(lines []diff.DiffLine, isLeft bool) string {
+func (d Diff) renderDiffPane(lines []diff.DiffLine, isLeft bool, width int) string {
 	var sb strings.Builder
+
+	// Reserve one trailing column so text never sits flush against the pane
+	// border, and truncate (with ellipsis) instead of letting long lines
+	// hard-wrap into stray fragments.
+	maxWidth := width - 1
 
 	for _, line := range lines {
 		var lineStyle lipgloss.Style
@@ -310,7 +319,11 @@ func (d Diff) renderDiffPane(lines []diff.DiffLine, isLeft bool) string {
 			}
 		}
 
-		sb.WriteString(lineStyle.Render(prefix + line.Text))
+		text := prefix + line.Text
+		if maxWidth > 0 {
+			text = layout.TruncateWithEllipsis(text, maxWidth)
+		}
+		sb.WriteString(lineStyle.Render(text))
 		sb.WriteString("\n")
 	}
 
@@ -361,7 +374,7 @@ func (d Diff) View() string {
 			rightPane := lipgloss.JoinVertical(lipgloss.Left, rightLabel, rightBorder.Render(d.rightViewport.View()))
 			content = lipgloss.JoinVertical(lipgloss.Left, leftPane, rightPane)
 		} else {
-			paneWidth := (d.width - 3) / 2
+			paneWidth := (d.width - 5) / 2
 			leftBorder := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(d.borderColor(focusLeft)).
@@ -421,7 +434,7 @@ func (d Diff) renderSelector(selected string, isSelecting bool, idx int, isFocus
 	if d.stacked {
 		paneWidth = d.width - 2
 	} else {
-		paneWidth = (d.width - 3) / 2
+		paneWidth = (d.width - 5) / 2
 	}
 	if paneWidth < 10 {
 		paneWidth = 10

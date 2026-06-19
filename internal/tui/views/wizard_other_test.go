@@ -253,10 +253,10 @@ func TestWizardOtherBooleanFieldSeparatesInclusionAndValue(t *testing.T) {
 func TestWizardOtherApplyWritesOnlySelectedFields(t *testing.T) {
 	w := NewWizardOther()
 	selection := profile.NewBlankSelection()
-	selection.SetSelected("experimental.auto_resume", true)
+	selection.SetSelected("experimental.disable_live_parent_wake_routing", true)
 	selection.SetSelected("tmux.layout", true)
 
-	w.expAutoResume = false
+	w.expDisableLiveParentWakeRouting = false
 	w.expAggressiveTrunc = true
 	w.tmuxLayoutIdx = 2
 	w.tmuxEnabled = true
@@ -264,7 +264,7 @@ func TestWizardOtherApplyWritesOnlySelectedFields(t *testing.T) {
 	cfg := &config.Config{}
 	w.Apply(cfg, selection)
 
-	if cfg.Experimental == nil || cfg.Experimental.AutoResume == nil || *cfg.Experimental.AutoResume {
+	if cfg.Experimental == nil || cfg.Experimental.DisableLiveParentWakeRouting == nil || *cfg.Experimental.DisableLiveParentWakeRouting {
 		t.Fatalf("expected selected false boolean to persist, got %#v", cfg.Experimental)
 	}
 	if cfg.Experimental.AggressiveTruncation != nil {
@@ -1522,11 +1522,11 @@ func TestWizardOtherCategoryCollapseLeft(t *testing.T) {
 	w.currentCategory = categoryDisabledFeatures
 	w.categoryExpanded[categoryDisabledFeatures] = true
 
-	// Press Left to collapse
-	w, _ = w.Update(keyMsgSpecial(tea.KeyLeft))
+	// Press ctrl+left to collapse
+	w, _ = w.Update(keyMsgSpecial(tea.KeyCtrlLeft))
 
 	if w.categoryExpanded[categoryDisabledFeatures] {
-		t.Fatal("expected category to be collapsed after Left")
+		t.Fatal("expected category to be collapsed after ctrl+left")
 	}
 }
 
@@ -1675,6 +1675,93 @@ func TestWizardOtherTeamModeEmitsCompleteRequiredObject(t *testing.T) {
 	errs, err := v.Validate(cfg)
 	require.NoError(t, err)
 	assert.Nil(t, errs, "wizard-produced team_mode object must satisfy the schema, got %v", errs)
+}
+
+func TestWizardOtherMonitorEmitsCompleteRequiredObject(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	// User only touched monitor.enabled; numeric inputs left at placeholder.
+	selection.SetSelected("monitor.enabled", true)
+	w.monEnabled = true
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.Monitor, "monitor must be emitted when any field is selected")
+	mon := cfg.Monitor
+	require.NotNil(t, mon.Enabled)
+	assert.True(t, *mon.Enabled)
+	// All schema-required numeric/bool fields must be populated with defaults.
+	require.NotNil(t, mon.LiveModeEnabled)
+	require.NotNil(t, mon.MaxMonitorsPerSession)
+	assert.Equal(t, 3, *mon.MaxMonitorsPerSession)
+	require.NotNil(t, mon.MaxRuntimeMs)
+	assert.Equal(t, int64(1800000), *mon.MaxRuntimeMs)
+	require.NotNil(t, mon.BatchMaxLines)
+	assert.Equal(t, int64(50), *mon.BatchMaxLines)
+	require.NotNil(t, mon.BatchMaxBytes)
+	assert.Equal(t, int64(16384), *mon.BatchMaxBytes)
+	require.NotNil(t, mon.FlushIntervalMs)
+	assert.Equal(t, int64(1000), *mon.FlushIntervalMs)
+	require.NotNil(t, mon.RingMaxLines)
+	assert.Equal(t, int64(1000), *mon.RingMaxLines)
+	require.NotNil(t, mon.LineMaxBytes)
+	assert.Equal(t, int64(8192), *mon.LineMaxBytes)
+	require.NotNil(t, mon.PatternMaxLength)
+	assert.Equal(t, int64(512), *mon.PatternMaxLength)
+	// allowed_commands is optional and was left blank.
+	assert.Nil(t, mon.AllowedCommands)
+
+	// git_master is required at root, so add it before schema-validating the result.
+	coAuth := true
+	cfg.GitMaster = &config.GitMasterConfig{CommitFooter: true, IncludeCoAuthoredBy: &coAuth, GitEnvPrefix: "GIT_MASTER=1"}
+	v, err := schema.GetValidator()
+	require.NoError(t, err)
+	errs, err := v.Validate(cfg)
+	require.NoError(t, err)
+	assert.Nil(t, errs, "wizard-produced monitor object must satisfy the schema, got %v", errs)
+}
+
+func TestWizardOtherCodegraphApply(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("codegraph.enabled", true)
+	selection.SetSelected("codegraph.install_dir", true)
+	selection.SetSelected("codegraph.watch_debounce_ms", true)
+	w.cgEnabled = true
+	w.cgAutoProvision = true
+	w.cgInstallDir.SetValue("/opt/codegraph")
+	w.cgWatchDebounceMs.SetValue("300")
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.Codegraph)
+	cg := cfg.Codegraph
+	// enabled + auto_provision are schema-required and always emitted.
+	require.NotNil(t, cg.Enabled)
+	assert.True(t, *cg.Enabled)
+	require.NotNil(t, cg.AutoProvision)
+	assert.True(t, *cg.AutoProvision)
+	// Optional fields are emitted only when their path is selected.
+	assert.Equal(t, "/opt/codegraph", cg.InstallDir)
+	require.NotNil(t, cg.WatchDebounceMs)
+	assert.Equal(t, float64(300), *cg.WatchDebounceMs)
+}
+
+func TestWizardOtherTuiApply(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("tui.sidebar.enabled", true)
+	w.tuiSidebarEnabled = true
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.Tui)
+	require.NotNil(t, cfg.Tui.Sidebar)
+	require.NotNil(t, cfg.Tui.Sidebar.Enabled)
+	assert.True(t, *cfg.Tui.Sidebar.Enabled)
 }
 
 func TestWizardOtherTeamModeOmittedWhenUntouched(t *testing.T) {

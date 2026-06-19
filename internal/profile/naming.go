@@ -8,7 +8,7 @@ import (
 
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-var ErrInvalidName = errors.New("profile name must contain only letters, numbers, underscores, and hyphens")
+var ErrInvalidName = errors.New("profile name must contain only ASCII letters (a-z, A-Z), numbers, underscores, and hyphens")
 
 var ErrEmptyName = errors.New("profile name cannot be empty")
 

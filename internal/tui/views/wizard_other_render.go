@@ -193,7 +193,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderValueField(1, mcpEnvAllowlistFieldPath, "values", w.mcpEnvAllowlist.View()))
 	case sectionExperimental:
 		lines = append(lines, renderBoolField(0, "experimental.aggressive_truncation", "aggressive_truncation", w.expAggressiveTrunc))
-		lines = append(lines, renderBoolField(1, "experimental.auto_resume", "auto_resume", w.expAutoResume))
+		lines = append(lines, renderBoolField(1, "experimental.disable_live_parent_wake_routing", "disable_live_parent_wake_routing", w.expDisableLiveParentWakeRouting))
 		lines = append(lines, renderBoolField(2, "experimental.truncate_all_tool_outputs", "truncate_all_tool_outputs", w.expTruncateAllOutputs))
 		lines = append(lines, renderBoolField(3, "experimental.dynamic_context_pruning.enabled", "dynamic_context_pruning.enabled", w.dcpEnabled))
 		lines = append(lines, renderValueField(4, "experimental.dynamic_context_pruning.notification", "dynamic_context_pruning.notification", dcpNotificationValues[w.dcpNotificationIdx]))
@@ -221,6 +221,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderBoolField(4, "claude_code.hooks", "hooks", w.ccHooks))
 		lines = append(lines, renderBoolField(5, "claude_code.plugins", "plugins", w.ccPlugins))
 		lines = append(lines, renderValueField(6, "claude_code.plugins_override", "plugins_override", w.ccPluginsOverride.View()))
+		lines = append(lines, renderValueField(7, "claude_code.anthropic_provider", "anthropic_provider", w.ccAnthropicProvider.View()))
 	case sectionSisyphusAgent:
 		lines = append(lines, renderBoolField(0, "sisyphus_agent.disabled", "disabled", w.saDisabled))
 		lines = append(lines, renderBoolField(1, "sisyphus_agent.default_builder_enabled", "default_builder_enabled", w.saDefaultBuilderEnabled))
@@ -311,6 +312,26 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderValueField(8, "team_mode.message_payload_max_bytes", "message_payload_max_bytes", w.tmMessagePayloadMaxBytes.View()))
 		lines = append(lines, renderValueField(9, "team_mode.recipient_unread_max_bytes", "recipient_unread_max_bytes", w.tmRecipientUnreadMaxBytes.View()))
 		lines = append(lines, renderValueField(10, "team_mode.mailbox_poll_interval_ms", "mailbox_poll_interval_ms", w.tmMailboxPollIntervalMs.View()))
+	case sectionMonitor:
+		lines = append(lines, renderBoolField(0, "monitor.enabled", "enabled", w.monEnabled))
+		lines = append(lines, renderBoolField(1, "monitor.live_mode_enabled", "live_mode_enabled", w.monLiveModeEnabled))
+		lines = append(lines, renderValueField(2, "monitor.allowed_commands", "allowed_commands", w.monAllowedCommands.View()))
+		lines = append(lines, renderValueField(3, "monitor.max_monitors_per_session", "max_monitors_per_session", w.monMaxMonitors.View()))
+		lines = append(lines, renderValueField(4, "monitor.max_runtime_ms", "max_runtime_ms", w.monMaxRuntimeMs.View()))
+		lines = append(lines, renderValueField(5, "monitor.batch_max_lines", "batch_max_lines", w.monBatchMaxLines.View()))
+		lines = append(lines, renderValueField(6, "monitor.batch_max_bytes", "batch_max_bytes", w.monBatchMaxBytes.View()))
+		lines = append(lines, renderValueField(7, "monitor.flush_interval_ms", "flush_interval_ms", w.monFlushIntervalMs.View()))
+		lines = append(lines, renderValueField(8, "monitor.ring_max_lines", "ring_max_lines", w.monRingMaxLines.View()))
+		lines = append(lines, renderValueField(9, "monitor.line_max_bytes", "line_max_bytes", w.monLineMaxBytes.View()))
+		lines = append(lines, renderValueField(10, "monitor.pattern_max_length", "pattern_max_length", w.monPatternMaxLength.View()))
+	case sectionCodegraph:
+		lines = append(lines, renderBoolField(0, "codegraph.enabled", "enabled", w.cgEnabled))
+		lines = append(lines, renderBoolField(1, "codegraph.auto_provision", "auto_provision", w.cgAutoProvision))
+		lines = append(lines, renderValueField(2, "codegraph.install_dir", "install_dir", w.cgInstallDir.View()))
+		lines = append(lines, renderBoolField(3, "codegraph.telemetry", "telemetry", w.cgTelemetry))
+		lines = append(lines, renderValueField(4, "codegraph.watch_debounce_ms", "watch_debounce_ms", w.cgWatchDebounceMs.View()))
+	case sectionTui:
+		lines = append(lines, renderBoolField(0, "tui.sidebar.enabled", "sidebar.enabled", w.tuiSidebarEnabled))
 	}
 
 	lines = append(lines, "")

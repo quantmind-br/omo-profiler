@@ -109,6 +109,10 @@ func (s *SchemaCheck) SetSize(w, h int) {
 	s.textInput.Width = layout.WideFieldWidth(w, 10)
 }
 
+func (s SchemaCheck) IsFocused() bool {
+	return s.textInput.Focused()
+}
+
 // expandSchemaPath expands ~ to home directory and resolves to absolute path
 func expandSchemaPath(path string) (string, error) {
 	if strings.HasPrefix(path, "~") {

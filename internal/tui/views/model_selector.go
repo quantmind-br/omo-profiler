@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -156,12 +157,24 @@ func (m *ModelSelector) rebuildItems() {
 			continue
 		}
 
+		// Re-rank so exact/substring matches beat loose fuzzy subsequences,
+		// preserving the fuzzy order within each rank tier (stable sort).
+		matchIdx := make([]int, 0, len(matches))
+		for _, match := range matches {
+			matchIdx = append(matchIdx, match.Index)
+		}
+		sort.SliceStable(matchIdx, func(i, j int) bool {
+			mi := group.Models[matchIdx[i]]
+			mj := group.Models[matchIdx[j]]
+			return rankModelMatch(searchTerm, mi.Provider, mi.ModelID, mi.DisplayName) >
+				rankModelMatch(searchTerm, mj.Provider, mj.ModelID, mj.DisplayName)
+		})
+
 		m.items = append(m.items, selectorItem{
 			isHeader: true,
 			provider: providerName,
 		})
-		for _, match := range matches {
-			idx := match.Index
+		for _, idx := range matchIdx {
 			if idx < 0 || idx >= len(group.Models) {
 				continue
 			}
@@ -496,7 +509,7 @@ func (m ModelSelector) renderList() string {
 		footerLines = append(footerLines, "")
 	}
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6C7086"))
-	footerLines = append(footerLines, helpStyle.Render("[/] search  [↑↓] navigate  [Enter] select  [Esc] cancel"))
+	footerLines = append(footerLines, helpStyle.Render(layout.RenderHintLine([]string{"[/] search", "[↑↓] navigate", "[Enter] select", "[Esc] cancel"}, m.width)))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.JoinVertical(lipgloss.Left, headerLines...),
@@ -520,7 +533,7 @@ func (m ModelSelector) renderCustomMode() string {
 	if !layout.IsShort(m.height) {
 		lines = append(lines, "")
 	}
-	lines = append(lines, helpStyle.Render("[Enter] confirm  [Esc] cancel"))
+	lines = append(lines, helpStyle.Render(layout.RenderHintLine([]string{"[Enter] confirm", "[Esc] cancel"}, m.width)))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

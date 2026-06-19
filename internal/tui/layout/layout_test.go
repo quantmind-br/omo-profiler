@@ -142,9 +142,9 @@ func TestIsBelowMinimumSize(t *testing.T) {
 		height int
 		want   bool
 	}{
-		{name: "exact minimum", width: 40, height: 12, want: false},
-		{name: "below width", width: 39, height: 12, want: true},
-		{name: "below height", width: 40, height: 11, want: true},
+		{name: "exact minimum", width: 40, height: 14, want: false},
+		{name: "below width", width: 39, height: 14, want: true},
+		{name: "below height", width: 40, height: 13, want: true},
 		{name: "above minimum", width: 120, height: 40, want: false},
 	}
 

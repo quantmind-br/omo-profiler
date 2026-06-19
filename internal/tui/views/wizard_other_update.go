@@ -79,6 +79,9 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		}},
 		{section: sectionExperimental, subCursor: 20, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.expMaxTools, msg) }},
 		{section: sectionClaudeCode, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.ccPluginsOverride, msg) }},
+		{section: sectionClaudeCode, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.ccAnthropicProvider, msg)
+		}},
 		{section: sectionBackgroundTask, subCursor: 0, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.btProviderConcurrency, msg)
 		}},
@@ -167,6 +170,39 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		{section: sectionTeamMode, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.tmMailboxPollIntervalMs, msg)
 		}},
+		{section: sectionMonitor, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monAllowedCommands, msg)
+		}},
+		{section: sectionMonitor, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monMaxMonitors, msg)
+		}},
+		{section: sectionMonitor, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monMaxRuntimeMs, msg)
+		}},
+		{section: sectionMonitor, subCursor: 5, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monBatchMaxLines, msg)
+		}},
+		{section: sectionMonitor, subCursor: 6, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monBatchMaxBytes, msg)
+		}},
+		{section: sectionMonitor, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monFlushIntervalMs, msg)
+		}},
+		{section: sectionMonitor, subCursor: 8, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monRingMaxLines, msg)
+		}},
+		{section: sectionMonitor, subCursor: 9, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monLineMaxBytes, msg)
+		}},
+		{section: sectionMonitor, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.monPatternMaxLength, msg)
+		}},
+		{section: sectionCodegraph, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.cgInstallDir, msg)
+		}},
+		{section: sectionCodegraph, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.cgWatchDebounceMs, msg)
+		}},
 	}
 }
 
@@ -194,7 +230,10 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 	case tea.KeyMsg:
 		if w.inSubSection && !w.subValueFocused {
 			switch msg.String() {
-			case "esc", "tab":
+			case "esc", "tab", "ctrl+left":
+				// ctrl+← backs out of the subsection to the section header,
+				// mirroring ctrl+→/Enter on the way in. Plain ←/→ stay free for
+				// the enum cyclers below.
 				w.inSubSection = false
 				w.subValueFocused = false
 				w.refreshView()
@@ -526,12 +565,32 @@ func (w *WizardOther) toggleSubItem() {
 		case 1:
 			w.tmTmuxVisualization = !w.tmTmuxVisualization
 		}
+	case sectionMonitor:
+		switch w.subCursor {
+		case 0:
+			w.monEnabled = !w.monEnabled
+		case 1:
+			w.monLiveModeEnabled = !w.monLiveModeEnabled
+		}
+	case sectionCodegraph:
+		switch w.subCursor {
+		case 0:
+			w.cgEnabled = !w.cgEnabled
+		case 1:
+			w.cgAutoProvision = !w.cgAutoProvision
+		case 3:
+			w.cgTelemetry = !w.cgTelemetry
+		}
+	case sectionTui:
+		if w.subCursor == 0 {
+			w.tuiSidebarEnabled = !w.tuiSidebarEnabled
+		}
 	case sectionExperimental:
 		switch w.subCursor {
 		case 0:
 			w.expAggressiveTrunc = !w.expAggressiveTrunc
 		case 1:
-			w.expAutoResume = !w.expAutoResume
+			w.expDisableLiveParentWakeRouting = !w.expDisableLiveParentWakeRouting
 		case 2:
 			w.expTruncateAllOutputs = !w.expTruncateAllOutputs
 		case 3:

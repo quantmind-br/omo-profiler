@@ -88,6 +88,10 @@ func (i *Import) SetSize(width, height int) {
 	i.textInput.Width = layout.WideFieldWidth(width, 10)
 }
 
+func (i Import) IsFocused() bool {
+	return i.textInput.Focused()
+}
+
 // Update handles messages and user input
 func (i Import) Update(msg tea.Msg) (Import, tea.Cmd) {
 	var cmd tea.Cmd
@@ -138,7 +142,7 @@ func (i Import) View() string {
 	title := importTitleStyle.Render("Import Profile")
 	desc := importDescStyle.Render("Enter the path to a JSON profile file")
 	input := i.textInput.View()
-	help := importHelpStyle.Render("[enter] import  [esc] cancel")
+	help := importHelpStyle.Render(layout.RenderHintLine([]string{"[enter] import", "[esc] cancel"}, i.width))
 
 	content := []string{
 		"",

@@ -728,8 +728,16 @@ func TestModelRegistryViewListMode(t *testing.T) {
 		t.Error("expected 'Manage Models' in view")
 	}
 
-	if !contains(view, "Search:") {
-		t.Error("expected 'Search:' in view")
+	// When the search box is not focused and empty, the registry advertises the
+	// '/' affordance instead of a misleading always-visible "Search:" box (B-03).
+	if !contains(view, "Press / to search") {
+		t.Error("expected 'Press / to search' hint in unfocused list view")
+	}
+
+	mr.searchInput.Focus()
+	focusedView := mr.View()
+	if !contains(focusedView, "Search:") {
+		t.Error("expected 'Search:' in view when search is focused")
 	}
 }
 

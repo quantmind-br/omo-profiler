@@ -150,19 +150,46 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if a.state == stateWizard {
 					return a, a.showToast("Press Esc to exit wizard", toastInfo, 3*time.Second)
 				}
+				if a.state == stateList && a.list.IsFiltering() {
+					break
+				}
 				if a.state == stateModels && a.modelRegistry.IsEditing() {
 					break
 				}
 				if a.state == stateModelImport && a.modelImport.IsEditing() {
 					break
 				}
+				if a.state == stateImport && a.importView.IsFocused() {
+					break
+				}
+				if a.state == stateExport && a.exportView.IsFocused() {
+					break
+				}
+				if a.state == stateSchemaCheck && a.schemaCheck.IsFocused() {
+					break
+				}
+			}
+			if msg.String() == "ctrl+c" && a.state == stateWizard {
+				return a, a.showToast("Press Esc to cancel wizard", toastInfo, 3*time.Second)
 			}
 			return a, tea.Quit
 		case key.Matches(msg, Keys.Help):
+			if a.state == stateList && a.list.IsFiltering() {
+				break
+			}
 			if a.state == stateModels && a.modelRegistry.IsEditing() {
 				break
 			}
 			if a.state == stateModelImport && a.modelImport.IsEditing() {
+				break
+			}
+			if a.state == stateImport && a.importView.IsFocused() {
+				break
+			}
+			if a.state == stateExport && a.exportView.IsFocused() {
+				break
+			}
+			if a.state == stateSchemaCheck && a.schemaCheck.IsFocused() {
 				break
 			}
 			a.showHelp = !a.showHelp
@@ -171,6 +198,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Don't intercept Esc if a view handles it internally
 			if a.state == stateWizard || a.state == stateDiff || a.state == stateModels || a.state == stateModelImport {
 				// Let the view handle it
+				break
+			}
+			// While the profile list filter is capturing text, let the list
+			// handle Esc natively so it cancels the filter instead of leaving.
+			if a.state == stateList && a.list.IsFiltering() {
 				break
 			}
 			if a.state != stateDashboard {
@@ -245,6 +277,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case views.NavToDiffMsg:
 		a.diff = views.NewDiff()
 		return a.navigateTo(stateDiff)
+
+	case views.DiffBackMsg:
+		return a.navigateTo(stateDashboard)
 
 	case views.NavToImportMsg:
 		a.importView = views.NewImport()
@@ -376,8 +411,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case views.NavigateToDashboardMsg:
 		return a.navigateTo(stateDashboard)
 
+	case views.NavigateToListMsg:
+		return a.navigateTo(stateList)
+
 	case views.NavigateToWizardMsg:
 		a.wizard = views.NewWizard()
+		a.wizard.SetReturnToList()
 		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
@@ -407,6 +446,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.showToast("Failed to load profile: "+err.Error(), toastError, 3*time.Second)
 		}
 		a.wizard = views.NewWizardForEdit(p)
+		a.wizard.SetReturnToList()
 		a.wizard.SetSize(a.width, a.contentHeight())
 		return a.navigateTo(stateWizard)
 
@@ -439,8 +479,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.state = stateDashboard
 		return a, tea.Batch(cmds...)
 
-	case views.WizardCancelMsg:
-		return a.navigateTo(stateDashboard)
 	}
 
 	// Delegate update to current view
@@ -496,7 +534,6 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 	var cmd tea.Cmd
 	switch state {
 	case stateDashboard:
-		a.dashboard = views.NewDashboard()
 		a.dashboard.SetSize(a.width, a.contentHeight())
 		cmd = a.dashboard.Init()
 	case stateList:
@@ -645,8 +682,19 @@ func (a App) View() string {
 
 	var content string
 
-	// Loading overlay
-	if a.loading {
+	// Full help replaces the active view so it never overflows the screen.
+	if a.showHelp {
+		help := a.renderFullHelp()
+		if lipgloss.Height(help) > a.contentHeight() {
+			helpLines := strings.Split(help, "\n")
+			if a.contentHeight() > 0 && len(helpLines) > a.contentHeight() {
+				helpLines = helpLines[:a.contentHeight()]
+			}
+			help = strings.Join(helpLines, "\n")
+		}
+		content = lipgloss.Place(a.width, a.contentHeight(), lipgloss.Left, lipgloss.Top, help)
+	} else if a.loading {
+		// Loading overlay
 		content = lipgloss.Place(
 			a.width,
 			a.contentHeight(),
@@ -698,14 +746,10 @@ func (a App) View() string {
 
 	showHelpBar := toastView == "" || a.height >= 16
 
-	// Help view
+	// Help view — always the short bar; full help is rendered as content above.
 	var helpView string
 	if showHelpBar {
-		if a.showHelp {
-			helpView = a.renderFullHelp()
-		} else {
-			helpView = a.renderShortHelp()
-		}
+		helpView = a.renderShortHelp()
 	}
 
 	// Build final layout
@@ -728,18 +772,24 @@ func (a App) renderShortHelp() string {
 
 	switch a.state {
 	case stateDashboard:
-		hints = []string{"[↑↓] navigate", "[Enter] select", "[?] help", "[q] quit"}
+		hints = []string{"[↑↓] navigate", "[Enter] select", "[i] import", "[e] export", "[?] help", "[q] quit"}
 	case stateList:
 		hints = []string{"[Enter] switch", "[e] edit", "[d] delete", "[n] new", "[/] search", "[Esc] back"}
 	case stateWizard:
-		hints = []string{"[Tab/Enter] next", "[Shift+Tab] back", "[Ctrl+S] save", "[Ctrl+C] cancel"}
+		if a.wizard.IsReviewStep() {
+			hints = []string{"[Enter] save", "[Shift+Tab] back", "[Ctrl+C] cancel"}
+		} else {
+			hints = []string{"[Tab/Enter] next", "[Shift+Tab] back", "[Ctrl+S] save", "[Ctrl+C] cancel"}
+		}
 	case stateDiff:
 		hints = []string{"[Tab] switch pane", "[Enter] select", "[↑↓] scroll", "[Esc] back"}
 	case stateModels:
 		if a.modelRegistry.IsEditing() {
 			hints = []string{"[Tab] next field", "[Enter] save", "[Esc] cancel"}
+		} else if a.modelRegistry.IsFiltering() {
+			hints = []string{"[↑↓] navigate", "[Enter] select", "[/] search", "[Esc] clear filter"}
 		} else {
-			hints = []string{"[n] new", "[i] import", "[e] edit", "[d] delete", "[↑↓] navigate", "[Esc] back"}
+			hints = []string{"[n] new", "[i] import", "[e] edit", "[d] delete", "[/] search", "[↑↓] navigate", "[Esc] back"}
 		}
 	case stateModelImport:
 		if a.modelImport.IsEditing() {
@@ -796,6 +846,8 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  ↑/k        Move up"))
 		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
 		lines = append(lines, HelpStyle.Render("  enter      Select menu item"))
+		lines = append(lines, HelpStyle.Render("  i          Import profile"))
+		lines = append(lines, HelpStyle.Render("  e          Export profile"))
 
 	case stateList:
 		lines = append(lines, AccentStyle.Render("Profile List:"))
@@ -830,6 +882,7 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  i          Import from models.dev"))
 		lines = append(lines, HelpStyle.Render("  e          Edit model"))
 		lines = append(lines, HelpStyle.Render("  d          Delete model"))
+		lines = append(lines, HelpStyle.Render("  /          Search models"))
 		lines = append(lines, HelpStyle.Render("  enter      Confirm"))
 		lines = append(lines, HelpStyle.Render("  esc        Back/Cancel"))
 
@@ -848,6 +901,22 @@ func (a App) renderFullHelp() string {
 		lines = append(lines, HelpStyle.Render("  ↓/j        Move down"))
 		lines = append(lines, HelpStyle.Render("  enter      Select template"))
 		lines = append(lines, HelpStyle.Render("  esc        Cancel"))
+
+	case stateImport:
+		lines = append(lines, AccentStyle.Render("Import Profile:"))
+		lines = append(lines, HelpStyle.Render("  enter      Import"))
+		lines = append(lines, HelpStyle.Render("  esc        Cancel"))
+
+	case stateExport:
+		lines = append(lines, AccentStyle.Render("Export Profile:"))
+		lines = append(lines, HelpStyle.Render("  enter      Export"))
+		lines = append(lines, HelpStyle.Render("  esc        Cancel"))
+
+	case stateSchemaCheck:
+		lines = append(lines, AccentStyle.Render("Schema Check:"))
+		lines = append(lines, HelpStyle.Render("  enter      Confirm / Save"))
+		lines = append(lines, HelpStyle.Render("  r          Retry"))
+		lines = append(lines, HelpStyle.Render("  esc        Back"))
 	}
 
 	if !short {

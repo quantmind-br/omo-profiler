@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -29,7 +30,19 @@ func MarshalSparse(cfg *config.Config, selection *FieldSelection, preservedUnkno
 		return nil, err
 	}
 
-	return json.MarshalIndent(mergedValues, "", "  ")
+	// Use an encoder with HTML escaping disabled so prompt text containing
+	// <, > or & is written and previewed literally (e.g. "<Category_Context>"
+	// instead of "<Category_Context>"). The output stays valid JSON.
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(mergedValues); err != nil {
+		return nil, err
+	}
+	// json.Encoder appends a trailing newline; trim it to match the previous
+	// json.MarshalIndent output shape.
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 func buildSelectedStruct(value reflect.Value, valueType reflect.Type, selection *FieldSelection, prefix string) (map[string]interface{}, error) {

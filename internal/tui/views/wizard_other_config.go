@@ -71,8 +71,8 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		if cfg.Experimental.AggressiveTruncation != nil {
 			w.expAggressiveTrunc = *cfg.Experimental.AggressiveTruncation
 		}
-		if cfg.Experimental.AutoResume != nil {
-			w.expAutoResume = *cfg.Experimental.AutoResume
+		if cfg.Experimental.DisableLiveParentWakeRouting != nil {
+			w.expDisableLiveParentWakeRouting = *cfg.Experimental.DisableLiveParentWakeRouting
 		}
 		if cfg.Experimental.TruncateAllToolOutputs != nil {
 			w.expTruncateAllOutputs = *cfg.Experimental.TruncateAllToolOutputs
@@ -172,6 +172,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		}
 		if len(cfg.ClaudeCode.PluginsOverride) > 0 {
 			w.ccPluginsOverride.SetValue(serializeMapStringBool(cfg.ClaudeCode.PluginsOverride))
+		}
+		if cfg.ClaudeCode.AnthropicProvider != "" {
+			w.ccAnthropicProvider.SetValue(cfg.ClaudeCode.AnthropicProvider)
 		}
 	}
 
@@ -464,6 +467,69 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		}
 	}
 
+	// Monitor
+	if cfg.Monitor != nil {
+		mon := cfg.Monitor
+		if mon.Enabled != nil {
+			w.monEnabled = *mon.Enabled
+		}
+		if mon.LiveModeEnabled != nil {
+			w.monLiveModeEnabled = *mon.LiveModeEnabled
+		}
+		if len(mon.AllowedCommands) > 0 {
+			w.monAllowedCommands.SetValue(strings.Join(mon.AllowedCommands, ", "))
+		}
+		if mon.MaxMonitorsPerSession != nil {
+			w.monMaxMonitors.SetValue(fmt.Sprintf("%d", *mon.MaxMonitorsPerSession))
+		}
+		if mon.MaxRuntimeMs != nil {
+			w.monMaxRuntimeMs.SetValue(fmt.Sprintf("%d", *mon.MaxRuntimeMs))
+		}
+		if mon.BatchMaxLines != nil {
+			w.monBatchMaxLines.SetValue(fmt.Sprintf("%d", *mon.BatchMaxLines))
+		}
+		if mon.BatchMaxBytes != nil {
+			w.monBatchMaxBytes.SetValue(fmt.Sprintf("%d", *mon.BatchMaxBytes))
+		}
+		if mon.FlushIntervalMs != nil {
+			w.monFlushIntervalMs.SetValue(fmt.Sprintf("%d", *mon.FlushIntervalMs))
+		}
+		if mon.RingMaxLines != nil {
+			w.monRingMaxLines.SetValue(fmt.Sprintf("%d", *mon.RingMaxLines))
+		}
+		if mon.LineMaxBytes != nil {
+			w.monLineMaxBytes.SetValue(fmt.Sprintf("%d", *mon.LineMaxBytes))
+		}
+		if mon.PatternMaxLength != nil {
+			w.monPatternMaxLength.SetValue(fmt.Sprintf("%d", *mon.PatternMaxLength))
+		}
+	}
+
+	// Codegraph
+	if cfg.Codegraph != nil {
+		cg := cfg.Codegraph
+		if cg.Enabled != nil {
+			w.cgEnabled = *cg.Enabled
+		}
+		if cg.AutoProvision != nil {
+			w.cgAutoProvision = *cg.AutoProvision
+		}
+		if cg.InstallDir != "" {
+			w.cgInstallDir.SetValue(cg.InstallDir)
+		}
+		if cg.Telemetry != nil {
+			w.cgTelemetry = *cg.Telemetry
+		}
+		if cg.WatchDebounceMs != nil {
+			w.cgWatchDebounceMs.SetValue(fmt.Sprintf("%g", *cg.WatchDebounceMs))
+		}
+	}
+
+	// Tui
+	if cfg.Tui != nil && cfg.Tui.Sidebar != nil && cfg.Tui.Sidebar.Enabled != nil {
+		w.tuiSidebarEnabled = *cfg.Tui.Sidebar.Enabled
+	}
+
 }
 
 func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelection) {
@@ -561,8 +627,8 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		if w.fieldSelected("experimental.aggressive_truncation") {
 			exp.AggressiveTruncation = wizardOtherBoolPtr(w.expAggressiveTrunc)
 		}
-		if w.fieldSelected("experimental.auto_resume") {
-			exp.AutoResume = wizardOtherBoolPtr(w.expAutoResume)
+		if w.fieldSelected("experimental.disable_live_parent_wake_routing") {
+			exp.DisableLiveParentWakeRouting = wizardOtherBoolPtr(w.expDisableLiveParentWakeRouting)
 		}
 		if w.fieldSelected("experimental.truncate_all_tool_outputs") {
 			exp.TruncateAllToolOutputs = wizardOtherBoolPtr(w.expTruncateAllOutputs)
@@ -677,6 +743,9 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		}
 		if w.fieldSelected("claude_code.plugins_override") {
 			cc.PluginsOverride = emptyMapStringBoolIfSelected(true, parseMapStringBool(strings.TrimSpace(w.ccPluginsOverride.Value())))
+		}
+		if w.fieldSelected("claude_code.anthropic_provider") {
+			cc.AnthropicProvider = strings.TrimSpace(w.ccAnthropicProvider.Value())
 		}
 		cfg.ClaudeCode = cc
 	}
@@ -995,5 +1064,59 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		}
 		cfg.TeamMode = tm
 	}
-}
 
+	cfg.Monitor = nil
+	if w.monHasData() {
+		// monitor marks most properties required in the schema, so whenever any
+		// option is touched we emit the complete object — parsed inputs where
+		// available, upstream defaults otherwise. allowed_commands is optional.
+		mon := &config.MonitorConfig{
+			Enabled:               wizardOtherBoolPtr(w.monEnabled),
+			LiveModeEnabled:       wizardOtherBoolPtr(w.monLiveModeEnabled),
+			MaxMonitorsPerSession: monitorIntOrDefault(w.monMaxMonitors.Value(), 1, 3),
+			MaxRuntimeMs:          monitorInt64OrDefault(w.monMaxRuntimeMs.Value(), 1000, 1800000),
+			BatchMaxLines:         monitorInt64OrDefault(w.monBatchMaxLines.Value(), 1, 50),
+			BatchMaxBytes:         monitorInt64OrDefault(w.monBatchMaxBytes.Value(), 1024, 16384),
+			FlushIntervalMs:       monitorInt64OrDefault(w.monFlushIntervalMs.Value(), 250, 1000),
+			RingMaxLines:          monitorInt64OrDefault(w.monRingMaxLines.Value(), 1, 1000),
+			LineMaxBytes:          monitorInt64OrDefault(w.monLineMaxBytes.Value(), 256, 8192),
+			PatternMaxLength:      monitorInt64OrDefault(w.monPatternMaxLength.Value(), 1, 512),
+		}
+		if cmds := strings.TrimSpace(w.monAllowedCommands.Value()); cmds != "" {
+			var allowed []string
+			for _, c := range strings.Split(cmds, ",") {
+				if s := strings.TrimSpace(c); s != "" {
+					allowed = append(allowed, s)
+				}
+			}
+			mon.AllowedCommands = emptySliceIfSelected(true, allowed)
+		}
+		cfg.Monitor = mon
+	}
+
+	cfg.Codegraph = nil
+	if w.cgHasData() {
+		// enabled + auto_provision are required by the schema; the rest are optional.
+		cg := &config.CodegraphConfig{
+			Enabled:       wizardOtherBoolPtr(w.cgEnabled),
+			AutoProvision: wizardOtherBoolPtr(w.cgAutoProvision),
+		}
+		if w.fieldSelected("codegraph.install_dir") {
+			cg.InstallDir = strings.TrimSpace(w.cgInstallDir.Value())
+		}
+		if w.fieldSelected("codegraph.telemetry") {
+			cg.Telemetry = wizardOtherBoolPtr(w.cgTelemetry)
+		}
+		if w.fieldSelected("codegraph.watch_debounce_ms") {
+			if f, err := strconv.ParseFloat(strings.TrimSpace(w.cgWatchDebounceMs.Value()), 64); err == nil && f >= 0 {
+				cg.WatchDebounceMs = float64Ptr(f)
+			}
+		}
+		cfg.Codegraph = cg
+	}
+
+	cfg.Tui = nil
+	if w.fieldSelected("tui.sidebar.enabled") {
+		cfg.Tui = &config.TuiConfig{Sidebar: &config.TuiSidebarConfig{Enabled: wizardOtherBoolPtr(w.tuiSidebarEnabled)}}
+	}
+}

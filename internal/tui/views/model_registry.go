@@ -3,6 +3,7 @@ package views
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -149,6 +150,10 @@ func NewModelRegistry() ModelRegistry {
 	return m
 }
 
+func (m ModelRegistry) IsFiltering() bool {
+	return m.searchInput.Focused()
+}
+
 func (m *ModelRegistry) rebuildFlatModels() {
 	m.flatModels = nil
 	for _, group := range m.groups {
@@ -180,7 +185,26 @@ func (m ModelRegistry) getFilteredModels() []models.RegisteredModel {
 	for i, match := range matches {
 		filtered[i] = m.flatModels[match.Index]
 	}
-	return filtered
+
+	// Re-rank so exact/substring matches beat loose fuzzy subsequences,
+	// preserving the fuzzy order within each rank tier (stable sort).
+	sort.SliceStable(filtered, func(i, j int) bool {
+		return rankModelMatch(searchTerm, filtered[i].Provider, filtered[i].ModelID, filtered[i].DisplayName) >
+			rankModelMatch(searchTerm, filtered[j].Provider, filtered[j].ModelID, filtered[j].DisplayName)
+	})
+
+	// Membership: a registry filter must only return models that actually contain
+	// the search term in their provider/id/name. fuzzy.Find matches on character
+	// subsequence, which surfaces unrelated models (e.g. "claude" matching a Qwen
+	// model via scattered letters). Drop those rank-0 (subsequence-only) hits.
+	// Substring matches are always a subsequence, so nothing real is lost.
+	result := filtered[:0]
+	for _, mdl := range filtered {
+		if rankModelMatch(searchTerm, mdl.Provider, mdl.ModelID, mdl.DisplayName) > 0 {
+			result = append(result, mdl)
+		}
+	}
+	return result
 }
 
 func (m ModelRegistry) Init() tea.Cmd {
@@ -479,12 +503,13 @@ func (m *ModelRegistry) validateAndSave() error {
 
 func (m ModelRegistry) View() string {
 	if m.loadError != nil {
+		errHints := []string{"[Esc] back"}
 		errorView := lipgloss.JoinVertical(lipgloss.Left,
 			titleStyle.Render("Manage Models"),
 			"",
 			errorStyle.Render(fmt.Sprintf("Error loading models: %v", m.loadError)),
 			"",
-			grayStyle.Render("[Esc] back"),
+			grayStyle.Render(layout.RenderHintLine(errHints, m.width)),
 		)
 		return errorView
 	}
@@ -503,7 +528,12 @@ func (m ModelRegistry) View() string {
 func (m ModelRegistry) renderList() string {
 	title := titleStyle.Render("Manage Models")
 
-	searchLine := "Search: " + m.searchInput.View()
+	var searchLine string
+	if m.searchInput.Focused() || m.searchInput.Value() != "" {
+		searchLine = "Search: " + m.searchInput.View()
+	} else {
+		searchLine = grayStyle.Render("Press / to search")
+	}
 
 	filteredModels := m.getFilteredModels()
 
@@ -516,14 +546,11 @@ func (m ModelRegistry) renderList() string {
 		content = m.renderModelsList(filteredModels)
 	}
 
-	help := grayStyle.Render("[/] search  [n] new  [i] import  [e] edit  [d] delete  [Esc] back")
-
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,
 			title,
 			searchLine,
 			content,
-			help,
 		)
 	}
 
@@ -534,8 +561,6 @@ func (m ModelRegistry) renderList() string {
 		searchLine,
 		"",
 		content,
-		"",
-		help,
 	)
 }
 
@@ -610,7 +635,7 @@ func (m ModelRegistry) renderForm() string {
 			fmt.Sprintf("Display Name: %s", m.displayNameInput.View()),
 			fmt.Sprintf("Model ID:     %s", m.modelIdInput.View()),
 			fmt.Sprintf("Provider:     %s", m.providerInput.View()),
-			grayStyle.Render("[Enter] save  [Esc] cancel"),
+			grayStyle.Render(layout.RenderHintLine([]string{"[Enter] save", "[Esc] cancel"}, m.width)),
 		}
 	} else {
 		formLines = []string{
@@ -621,7 +646,7 @@ func (m ModelRegistry) renderForm() string {
 			fmt.Sprintf("Model ID:     %s", m.modelIdInput.View()),
 			fmt.Sprintf("Provider:     %s", m.providerInput.View()),
 			"",
-			grayStyle.Render("[Enter] save  [Esc] cancel"),
+			grayStyle.Render(layout.RenderHintLine([]string{"[Enter] save", "[Esc] cancel"}, m.width)),
 		}
 	}
 
