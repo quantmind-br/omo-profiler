@@ -1,0 +1,18 @@
+=== RUN   TestEvidence_JSONVariants
+=== Selected with values ===
+{
+  "disabled_agents": [
+    "sisyphus"
+  ]
+}
+
+=== Selected but empty ===
+{
+  "disabled_agents": []
+}
+
+=== Not selected (omitted) ===
+{}
+--- PASS: TestEvidence_JSONVariants (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.005s

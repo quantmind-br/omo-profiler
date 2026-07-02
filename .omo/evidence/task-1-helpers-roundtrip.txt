@@ -1,0 +1,123 @@
+=== Task 1 Helpers Roundtrip Evidence ===
+
+Date: qua 08 abr 2026 19:28:33 -03
+
+=== Helper Function Signatures ===
+func setupWizardOtherWithSelection(t *testing.T, paths ...string) WizardOther {
+	t.Helper()
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	for _, path := range paths {
+		selection.SetSelected(path, true)
+	}
+	w.selection = selection
+	return w
+}
+
+
+func applyAndMarshal(t *testing.T, w WizardOther, selection *profile.FieldSelection) map[string]interface{} {
+	t.Helper()
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+	data, err := profile.MarshalSparse(cfg, selection, nil)
+	require.NoError(t, err, "MarshalSparse should not error")
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err, "JSON unmarshal should not error")
+	return result
+}
+
+func assertJSONContains(t *testing.T, jsonMap map[string]interface{}, key string) {
+
+func assertJSONContains(t *testing.T, jsonMap map[string]interface{}, key string) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			_, exists := current[part]
+			assert.True(t, exists, "expected key %q to exist", key)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected %q to be a nested object, got %T", part, current[part])
+		}
+		current = next
+	}
+
+func assertJSONOmits(t *testing.T, jsonMap map[string]interface{}, key string) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			_, exists := current[part]
+			assert.False(t, exists, "expected key %q to NOT exist", key)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			return
+		}
+		current = next
+	}
+
+func assertJSONEquals(t *testing.T, jsonMap map[string]interface{}, key string, expected interface{}) {
+	t.Helper()
+	parts := strings.Split(key, ".")
+	current := jsonMap
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			actual, exists := current[part]
+			require.True(t, exists, "expected key %q to exist", key)
+			assert.Equal(t, expected, actual, "expected key %q to equal %v", key, expected)
+			return
+		}
+		next, ok := current[part].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected %q to be a nested object, got %T", part, current[part])
+		}
+		current = next
+
+=== Imports Added ===
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+=== Test Execution ===
+=== RUN   TestWizardOtherRightExpandsSection
+--- PASS: TestWizardOtherRightExpandsSection (0.00s)
+=== RUN   TestWizardOtherLeftCollapsesSection
+--- PASS: TestWizardOtherLeftCollapsesSection (0.00s)
+=== RUN   TestWizardOtherRightDoesNothingWhenExpanded
+--- PASS: TestWizardOtherRightDoesNothingWhenExpanded (0.00s)
+=== RUN   TestWizardOtherLeftDoesNothingWhenCollapsed
+--- PASS: TestWizardOtherLeftDoesNothingWhenCollapsed (0.00s)
+=== RUN   TestWizardOtherLeftRightIgnoredInSubSection
+--- PASS: TestWizardOtherLeftRightIgnoredInSubSection (0.00s)
+=== RUN   TestWizardOtherLoadsCheckboxStateFromJSONPresence
+--- PASS: TestWizardOtherLoadsCheckboxStateFromJSONPresence (0.00s)
+=== RUN   TestWizardOtherBooleanFieldSeparatesInclusionAndValue
+--- PASS: TestWizardOtherBooleanFieldSeparatesInclusionAndValue (0.00s)
+=== RUN   TestWizardOtherApplyWritesOnlySelectedFields
+--- PASS: TestWizardOtherApplyWritesOnlySelectedFields (0.00s)
+=== RUN   TestWizardOtherUntouchedSectionsRemainOmitted
+--- PASS: TestWizardOtherUntouchedSectionsRemainOmitted (0.00s)
+=== RUN   TestWizardOtherDisabledAgentsInclusionToggle
+--- PASS: TestWizardOtherDisabledAgentsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledSkillsInclusionToggle
+--- PASS: TestWizardOtherDisabledSkillsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledCommandsInclusionToggle
+--- PASS: TestWizardOtherDisabledCommandsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledMcpsInclusionToggle
+--- PASS: TestWizardOtherDisabledMcpsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledToolsInclusionToggle
+--- PASS: TestWizardOtherDisabledToolsInclusionToggle (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.031s
+
+SUCCESS: All helpers compile and existing tests pass

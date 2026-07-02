@@ -1,0 +1,30 @@
+=== CQ-008: Replace string error checks with typed errors ===
+
+COMPLETED: 2026-04-08
+
+CHANGES MADE:
+
+1. internal/models/models.go
+   - Added ModelExistsError type with ModelID field
+   - Updated Add() method to return &ModelExistsError{ModelID: m.ModelID}
+   - Updated Update() method to return &ModelExistsError{ModelID: m.ModelID}
+
+2. internal/tui/views/model_import.go
+   - Added "errors" import
+   - Replaced strings.Contains(err.Error(), "already exists") with errors.As(err, &existsErr)
+
+3. internal/tui/views/model_registry.go
+   - Added "errors" import  
+   - Replaced 2 occurrences of strings.Contains(err.Error(), "already exists") with errors.As(err, &existsErr)
+
+VERIFICATION:
+
+$ grep -r "strings.Contains.*err.Error.*already exists" --include="*.go" .
+(no matches in Go source files)
+
+$ make test
+ok  	github.com/diogenes/omo-profiler/internal/models
+ok  	github.com/diogenes/omo-profiler/internal/tui/views
+(all tests pass)
+
+ModelExistsError type is now the source of truth for model existence errors.

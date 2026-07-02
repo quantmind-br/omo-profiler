@@ -1,0 +1,41 @@
+================================================================================
+TASK 8 EVIDENCE
+CQ-005 — Table-driven wizard step transitions
+================================================================================
+
+CHANGED FILE:
+- internal/tui/views/wizard.go
+
+IMPLEMENTATION EVIDENCE:
+- stepOrder table defined at internal/tui/views/wizard.go:48
+- nextStep() refactored to iterate over stepOrder at internal/tui/views/wizard.go:272
+- prevStep() refactored to iterate over stepOrder at internal/tui/views/wizard.go:349
+- validateConfig() extracted at internal/tui/views/wizard.go:371
+- flash message preserved on backwards transitions via:
+  if w.applyStep(step) {
+      w.flashMsg = "Changes applied"
+  }
+
+STATIC VERIFICATION:
+- lsp_diagnostics internal/tui/views/wizard.go => clean
+
+GREP VERIFICATION:
+48: var stepOrder = []int{
+272: func (w Wizard) nextStep() (Wizard, tea.Cmd) {
+349: func (w Wizard) prevStep() (Wizard, tea.Cmd) {
+371: func (w *Wizard) validateConfig() error {
+
+TEST EXECUTION:
+- Command: make test
+- Result: FAILED due pre-existing compile errors outside this change
+
+FAILURE DETAILS:
+internal/tui/views/wizard_agents.go:1589:13: w.handleModelSelection undefined (type WizardAgents has no field or method handleModelSelection)
+internal/tui/views/wizard_agents.go:1604:13: w.handleFormNavigation undefined (type WizardAgents has no field or method handleFormNavigation)
+internal/tui/views/wizard_agents.go:1606:12: w.handleNavigation undefined (type WizardAgents has no field or method handleNavigation)
+
+ASSESSMENT:
+- Requested wizard.go refactor implemented.
+- Validation extraction implemented.
+- Table-driven next/prev transitions implemented without changing step order.
+- make test is currently blocked by unrelated existing build failures in wizard_agents.go.

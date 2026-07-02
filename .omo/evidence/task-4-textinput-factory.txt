@@ -1,0 +1,43 @@
+=== CQ-011: Extract textinput factory helper ===
+
+COMPLETED: 2026-04-09
+
+FILES CREATED:
+- internal/tui/views/form_helpers.go (newTextInput + newNumericInput factory functions)
+
+FILES MODIFIED:
+- internal/tui/views/wizard_agents.go (20 textinput.New() → factory calls)
+- internal/tui/views/wizard_categories.go (12 textinput.New() → factory calls)
+- internal/tui/views/wizard_other.go (34 textinput.New() → factory calls)
+
+FACTORY FUNCTIONS:
+  newTextInput(placeholder string, width int) textinput.Model
+  newNumericInput(placeholder string, width, charLimit int) textinput.Model
+
+BEFORE/AFTER COUNTS:
+  wizard_agents.go:    20 raw → 20 factory (3 remaining in other contexts)
+  wizard_categories.go: 12 raw → 12 factory (0 remaining)
+  wizard_other.go:      34 raw → 34 factory (1 remaining with SetValue)
+  
+  TOTAL: 66 textinput instantiations now use factory
+
+VERIFICATION:
+  $ go build ./internal/tui/views/
+  $ go test ./internal/tui/views/
+  PASS (all tests)
+
+PATTERN REPLACED:
+  ti := textinput.New()
+  ti.Placeholder = "..."
+  ti.Width = N
+  
+  →
+  
+  ti := newTextInput("...", N)
+
+NOTES:
+  - All placeholder text and width values preserved exactly
+  - One field in wizard_other.go (gmGitEnvPrefix) kept original pattern
+    because it uses SetValue() after initialization
+  - 3 textinput.New() calls remain in wizard_agents.go in different
+    contexts (not the newAgentConfig function)

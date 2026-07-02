@@ -1,0 +1,36 @@
+CQ-009 — Consolidate hardcoded field paths
+Date: 2026-04-09
+Status: COMPLETE
+
+## What was done
+
+Moved all field path definitions from two files into a single dedicated file:
+
+### Created: internal/profile/fields.go (292 lines)
+- `knownConfigTags` — 33 top-level JSON key names (was in profile.go lines 24-58)
+- `allFieldPaths` — 156 dot-separated selection paths (was in selection.go lines 8-164)
+- `knownFieldPaths` — derived O(1) lookup set from allFieldPaths (was in profile.go lines 60-66)
+- `knownFieldPathPrefixes` — derived prefix lookup set from allFieldPaths (was in profile.go lines 68-77)
+- Full documentation comments explaining this is the single source of truth
+
+### Modified: internal/profile/selection.go
+- Removed `allFieldPaths` var block (156 lines removed)
+- File went from 274 lines → 116 lines
+
+### Modified: internal/profile/profile.go
+- Removed `knownConfigTags`, `knownFieldPaths`, `knownFieldPathPrefixes` (54 lines removed)
+- File went from 350 lines → 295 lines
+
+## Verification
+
+- LSP diagnostics: 0 errors on all three files
+- `make test`: ALL PASS (every package ok)
+- Single declaration per variable confirmed (all in fields.go only)
+- No field path values changed — pure move/refactor
+
+## Checklist
+- [x] `internal/profile/fields.go` exists with all field path definitions
+- [x] Clear documentation comments on the file
+- [x] `knownConfigTags`, `knownFieldPaths`, `knownFieldPathPrefixes` remain functional
+- [x] `make test` passes
+- [x] Evidence saved to `.sisyphus/evidence/task-16-field-paths.txt`

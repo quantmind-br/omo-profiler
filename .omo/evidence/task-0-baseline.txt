@@ -1,0 +1,1785 @@
+=== PRE-REFACTOR BASELINE ===
+Date: 2026-04-08T22:22:06-03:00
+Git Tag: pre-refactor-baseline
+Commit: 5ac3631f17cb6183520382eb5c7247bec3b4be9c
+Commit Message: chore: cleanup dead code and add code quality documentation
+
+=== TEST RESULTS ===
+go test -v ./...
+?   	github.com/diogenes/omo-profiler/cmd/omo-profiler	[no test files]
+=== RUN   TestCreate
+--- PASS: TestCreate (0.00s)
+=== RUN   TestCreate_SourceNotExists
+--- PASS: TestCreate_SourceNotExists (0.00s)
+=== RUN   TestList_Empty
+--- PASS: TestList_Empty (0.00s)
+=== RUN   TestList_SortsByDateDescending
+--- PASS: TestList_SortsByDateDescending (0.00s)
+=== RUN   TestList_IgnoresOtherFiles
+--- PASS: TestList_IgnoresOtherFiles (0.00s)
+=== RUN   TestList_FindsBothLegacyAndCanonical
+--- PASS: TestList_FindsBothLegacyAndCanonical (0.00s)
+=== RUN   TestRestore
+--- PASS: TestRestore (0.00s)
+=== RUN   TestRestore_BackupNotExists
+--- PASS: TestRestore_BackupNotExists (0.00s)
+=== RUN   TestClean
+--- PASS: TestClean (0.00s)
+=== RUN   TestClean_FewerThanKeep
+--- PASS: TestClean_FewerThanKeep (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/backup	(cached)
+?   	github.com/diogenes/omo-profiler/internal/cli	[no test files]
+=== RUN   TestCreateFromTemplate_Success
+--- PASS: TestCreateFromTemplate_Success (0.00s)
+=== RUN   TestCreateFromTemplate_TemplateNotFound
+    create_test.go:89: Template correctly identified as not existing
+--- PASS: TestCreateFromTemplate_TemplateNotFound (0.00s)
+=== RUN   TestCreateFromTemplate_ProfileAlreadyExists
+    create_test.go:111: Profile correctly identified as already existing
+--- PASS: TestCreateFromTemplate_ProfileAlreadyExists (0.00s)
+=== RUN   TestCreateFromTemplate_InvalidProfileName
+--- PASS: TestCreateFromTemplate_InvalidProfileName (0.00s)
+=== RUN   TestCreateCmd_Integration
+--- PASS: TestCreateCmd_Integration (0.00s)
+=== RUN   TestCreateCmd_SuccessMessageFormat
+--- PASS: TestCreateCmd_SuccessMessageFormat (0.00s)
+=== RUN   TestSchemaCheckCmd_RequiresOutputFlag
+--- PASS: TestSchemaCheckCmd_RequiresOutputFlag (0.00s)
+=== RUN   TestSchemaCheckCmd_Registration
+--- PASS: TestSchemaCheckCmd_Registration (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/cli/cmd	(cached)
+=== RUN   TestSetBaseDir
+--- PASS: TestSetBaseDir (0.00s)
+=== RUN   TestResetBaseDir
+--- PASS: TestResetBaseDir (0.00s)
+=== RUN   TestConfigDir
+--- PASS: TestConfigDir (0.00s)
+=== RUN   TestProfilesDir
+--- PASS: TestProfilesDir (0.00s)
+=== RUN   TestConfigFile
+=== RUN   TestConfigFile/no_config_files_returns_canonical
+=== RUN   TestConfigFile/only_canonical_exists_returns_canonical
+=== RUN   TestConfigFile/only_legacy_exists_returns_legacy
+=== RUN   TestConfigFile/both_exist_returns_canonical
+--- PASS: TestConfigFile (0.00s)
+    --- PASS: TestConfigFile/no_config_files_returns_canonical (0.00s)
+    --- PASS: TestConfigFile/only_canonical_exists_returns_canonical (0.00s)
+    --- PASS: TestConfigFile/only_legacy_exists_returns_legacy (0.00s)
+    --- PASS: TestConfigFile/both_exist_returns_canonical (0.00s)
+=== RUN   TestModelsFile
+--- PASS: TestModelsFile (0.00s)
+=== RUN   TestEnsureDirs
+--- PASS: TestEnsureDirs (0.00s)
+=== RUN   TestDefaultSchema
+--- PASS: TestDefaultSchema (0.00s)
+=== RUN   TestRoundTrip
+--- PASS: TestRoundTrip (0.00s)
+=== RUN   TestMinimalConfig
+--- PASS: TestMinimalConfig (0.00s)
+=== RUN   TestSkillsPreservation_Array
+--- PASS: TestSkillsPreservation_Array (0.00s)
+=== RUN   TestSkillsPreservation_Object
+--- PASS: TestSkillsPreservation_Object (0.00s)
+=== RUN   TestBashPermission_String
+--- PASS: TestBashPermission_String (0.00s)
+=== RUN   TestBashPermission_Object
+--- PASS: TestBashPermission_Object (0.00s)
+=== RUN   TestEmptyConfigMarshal
+--- PASS: TestEmptyConfigMarshal (0.00s)
+=== RUN   TestOmitempty
+--- PASS: TestOmitempty (0.00s)
+=== RUN   TestAgentSkillsRoundTrip
+--- PASS: TestAgentSkillsRoundTrip (0.00s)
+=== RUN   TestCategoryConfigDescriptionRoundTrip
+--- PASS: TestCategoryConfigDescriptionRoundTrip (0.00s)
+=== RUN   TestCategoryConfigExtendedFields
+--- PASS: TestCategoryConfigExtendedFields (0.00s)
+=== RUN   TestAgentConfigExtendedFieldsRoundTrip
+--- PASS: TestAgentConfigExtendedFieldsRoundTrip (0.00s)
+=== RUN   TestPreemptiveCompactionRoundTrip
+--- PASS: TestPreemptiveCompactionRoundTrip (0.00s)
+=== RUN   TestPreemptiveCompactionFalse
+--- PASS: TestPreemptiveCompactionFalse (0.00s)
+=== RUN   TestPreemptiveCompactionOmitempty
+--- PASS: TestPreemptiveCompactionOmitempty (0.00s)
+=== RUN   TestTaskSystemRoundTrip
+--- PASS: TestTaskSystemRoundTrip (0.00s)
+=== RUN   TestTaskSystemFalse
+--- PASS: TestTaskSystemFalse (0.00s)
+=== RUN   TestTaskSystemOmitempty
+--- PASS: TestTaskSystemOmitempty (0.00s)
+=== RUN   TestUltraworkConfigRoundTrip
+--- PASS: TestUltraworkConfigRoundTrip (0.00s)
+=== RUN   TestUltraworkConfigOmitempty
+--- PASS: TestUltraworkConfigOmitempty (0.00s)
+=== RUN   TestHashlineEditRoundTrip
+--- PASS: TestHashlineEditRoundTrip (0.00s)
+=== RUN   TestHashlineEditFalse
+--- PASS: TestHashlineEditFalse (0.00s)
+=== RUN   TestHashlineEditOmitempty
+--- PASS: TestHashlineEditOmitempty (0.00s)
+=== RUN   TestTaskListIDOmitempty
+--- PASS: TestTaskListIDOmitempty (0.00s)
+=== RUN   TestTopLevelHashlineEditRoundTrip
+--- PASS: TestTopLevelHashlineEditRoundTrip (0.00s)
+=== RUN   TestRuntimeFallbackBoolRoundTrip
+--- PASS: TestRuntimeFallbackBoolRoundTrip (0.00s)
+=== RUN   TestRuntimeFallbackObjectRoundTrip
+--- PASS: TestRuntimeFallbackObjectRoundTrip (0.00s)
+=== RUN   TestFallbackModelsStringRoundTrip
+--- PASS: TestFallbackModelsStringRoundTrip (0.00s)
+=== RUN   TestFallbackModelsArrayRoundTrip
+--- PASS: TestFallbackModelsArrayRoundTrip (0.00s)
+=== RUN   TestCategoryFallbackModelsRoundTrip
+--- PASS: TestCategoryFallbackModelsRoundTrip (0.00s)
+=== RUN   TestDisableOmoEnvRoundTrip
+--- PASS: TestDisableOmoEnvRoundTrip (0.00s)
+=== RUN   TestModelFallbackTitleRoundTrip
+--- PASS: TestModelFallbackTitleRoundTrip (0.00s)
+=== RUN   TestDefaultStrategyRoundTrip
+--- PASS: TestDefaultStrategyRoundTrip (0.00s)
+=== RUN   TestMessageStalenessTimeoutMsRoundTrip
+--- PASS: TestMessageStalenessTimeoutMsRoundTrip (0.00s)
+=== RUN   TestDisabledToolsRoundTrip
+--- PASS: TestDisabledToolsRoundTrip (0.00s)
+=== RUN   TestMigrationsRoundTrip
+--- PASS: TestMigrationsRoundTrip (0.00s)
+=== RUN   TestDefaultRunAgentRoundTrip
+--- PASS: TestDefaultRunAgentRoundTrip (0.00s)
+=== RUN   TestNewTaskSystemEnabledRoundTrip
+--- PASS: TestNewTaskSystemEnabledRoundTrip (0.00s)
+=== RUN   TestStaleTimeoutMsRoundTrip
+--- PASS: TestStaleTimeoutMsRoundTrip (0.00s)
+=== RUN   TestBrowserAutomationEngineProviderRoundTrip
+--- PASS: TestBrowserAutomationEngineProviderRoundTrip (0.00s)
+=== RUN   TestWebsearchProviderRoundTrip
+--- PASS: TestWebsearchProviderRoundTrip (0.00s)
+=== RUN   TestTmuxRoundTrip
+--- PASS: TestTmuxRoundTrip (0.00s)
+=== RUN   TestOpenclawRoundTrip
+--- PASS: TestOpenclawRoundTrip (0.00s)
+=== RUN   TestModelCapabilitiesRoundTrip
+--- PASS: TestModelCapabilitiesRoundTrip (0.00s)
+=== RUN   TestFallbackModelsObjectRoundTrip
+--- PASS: TestFallbackModelsObjectRoundTrip (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/config	(cached)
+=== RUN   TestDiffTypeConstants
+--- PASS: TestDiffTypeConstants (0.00s)
+=== RUN   TestSplitLines
+=== RUN   TestSplitLines/empty_string
+=== RUN   TestSplitLines/single_line_without_newline
+=== RUN   TestSplitLines/single_line_with_newline
+=== RUN   TestSplitLines/multiple_lines
+=== RUN   TestSplitLines/multiple_lines_with_trailing_newline
+=== RUN   TestSplitLines/only_newlines
+=== RUN   TestSplitLines/single_newline
+--- PASS: TestSplitLines (0.00s)
+    --- PASS: TestSplitLines/empty_string (0.00s)
+    --- PASS: TestSplitLines/single_line_without_newline (0.00s)
+    --- PASS: TestSplitLines/single_line_with_newline (0.00s)
+    --- PASS: TestSplitLines/multiple_lines (0.00s)
+    --- PASS: TestSplitLines/multiple_lines_with_trailing_newline (0.00s)
+    --- PASS: TestSplitLines/only_newlines (0.00s)
+    --- PASS: TestSplitLines/single_newline (0.00s)
+=== RUN   TestComputeDiffIdentical
+--- PASS: TestComputeDiffIdentical (0.00s)
+=== RUN   TestComputeDiffAddedLines
+--- PASS: TestComputeDiffAddedLines (0.00s)
+=== RUN   TestComputeDiffRemovedLines
+--- PASS: TestComputeDiffRemovedLines (0.00s)
+=== RUN   TestComputeDiffModifiedLines
+--- PASS: TestComputeDiffModifiedLines (0.00s)
+=== RUN   TestComputeDiffBothEmpty
+--- PASS: TestComputeDiffBothEmpty (0.00s)
+=== RUN   TestComputeDiffLeftEmpty
+--- PASS: TestComputeDiffLeftEmpty (0.00s)
+=== RUN   TestComputeDiffRightEmpty
+--- PASS: TestComputeDiffRightEmpty (0.00s)
+=== RUN   TestComputeDiffLineNumberSequencing
+--- PASS: TestComputeDiffLineNumberSequencing (0.00s)
+=== RUN   TestComputeDiffMultilineJSON
+--- PASS: TestComputeDiffMultilineJSON (0.00s)
+=== RUN   TestComputeUnifiedDiff_IdenticalContent
+--- PASS: TestComputeUnifiedDiff_IdenticalContent (0.00s)
+=== RUN   TestComputeUnifiedDiff_WithDifferences
+--- PASS: TestComputeUnifiedDiff_WithDifferences (0.00s)
+=== RUN   TestComputeUnifiedDiff_HeadersPresent
+--- PASS: TestComputeUnifiedDiff_HeadersPresent (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/diff	(cached)
+=== RUN   TestLoad
+models.json is corrupted, backed up to /tmp/TestLoad2473748457/001/.config/opencode/models.json.bak. Loading empty registry. Error: invalid character 'i' looking for beginning of object key string
+--- PASS: TestLoad (0.00s)
+=== RUN   TestSave
+--- PASS: TestSave (0.00s)
+=== RUN   TestAdd
+--- PASS: TestAdd (0.00s)
+=== RUN   TestUpdate
+--- PASS: TestUpdate (0.00s)
+=== RUN   TestDelete
+--- PASS: TestDelete (0.00s)
+=== RUN   TestGet
+--- PASS: TestGet (0.00s)
+=== RUN   TestList
+--- PASS: TestList (0.00s)
+=== RUN   TestListByProvider
+--- PASS: TestListByProvider (0.00s)
+=== RUN   TestExists
+--- PASS: TestExists (0.00s)
+=== RUN   TestModelsDevModel_ToRegisteredModel
+--- PASS: TestModelsDevModel_ToRegisteredModel (0.00s)
+=== RUN   TestModelsDevModel_FormatCapabilities
+=== RUN   TestModelsDevModel_FormatCapabilities/full_capabilities
+=== RUN   TestModelsDevModel_FormatCapabilities/no_capabilities
+=== RUN   TestModelsDevModel_FormatCapabilities/only_context
+=== RUN   TestModelsDevModel_FormatCapabilities/million_tokens
+=== RUN   TestModelsDevModel_FormatCapabilities/reasoning_only
+=== RUN   TestModelsDevModel_FormatCapabilities/tools_only
+=== RUN   TestModelsDevModel_FormatCapabilities/vision_only
+=== RUN   TestModelsDevModel_FormatCapabilities/context_and_reasoning
+=== RUN   TestModelsDevModel_FormatCapabilities/context_and_tools
+=== RUN   TestModelsDevModel_FormatCapabilities/context_and_vision
+--- PASS: TestModelsDevModel_FormatCapabilities (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/full_capabilities (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/no_capabilities (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/only_context (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/million_tokens (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/reasoning_only (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/tools_only (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/vision_only (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/context_and_reasoning (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/context_and_tools (0.00s)
+    --- PASS: TestModelsDevModel_FormatCapabilities/context_and_vision (0.00s)
+=== RUN   TestModelsDevResponse_Unmarshal
+--- PASS: TestModelsDevResponse_Unmarshal (0.00s)
+=== RUN   TestModelsDevResponse_Unmarshal_Defaults
+--- PASS: TestModelsDevResponse_Unmarshal_Defaults (0.00s)
+=== RUN   TestModelsDevResponse_ListProviders
+--- PASS: TestModelsDevResponse_ListProviders (0.00s)
+=== RUN   TestModelsDevResponse_ListProviders_Nil
+--- PASS: TestModelsDevResponse_ListProviders_Nil (0.00s)
+=== RUN   TestModelsDevResponse_GetProviderModels
+--- PASS: TestModelsDevResponse_GetProviderModels (0.00s)
+=== RUN   TestModelsDevResponse_GetProviderModels_NotFound
+--- PASS: TestModelsDevResponse_GetProviderModels_NotFound (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/models	(cached)
+=== RUN   TestGetActive_NoConfig
+--- PASS: TestGetActive_NoConfig (0.00s)
+=== RUN   TestGetActive_MatchingProfile
+--- PASS: TestGetActive_MatchingProfile (0.00s)
+=== RUN   TestGetActive_OrphanConfig
+--- PASS: TestGetActive_OrphanConfig (0.00s)
+=== RUN   TestSetActive
+--- PASS: TestSetActive (0.00s)
+=== RUN   TestSetActive_NotFound
+--- PASS: TestSetActive_NotFound (0.00s)
+=== RUN   TestMatchesConfig_SchemaDifference
+--- PASS: TestMatchesConfig_SchemaDifference (0.00s)
+=== RUN   TestMatchesProfile
+--- PASS: TestMatchesProfile (0.00s)
+=== RUN   TestNormalizeForComparison
+--- PASS: TestNormalizeForComparison (0.00s)
+=== RUN   TestValidateName
+=== RUN   TestValidateName/valid_simple
+=== RUN   TestValidateName/valid_with_dash
+=== RUN   TestValidateName/valid_with_underscore
+=== RUN   TestValidateName/valid_with_numbers
+=== RUN   TestValidateName/valid_mixed
+=== RUN   TestValidateName/empty
+=== RUN   TestValidateName/with_spaces
+=== RUN   TestValidateName/with_slash
+=== RUN   TestValidateName/with_dots
+=== RUN   TestValidateName/with_special_chars
+--- PASS: TestValidateName (0.00s)
+    --- PASS: TestValidateName/valid_simple (0.00s)
+    --- PASS: TestValidateName/valid_with_dash (0.00s)
+    --- PASS: TestValidateName/valid_with_underscore (0.00s)
+    --- PASS: TestValidateName/valid_with_numbers (0.00s)
+    --- PASS: TestValidateName/valid_mixed (0.00s)
+    --- PASS: TestValidateName/empty (0.00s)
+    --- PASS: TestValidateName/with_spaces (0.00s)
+    --- PASS: TestValidateName/with_slash (0.00s)
+    --- PASS: TestValidateName/with_dots (0.00s)
+    --- PASS: TestValidateName/with_special_chars (0.00s)
+=== RUN   TestSanitizeName
+=== RUN   TestSanitizeName/already_valid
+=== RUN   TestSanitizeName/with_spaces
+=== RUN   TestSanitizeName/with_dots
+=== RUN   TestSanitizeName/with_slashes
+=== RUN   TestSanitizeName/with_special_chars
+=== RUN   TestSanitizeName/leading_dash
+=== RUN   TestSanitizeName/trailing_underscore
+=== RUN   TestSanitizeName/mixed
+--- PASS: TestSanitizeName (0.00s)
+    --- PASS: TestSanitizeName/already_valid (0.00s)
+    --- PASS: TestSanitizeName/with_spaces (0.00s)
+    --- PASS: TestSanitizeName/with_dots (0.00s)
+    --- PASS: TestSanitizeName/with_slashes (0.00s)
+    --- PASS: TestSanitizeName/with_special_chars (0.00s)
+    --- PASS: TestSanitizeName/leading_dash (0.00s)
+    --- PASS: TestSanitizeName/trailing_underscore (0.00s)
+    --- PASS: TestSanitizeName/mixed (0.00s)
+=== RUN   TestLoad
+--- PASS: TestLoad (0.00s)
+=== RUN   TestLoadNonexistent
+--- PASS: TestLoadNonexistent (0.00s)
+=== RUN   TestSave
+--- PASS: TestSave (0.00s)
+=== RUN   TestDelete
+--- PASS: TestDelete (0.00s)
+=== RUN   TestDeleteNonexistent
+--- PASS: TestDeleteNonexistent (0.00s)
+=== RUN   TestList
+--- PASS: TestList (0.00s)
+=== RUN   TestListEmpty
+--- PASS: TestListEmpty (0.00s)
+=== RUN   TestExists
+--- PASS: TestExists (0.00s)
+=== RUN   TestLoadWithLegacyFields
+--- PASS: TestLoadWithLegacyFields (0.00s)
+=== RUN   TestLoadWithoutLegacyFields
+--- PASS: TestLoadWithoutLegacyFields (0.00s)
+=== RUN   TestProfileLoadPreservesUnknownJSON
+--- PASS: TestProfileLoadPreservesUnknownJSON (0.00s)
+=== RUN   TestProfileLoadCapturesFieldPresence
+--- PASS: TestProfileLoadCapturesFieldPresence (0.00s)
+=== RUN   TestProfileLoadCapturesLeafPresenceForNestedKnownFields
+--- PASS: TestProfileLoadCapturesLeafPresenceForNestedKnownFields (0.00s)
+=== RUN   TestProfileSaveRoundTripsPreservedUnknownFragments
+--- PASS: TestProfileSaveRoundTripsPreservedUnknownFragments (0.00s)
+=== RUN   TestProfileLoadFailsOnMalformedJSON
+--- PASS: TestProfileLoadFailsOnMalformedJSON (0.00s)
+=== RUN   TestRegressionSparsePersistenceContract
+=== RUN   TestRegressionSparsePersistenceContract/selected_zero_values_survive_sparse_JSON
+=== RUN   TestRegressionSparsePersistenceContract/multiple_preserved_unknown_fragments_survive_and_known_leaves_win_overlaps
+=== RUN   TestRegressionSparsePersistenceContract/custom_bundle_survives_round-trip
+=== RUN   TestRegressionSparsePersistenceContract/custom_flags_survive_round-trip
+--- PASS: TestRegressionSparsePersistenceContract (0.00s)
+    --- PASS: TestRegressionSparsePersistenceContract/selected_zero_values_survive_sparse_JSON (0.00s)
+    --- PASS: TestRegressionSparsePersistenceContract/multiple_preserved_unknown_fragments_survive_and_known_leaves_win_overlaps (0.00s)
+    --- PASS: TestRegressionSparsePersistenceContract/custom_bundle_survives_round-trip (0.00s)
+    --- PASS: TestRegressionSparsePersistenceContract/custom_flags_survive_round-trip (0.00s)
+=== RUN   TestNewBlankSelectionHasNothingSelected
+--- PASS: TestNewBlankSelectionHasNothingSelected (0.00s)
+=== RUN   TestNewSelectionFromPresenceSeedsFromExistingProfile
+--- PASS: TestNewSelectionFromPresenceSeedsFromExistingProfile (0.00s)
+=== RUN   TestNewSelectionFromPresenceOnlySelectsPresentLeafPaths
+--- PASS: TestNewSelectionFromPresenceOnlySelectsPresentLeafPaths (0.00s)
+=== RUN   TestToggleDoesNotAffectValues
+--- PASS: TestToggleDoesNotAffectValues (0.00s)
+=== RUN   TestWildcardMatching
+--- PASS: TestWildcardMatching (0.00s)
+=== RUN   TestCloneIndependence
+--- PASS: TestCloneIndependence (0.00s)
+=== RUN   TestSelectedPathsReturnsSorted
+--- PASS: TestSelectedPathsReturnsSorted (0.00s)
+=== RUN   TestSparseSerializerOmitsUncheckedFields
+--- PASS: TestSparseSerializerOmitsUncheckedFields (0.00s)
+=== RUN   TestSparseSerializerKeepsExplicitZeroValuesWhenSelected
+--- PASS: TestSparseSerializerKeepsExplicitZeroValuesWhenSelected (0.00s)
+=== RUN   TestSparseSerializerMergesPreservedUnknownFragments
+--- PASS: TestSparseSerializerMergesPreservedUnknownFragments (0.00s)
+=== RUN   TestSparseSerializerKnownPathsOverridePreservedUnknownFragments
+--- PASS: TestSparseSerializerKnownPathsOverridePreservedUnknownFragments (0.00s)
+=== RUN   TestSparseSerializerProducesStablePrettyJSON
+--- PASS: TestSparseSerializerProducesStablePrettyJSON (0.00s)
+=== RUN   TestSparseSerializerOmitsEmptyParentObjects
+--- PASS: TestSparseSerializerOmitsEmptyParentObjects (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/profile	(cached)
+=== RUN   TestGetEmbeddedSchema_ReturnsNonEmpty
+--- PASS: TestGetEmbeddedSchema_ReturnsNonEmpty (0.00s)
+=== RUN   TestGetEmbeddedSchema_ReturnsValidJSON
+--- PASS: TestGetEmbeddedSchema_ReturnsValidJSON (0.00s)
+=== RUN   TestFetchUpstreamSchema_Success
+--- PASS: TestFetchUpstreamSchema_Success (0.00s)
+=== RUN   TestFetchUpstreamSchema_Timeout
+--- PASS: TestFetchUpstreamSchema_Timeout (2.00s)
+=== RUN   TestFetchUpstreamSchema_NetworkError
+--- PASS: TestFetchUpstreamSchema_NetworkError (0.00s)
+=== RUN   TestFetchUpstreamSchema_HTTPError
+--- PASS: TestFetchUpstreamSchema_HTTPError (0.00s)
+=== RUN   TestCompareSchemas_Identical
+--- PASS: TestCompareSchemas_Identical (0.00s)
+=== RUN   TestCompareSchemas_Different
+--- PASS: TestCompareSchemas_Different (0.00s)
+=== RUN   TestSaveDiff_CreatesFile
+--- PASS: TestSaveDiff_CreatesFile (0.00s)
+=== RUN   TestSaveDiff_InvalidDirectory
+--- PASS: TestSaveDiff_InvalidDirectory (0.00s)
+=== RUN   TestSchemaEmbedded
+--- PASS: TestSchemaEmbedded (0.00s)
+=== RUN   TestNewValidator
+--- PASS: TestNewValidator (0.00s)
+=== RUN   TestValidate_ValidConfig
+--- PASS: TestValidate_ValidConfig (0.00s)
+=== RUN   TestValidate_ValidConfigWithAgents
+--- PASS: TestValidate_ValidConfigWithAgents (0.00s)
+=== RUN   TestValidate_InvalidTemperature
+--- PASS: TestValidate_InvalidTemperature (0.00s)
+=== RUN   TestValidate_InvalidTopP
+--- PASS: TestValidate_InvalidTopP (0.00s)
+=== RUN   TestValidate_InvalidMode
+--- PASS: TestValidate_InvalidMode (0.00s)
+=== RUN   TestValidate_InvalidColor
+--- PASS: TestValidate_InvalidColor (0.00s)
+=== RUN   TestValidate_InvalidPermission
+--- PASS: TestValidate_InvalidPermission (0.00s)
+=== RUN   TestValidateJSON_ValidJSON
+--- PASS: TestValidateJSON_ValidJSON (0.00s)
+=== RUN   TestValidateJSON_ValidJSONWithAgents
+--- PASS: TestValidateJSON_ValidJSONWithAgents (0.00s)
+=== RUN   TestValidateJSON_InvalidTemperature
+--- PASS: TestValidateJSON_InvalidTemperature (0.00s)
+=== RUN   TestValidateJSON_InvalidJSON
+--- PASS: TestValidateJSON_InvalidJSON (0.00s)
+=== RUN   TestValidateForSaveAllowsEmptyConfig
+--- PASS: TestValidateForSaveAllowsEmptyConfig (0.00s)
+=== RUN   TestValidateForSaveRejectsMalformedPresentValues
+--- PASS: TestValidateForSaveRejectsMalformedPresentValues (0.00s)
+=== RUN   TestValidateStrictStillReportsRequiredness
+--- PASS: TestValidateStrictStillReportsRequiredness (0.00s)
+=== RUN   TestValidateForSaveFiltersOnlyRequiredErrors
+--- PASS: TestValidateForSaveFiltersOnlyRequiredErrors (0.00s)
+=== RUN   TestValidationError_HasPath
+--- PASS: TestValidationError_HasPath (0.00s)
+=== RUN   TestValidationError_Error
+--- PASS: TestValidationError_Error (0.00s)
+=== RUN   TestRegressionSparseValidationContract
+=== RUN   TestRegressionSparseValidationContract/invalid_enum_remains_invalid_after_sparse_marshal
+=== RUN   TestRegressionSparseValidationContract/wrong_type_survives_required-error_filtering
+--- PASS: TestRegressionSparseValidationContract (0.00s)
+    --- PASS: TestRegressionSparseValidationContract/invalid_enum_remains_invalid_after_sparse_marshal (0.00s)
+    --- PASS: TestRegressionSparseValidationContract/wrong_type_survives_required-error_filtering (0.00s)
+=== RUN   TestValidateJSONForSave_AllowsEmptySparseConfig
+--- PASS: TestValidateJSONForSave_AllowsEmptySparseConfig (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/schema	(cached)
+=== RUN   TestJoinWithSeparator
+=== RUN   TestJoinWithSeparator/empty_slice
+=== RUN   TestJoinWithSeparator/single_item
+=== RUN   TestJoinWithSeparator/two_items
+=== RUN   TestJoinWithSeparator/three_items
+=== RUN   TestJoinWithSeparator/multiple_items_with_space_separator
+=== RUN   TestJoinWithSeparator/empty_string_separator
+--- PASS: TestJoinWithSeparator (0.00s)
+    --- PASS: TestJoinWithSeparator/empty_slice (0.00s)
+    --- PASS: TestJoinWithSeparator/single_item (0.00s)
+    --- PASS: TestJoinWithSeparator/two_items (0.00s)
+    --- PASS: TestJoinWithSeparator/three_items (0.00s)
+    --- PASS: TestJoinWithSeparator/multiple_items_with_space_separator (0.00s)
+    --- PASS: TestJoinWithSeparator/empty_string_separator (0.00s)
+=== RUN   TestPlaceholderView
+--- PASS: TestPlaceholderView (0.00s)
+=== RUN   TestNewApp
+--- PASS: TestNewApp (0.00s)
+=== RUN   TestAppInit
+--- PASS: TestAppInit (0.00s)
+=== RUN   TestAppUpdateWindowSizeMsg
+--- PASS: TestAppUpdateWindowSizeMsg (0.00s)
+=== RUN   TestAppShowToast
+--- PASS: TestAppShowToast (0.00s)
+=== RUN   TestToastMessage
+--- PASS: TestToastMessage (0.00s)
+=== RUN   TestClearToastMessage
+--- PASS: TestClearToastMessage (0.00s)
+=== RUN   TestRenderShortHelp
+=== RUN   TestRenderShortHelp/help_test
+=== RUN   TestRenderShortHelp/help_test#01
+=== RUN   TestRenderShortHelp/help_test#02
+=== RUN   TestRenderShortHelp/help_test#03
+=== RUN   TestRenderShortHelp/help_test#04
+=== RUN   TestRenderShortHelp/help_test#05
+=== RUN   TestRenderShortHelp/help_test#06
+=== RUN   TestRenderShortHelp/help_test#07
+=== RUN   TestRenderShortHelp/help_test#08
+--- PASS: TestRenderShortHelp (0.00s)
+    --- PASS: TestRenderShortHelp/help_test (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#01 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#02 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#03 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#04 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#05 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#06 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#07 (0.00s)
+    --- PASS: TestRenderShortHelp/help_test#08 (0.00s)
+=== RUN   TestRenderFullHelp
+=== RUN   TestRenderFullHelp/dashboard
+=== RUN   TestRenderFullHelp/list
+=== RUN   TestRenderFullHelp/wizard
+--- PASS: TestRenderFullHelp (0.00s)
+    --- PASS: TestRenderFullHelp/dashboard (0.00s)
+    --- PASS: TestRenderFullHelp/list (0.00s)
+    --- PASS: TestRenderFullHelp/wizard (0.00s)
+=== RUN   TestNavigateTo
+=== RUN   TestNavigateTo/navigation_test
+=== RUN   TestNavigateTo/navigation_test#01
+=== RUN   TestNavigateTo/navigation_test#02
+=== RUN   TestNavigateTo/navigation_test#03
+=== RUN   TestNavigateTo/navigation_test#04
+=== RUN   TestNavigateTo/navigation_test#05
+=== RUN   TestNavigateTo/navigation_test#06
+=== RUN   TestNavigateTo/navigation_test#07
+=== RUN   TestNavigateTo/navigation_test#08
+--- PASS: TestNavigateTo (0.00s)
+    --- PASS: TestNavigateTo/navigation_test (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#01 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#02 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#03 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#04 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#05 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#06 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#07 (0.00s)
+    --- PASS: TestNavigateTo/navigation_test#08 (0.00s)
+=== RUN   TestDoSwitchProfile
+--- PASS: TestDoSwitchProfile (0.00s)
+=== RUN   TestDoDeleteProfile
+--- PASS: TestDoDeleteProfile (0.00s)
+=== RUN   TestLayoutFixedSmallWidth
+--- PASS: TestLayoutFixedSmallWidth (0.00s)
+=== RUN   TestLayoutMediumFieldWidth
+=== RUN   TestLayoutMediumFieldWidth/standard_80
+=== RUN   TestLayoutMediumFieldWidth/wide_120
+=== RUN   TestLayoutMediumFieldWidth/very_wide_200
+=== RUN   TestLayoutMediumFieldWidth/ultra_wide_300
+=== RUN   TestLayoutMediumFieldWidth/very_large_500
+=== RUN   TestLayoutMediumFieldWidth/narrow_50
+=== RUN   TestLayoutMediumFieldWidth/narrow_40
+=== RUN   TestLayoutMediumFieldWidth/very_narrow_20
+=== RUN   TestLayoutMediumFieldWidth/zero_width
+=== RUN   TestLayoutMediumFieldWidth/negative_width
+--- PASS: TestLayoutMediumFieldWidth (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/standard_80 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/wide_120 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/very_wide_200 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/ultra_wide_300 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/very_large_500 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/narrow_50 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/narrow_40 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/very_narrow_20 (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/zero_width (0.00s)
+    --- PASS: TestLayoutMediumFieldWidth/negative_width (0.00s)
+=== RUN   TestLayoutWideFieldWidth
+=== RUN   TestLayoutWideFieldWidth/standard_80_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/wide_120_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/very_wide_200_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/ultra_wide_300_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/narrow_30_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/narrow_25_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/very_narrow_15_with_padding_10
+=== RUN   TestLayoutWideFieldWidth/zero_width
+=== RUN   TestLayoutWideFieldWidth/negative_width
+=== RUN   TestLayoutWideFieldWidth/zero_padding
+=== RUN   TestLayoutWideFieldWidth/large_padding
+--- PASS: TestLayoutWideFieldWidth (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/standard_80_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/wide_120_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/very_wide_200_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/ultra_wide_300_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/narrow_30_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/narrow_25_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/very_narrow_15_with_padding_10 (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/zero_width (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/negative_width (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/zero_padding (0.00s)
+    --- PASS: TestLayoutWideFieldWidth/large_padding (0.00s)
+=== RUN   TestLayoutTruncateWithEllipsis
+=== RUN   TestLayoutTruncateWithEllipsis/short_text_no_truncation
+=== RUN   TestLayoutTruncateWithEllipsis/exact_fit
+=== RUN   TestLayoutTruncateWithEllipsis/overflow_with_ellipsis
+=== RUN   TestLayoutTruncateWithEllipsis/empty_string
+=== RUN   TestLayoutTruncateWithEllipsis/zero_width
+=== RUN   TestLayoutTruncateWithEllipsis/negative_width
+=== RUN   TestLayoutTruncateWithEllipsis/width_1
+=== RUN   TestLayoutTruncateWithEllipsis/width_2
+=== RUN   TestLayoutTruncateWithEllipsis/width_3
+=== RUN   TestLayoutTruncateWithEllipsis/width_4_truncates
+=== RUN   TestLayoutTruncateWithEllipsis/unicode_Japanese
+=== RUN   TestLayoutTruncateWithEllipsis/unicode_short
+=== RUN   TestLayoutTruncateWithEllipsis/unicode_exact
+=== RUN   TestLayoutTruncateWithEllipsis/unicode_overflow
+=== RUN   TestLayoutTruncateWithEllipsis/mixed_unicode_and_ASCII
+--- PASS: TestLayoutTruncateWithEllipsis (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/short_text_no_truncation (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/exact_fit (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/overflow_with_ellipsis (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/empty_string (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/zero_width (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/negative_width (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/width_1 (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/width_2 (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/width_3 (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/width_4_truncates (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/unicode_Japanese (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/unicode_short (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/unicode_exact (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/unicode_overflow (0.00s)
+    --- PASS: TestLayoutTruncateWithEllipsis/mixed_unicode_and_ASCII (0.00s)
+=== RUN   TestLayoutIsBelowMinimumSize
+=== RUN   TestLayoutIsBelowMinimumSize/below_width_39x12
+=== RUN   TestLayoutIsBelowMinimumSize/below_height_40x11
+=== RUN   TestLayoutIsBelowMinimumSize/at_minimum_40x12
+=== RUN   TestLayoutIsBelowMinimumSize/above_minimum_41x13
+=== RUN   TestLayoutIsBelowMinimumSize/old_minimum_still_passes_60x25
+=== RUN   TestLayoutIsBelowMinimumSize/width_zero
+=== RUN   TestLayoutIsBelowMinimumSize/height_zero
+=== RUN   TestLayoutIsBelowMinimumSize/both_zero
+=== RUN   TestLayoutIsBelowMinimumSize/large_terminal
+--- PASS: TestLayoutIsBelowMinimumSize (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/below_width_39x12 (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/below_height_40x11 (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/at_minimum_40x12 (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/above_minimum_41x13 (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/old_minimum_still_passes_60x25 (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/width_zero (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/height_zero (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/both_zero (0.00s)
+    --- PASS: TestLayoutIsBelowMinimumSize/large_terminal (0.00s)
+=== RUN   TestLayoutRenderMinimumSizeWarning
+--- PASS: TestLayoutRenderMinimumSizeWarning (0.00s)
+=== RUN   TestLayoutIsCompact
+--- PASS: TestLayoutIsCompact (0.00s)
+=== RUN   TestLayoutIsShort
+--- PASS: TestLayoutIsShort (0.00s)
+=== RUN   TestLayoutHelpBarHeight
+--- PASS: TestLayoutHelpBarHeight (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui	(cached)
+=== RUN   TestFixedSmallWidth
+--- PASS: TestFixedSmallWidth (0.00s)
+=== RUN   TestIsCompact
+=== RUN   TestIsCompact/compact_at_40
+=== RUN   TestIsCompact/compact_at_59
+=== RUN   TestIsCompact/not_compact_at_60
+=== RUN   TestIsCompact/not_compact_at_80
+--- PASS: TestIsCompact (0.00s)
+    --- PASS: TestIsCompact/compact_at_40 (0.00s)
+    --- PASS: TestIsCompact/compact_at_59 (0.00s)
+    --- PASS: TestIsCompact/not_compact_at_60 (0.00s)
+    --- PASS: TestIsCompact/not_compact_at_80 (0.00s)
+=== RUN   TestIsShort
+=== RUN   TestIsShort/short_at_12
+=== RUN   TestIsShort/short_at_19
+=== RUN   TestIsShort/not_short_at_20
+=== RUN   TestIsShort/not_short_at_25
+--- PASS: TestIsShort (0.00s)
+    --- PASS: TestIsShort/short_at_12 (0.00s)
+    --- PASS: TestIsShort/short_at_19 (0.00s)
+    --- PASS: TestIsShort/not_short_at_20 (0.00s)
+    --- PASS: TestIsShort/not_short_at_25 (0.00s)
+=== RUN   TestHelpBarHeight
+=== RUN   TestHelpBarHeight/tiny_returns_1
+=== RUN   TestHelpBarHeight/at_15_returns_1
+=== RUN   TestHelpBarHeight/at_16_returns_2
+=== RUN   TestHelpBarHeight/normal_returns_2
+--- PASS: TestHelpBarHeight (0.00s)
+    --- PASS: TestHelpBarHeight/tiny_returns_1 (0.00s)
+    --- PASS: TestHelpBarHeight/at_15_returns_1 (0.00s)
+    --- PASS: TestHelpBarHeight/at_16_returns_2 (0.00s)
+    --- PASS: TestHelpBarHeight/normal_returns_2 (0.00s)
+=== RUN   TestWideFieldWidth
+=== RUN   TestWideFieldWidth/standard_width
+=== RUN   TestWideFieldWidth/larger_width
+=== RUN   TestWideFieldWidth/capped_at_max
+=== RUN   TestWideFieldWidth/clamped_minimum
+=== RUN   TestWideFieldWidth/very_narrow_clamped
+--- PASS: TestWideFieldWidth (0.00s)
+    --- PASS: TestWideFieldWidth/standard_width (0.00s)
+    --- PASS: TestWideFieldWidth/larger_width (0.00s)
+    --- PASS: TestWideFieldWidth/capped_at_max (0.00s)
+    --- PASS: TestWideFieldWidth/clamped_minimum (0.00s)
+    --- PASS: TestWideFieldWidth/very_narrow_clamped (0.00s)
+=== RUN   TestTruncateWithEllipsis
+=== RUN   TestTruncateWithEllipsis/short_text_unchanged
+=== RUN   TestTruncateWithEllipsis/overflow_uses_ellipsis
+=== RUN   TestTruncateWithEllipsis/non-positive_width_returns_empty
+=== RUN   TestTruncateWithEllipsis/very_small_width_has_no_ellipsis_suffix
+=== RUN   TestTruncateWithEllipsis/unicode_width_respected
+--- PASS: TestTruncateWithEllipsis (0.00s)
+    --- PASS: TestTruncateWithEllipsis/short_text_unchanged (0.00s)
+    --- PASS: TestTruncateWithEllipsis/overflow_uses_ellipsis (0.00s)
+    --- PASS: TestTruncateWithEllipsis/non-positive_width_returns_empty (0.00s)
+    --- PASS: TestTruncateWithEllipsis/very_small_width_has_no_ellipsis_suffix (0.00s)
+    --- PASS: TestTruncateWithEllipsis/unicode_width_respected (0.00s)
+=== RUN   TestIsBelowMinimumSize
+=== RUN   TestIsBelowMinimumSize/exact_minimum
+=== RUN   TestIsBelowMinimumSize/below_width
+=== RUN   TestIsBelowMinimumSize/below_height
+=== RUN   TestIsBelowMinimumSize/above_minimum
+--- PASS: TestIsBelowMinimumSize (0.00s)
+    --- PASS: TestIsBelowMinimumSize/exact_minimum (0.00s)
+    --- PASS: TestIsBelowMinimumSize/below_width (0.00s)
+    --- PASS: TestIsBelowMinimumSize/below_height (0.00s)
+    --- PASS: TestIsBelowMinimumSize/above_minimum (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/layout	(cached)
+=== RUN   TestNewDashboard
+--- PASS: TestNewDashboard (0.00s)
+=== RUN   TestDashboardInit
+--- PASS: TestDashboardInit (0.00s)
+=== RUN   TestDashboardLoadActiveProfile
+--- PASS: TestDashboardLoadActiveProfile (0.00s)
+=== RUN   TestDashboardUpdateProfileLoadedMsg
+--- PASS: TestDashboardUpdateProfileLoadedMsg (0.00s)
+=== RUN   TestDashboardUpdateProfileLoadedMsgWithError
+--- PASS: TestDashboardUpdateProfileLoadedMsgWithError (0.00s)
+=== RUN   TestDashboardUpdateWindowSizeMsg
+--- PASS: TestDashboardUpdateWindowSizeMsg (0.00s)
+=== RUN   TestDashboardUpdateUpKey
+--- PASS: TestDashboardUpdateUpKey (0.00s)
+=== RUN   TestDashboardUpdateDownKey
+--- PASS: TestDashboardUpdateDownKey (0.00s)
+=== RUN   TestDashboardUpdateEnterKey
+=== RUN   TestDashboardUpdateEnterKey/Switch_Profile
+=== RUN   TestDashboardUpdateEnterKey/Create_New
+=== RUN   TestDashboardUpdateEnterKey/Create_from_Template
+=== RUN   TestDashboardUpdateEnterKey/Edit_Current
+=== RUN   TestDashboardUpdateEnterKey/Compare_Profiles
+=== RUN   TestDashboardUpdateEnterKey/Manage_Models
+=== RUN   TestDashboardUpdateEnterKey/Import_Profile
+=== RUN   TestDashboardUpdateEnterKey/Export_Profile
+--- PASS: TestDashboardUpdateEnterKey (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Switch_Profile (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Create_New (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Create_from_Template (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Edit_Current (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Compare_Profiles (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Manage_Models (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Import_Profile (0.00s)
+    --- PASS: TestDashboardUpdateEnterKey/Export_Profile (0.00s)
+=== RUN   TestDashboardUpdateImportKey
+--- PASS: TestDashboardUpdateImportKey (0.00s)
+=== RUN   TestDashboardUpdateExportKey
+--- PASS: TestDashboardUpdateExportKey (0.00s)
+=== RUN   TestDashboardUpdateUnknownKey
+--- PASS: TestDashboardUpdateUnknownKey (0.00s)
+=== RUN   TestDashboardView
+--- PASS: TestDashboardView (0.00s)
+=== RUN   TestDashboardViewWithActiveProfile
+--- PASS: TestDashboardViewWithActiveProfile (0.00s)
+=== RUN   TestDashboardViewWithNoActiveProfile
+--- PASS: TestDashboardViewWithNoActiveProfile (0.00s)
+=== RUN   TestDashboardViewWithError
+--- PASS: TestDashboardViewWithError (0.00s)
+=== RUN   TestDashboardRenderMenu
+--- PASS: TestDashboardRenderMenu (0.00s)
+=== RUN   TestDashboardRenderMenuCursorPosition
+--- PASS: TestDashboardRenderMenuCursorPosition (0.00s)
+=== RUN   TestDashboardRefresh
+--- PASS: TestDashboardRefresh (0.00s)
+=== RUN   TestDashboardSetSize
+--- PASS: TestDashboardSetSize (0.00s)
+=== RUN   TestMenuItems
+--- PASS: TestMenuItems (0.00s)
+=== RUN   TestDashboardKeyMap
+=== RUN   TestDashboardKeyMap/Up
+    dashboard_test.go:505: Up key binding help: ↑/k
+=== RUN   TestDashboardKeyMap/Down
+    dashboard_test.go:505: Down key binding help: ↓/j
+=== RUN   TestDashboardKeyMap/Enter
+    dashboard_test.go:505: Enter key binding help: enter
+=== RUN   TestDashboardKeyMap/Import
+    dashboard_test.go:505: Import key binding help: i
+=== RUN   TestDashboardKeyMap/Export
+    dashboard_test.go:505: Export key binding help: e
+--- PASS: TestDashboardKeyMap (0.00s)
+    --- PASS: TestDashboardKeyMap/Up (0.00s)
+    --- PASS: TestDashboardKeyMap/Down (0.00s)
+    --- PASS: TestDashboardKeyMap/Enter (0.00s)
+    --- PASS: TestDashboardKeyMap/Import (0.00s)
+    --- PASS: TestDashboardKeyMap/Export (0.00s)
+=== RUN   TestNewDiff
+--- PASS: TestNewDiff (0.00s)
+=== RUN   TestDiffInit
+--- PASS: TestDiffInit (0.00s)
+=== RUN   TestDiffLoadProfiles
+--- PASS: TestDiffLoadProfiles (0.00s)
+=== RUN   TestDiffComputeDiff
+--- PASS: TestDiffComputeDiff (0.00s)
+=== RUN   TestDiffSetSize
+--- PASS: TestDiffSetSize (0.00s)
+=== RUN   TestDiffSetSizeZeroDimensions
+--- PASS: TestDiffSetSizeZeroDimensions (0.00s)
+=== RUN   TestDiffUpdateWindowSizeMsg
+--- PASS: TestDiffUpdateWindowSizeMsg (0.00s)
+=== RUN   TestDiffUpdateDiffProfilesLoadedMsg
+--- PASS: TestDiffUpdateDiffProfilesLoadedMsg (0.00s)
+=== RUN   TestDiffUpdateDiffProfilesLoadedMsgLessThanTwo
+--- PASS: TestDiffUpdateDiffProfilesLoadedMsgLessThanTwo (0.00s)
+=== RUN   TestDiffUpdateDiffProfilesLoadedMsgWithError
+--- PASS: TestDiffUpdateDiffProfilesLoadedMsgWithError (0.00s)
+=== RUN   TestDiffUpdateDiffComputedMsg
+--- PASS: TestDiffUpdateDiffComputedMsg (0.00s)
+=== RUN   TestDiffHandleNavigationKeysUp
+--- PASS: TestDiffHandleNavigationKeysUp (0.00s)
+=== RUN   TestDiffHandleNavigationKeysDown
+--- PASS: TestDiffHandleNavigationKeysDown (0.00s)
+=== RUN   TestDiffHandleNavigationKeysTab
+--- PASS: TestDiffHandleNavigationKeysTab (0.00s)
+=== RUN   TestDiffHandleNavigationKeysEnter
+--- PASS: TestDiffHandleNavigationKeysEnter (0.00s)
+=== RUN   TestDiffHandleNavigationKeysEnterRightFocus
+--- PASS: TestDiffHandleNavigationKeysEnterRightFocus (0.00s)
+=== RUN   TestDiffHandleSelectionKeysUp
+--- PASS: TestDiffHandleSelectionKeysUp (0.00s)
+=== RUN   TestDiffHandleSelectionKeysDown
+--- PASS: TestDiffHandleSelectionKeysDown (0.00s)
+=== RUN   TestDiffHandleSelectionKeysEnter
+--- PASS: TestDiffHandleSelectionKeysEnter (0.00s)
+=== RUN   TestDiffHandleSelectionKeysEsc
+--- PASS: TestDiffHandleSelectionKeysEsc (0.00s)
+=== RUN   TestDiffScrollBoth
+--- PASS: TestDiffScrollBoth (0.00s)
+=== RUN   TestDiffScrollBothClampsToZero
+--- PASS: TestDiffScrollBothClampsToZero (0.00s)
+=== RUN   TestDiffScrollBothWhenNotReady
+--- PASS: TestDiffScrollBothWhenNotReady (0.00s)
+=== RUN   TestDiffBorderColor
+--- PASS: TestDiffBorderColor (0.00s)
+=== RUN   TestDiffShouldReturn
+--- PASS: TestDiffShouldReturn (0.00s)
+=== RUN   TestDiffViewWithError
+--- PASS: TestDiffViewWithError (0.00s)
+=== RUN   TestDiffViewNoProfiles
+--- PASS: TestDiffViewNoProfiles (0.00s)
+=== RUN   TestDiffViewLessThanTwoProfiles
+--- PASS: TestDiffViewLessThanTwoProfiles (0.00s)
+=== RUN   TestDiffViewBasic
+--- PASS: TestDiffViewBasic (0.00s)
+=== RUN   TestDiffViewComputingDiff
+--- PASS: TestDiffViewComputingDiff (0.00s)
+=== RUN   TestDiffViewWithDiffResult
+--- PASS: TestDiffViewWithDiffResult (0.00s)
+=== RUN   TestDiffRenderDiffPane
+--- PASS: TestDiffRenderDiffPane (0.00s)
+=== RUN   TestDiffRenderSelectorNotSelecting
+--- PASS: TestDiffRenderSelectorNotSelecting (0.00s)
+=== RUN   TestDiffRenderSelectorSelecting
+--- PASS: TestDiffRenderSelectorSelecting (0.00s)
+=== RUN   TestNewExport
+--- PASS: TestNewExport (0.00s)
+=== RUN   TestExportSetSize
+--- PASS: TestExportSetSize (0.00s)
+=== RUN   TestExportUpdate
+--- PASS: TestExportUpdate (0.00s)
+=== RUN   TestExportCancel
+--- PASS: TestExportCancel (0.00s)
+=== RUN   TestExportDoneWithEmptyPath
+--- PASS: TestExportDoneWithEmptyPath (0.00s)
+=== RUN   TestExportDoneWithValidPath
+--- PASS: TestExportDoneWithValidPath (0.00s)
+=== RUN   TestAutoRenameIfExists
+=== RUN   TestAutoRenameIfExists/file_does_not_exist
+=== RUN   TestAutoRenameIfExists/file_exists
+=== RUN   TestAutoRenameIfExists/multiple_files_exist
+--- PASS: TestAutoRenameIfExists (0.00s)
+    --- PASS: TestAutoRenameIfExists/file_does_not_exist (0.00s)
+    --- PASS: TestAutoRenameIfExists/file_exists (0.00s)
+    --- PASS: TestAutoRenameIfExists/multiple_files_exist (0.00s)
+=== RUN   TestExpandExportPath
+=== RUN   TestExpandExportPath/tilde_expansion
+=== RUN   TestExpandExportPath/absolute_path
+--- PASS: TestExpandExportPath (0.00s)
+    --- PASS: TestExpandExportPath/tilde_expansion (0.00s)
+    --- PASS: TestExpandExportPath/absolute_path (0.00s)
+=== RUN   TestExpandExportPathRelative
+--- PASS: TestExpandExportPathRelative (0.00s)
+=== RUN   TestExportView
+--- PASS: TestExportView (0.00s)
+=== RUN   TestExportGetProfileName
+--- PASS: TestExportGetProfileName (0.00s)
+=== RUN   TestNewImport
+--- PASS: TestNewImport (0.00s)
+=== RUN   TestImportSetSize
+--- PASS: TestImportSetSize (0.00s)
+=== RUN   TestImportUpdate
+--- PASS: TestImportUpdate (0.00s)
+=== RUN   TestImportCancel
+--- PASS: TestImportCancel (0.00s)
+=== RUN   TestImportDoneWithEmptyPath
+--- PASS: TestImportDoneWithEmptyPath (0.00s)
+=== RUN   TestImportDoneWithNonExistentFile
+--- PASS: TestImportDoneWithNonExistentFile (0.00s)
+=== RUN   TestImportDoneWithValidFile
+--- PASS: TestImportDoneWithValidFile (0.00s)
+=== RUN   TestExpandPath
+=== RUN   TestExpandPath/tilde_expansion
+=== RUN   TestExpandPath/absolute_path
+--- PASS: TestExpandPath (0.00s)
+    --- PASS: TestExpandPath/tilde_expansion (0.00s)
+    --- PASS: TestExpandPath/absolute_path (0.00s)
+=== RUN   TestExpandPathRelative
+--- PASS: TestExpandPathRelative (0.00s)
+=== RUN   TestImportView
+--- PASS: TestImportView (0.00s)
+=== RUN   TestKeybindingsTestSetup
+    keybindings_test.go:47: Test infrastructure setup complete
+--- PASS: TestKeybindingsTestSetup (0.00s)
+=== RUN   TestWizardCategoriesRightExpands
+--- PASS: TestWizardCategoriesRightExpands (0.00s)
+=== RUN   TestWizardCategoriesLeftCollapses
+--- PASS: TestWizardCategoriesLeftCollapses (0.00s)
+=== RUN   TestWizardCategoriesRightDoesNothingWhenExpanded
+--- PASS: TestWizardCategoriesRightDoesNothingWhenExpanded (0.00s)
+=== RUN   TestWizardCategoriesLeftDoesNothingWhenCollapsed
+--- PASS: TestWizardCategoriesLeftDoesNothingWhenCollapsed (0.00s)
+=== RUN   TestWizardCategoriesLeftRightIgnoredInFormMode
+--- PASS: TestWizardCategoriesLeftRightIgnoredInFormMode (0.00s)
+=== RUN   TestWizardAgentsRightExpands
+--- PASS: TestWizardAgentsRightExpands (0.00s)
+=== RUN   TestWizardAgentsLeftCollapses
+--- PASS: TestWizardAgentsLeftCollapses (0.00s)
+=== RUN   TestWizardAgentsSpaceToggles
+--- PASS: TestWizardAgentsSpaceToggles (0.00s)
+=== RUN   TestWizardOtherRightExpandsSection
+--- PASS: TestWizardOtherRightExpandsSection (0.00s)
+=== RUN   TestWizardOtherLeftCollapsesSection
+--- PASS: TestWizardOtherLeftCollapsesSection (0.00s)
+=== RUN   TestWizardOtherRightDoesNothingWhenExpanded
+--- PASS: TestWizardOtherRightDoesNothingWhenExpanded (0.00s)
+=== RUN   TestWizardOtherLeftDoesNothingWhenCollapsed
+--- PASS: TestWizardOtherLeftDoesNothingWhenCollapsed (0.00s)
+=== RUN   TestWizardOtherLeftRightIgnoredInSubSection
+--- PASS: TestWizardOtherLeftRightIgnoredInSubSection (0.00s)
+=== RUN   TestWizardHooksSpaceToggles
+--- PASS: TestWizardHooksSpaceToggles (0.00s)
+=== RUN   TestModelRegistryIsEditingInFormMode
+--- PASS: TestModelRegistryIsEditingInFormMode (0.00s)
+=== RUN   TestModelRegistryIsEditingWithSearchFocused
+--- PASS: TestModelRegistryIsEditingWithSearchFocused (0.00s)
+=== RUN   TestModelRegistryQKeyPassesThroughInFormMode
+--- PASS: TestModelRegistryQKeyPassesThroughInFormMode (0.00s)
+=== RUN   TestModelImportIsEditingWithSearchFocused
+--- PASS: TestModelImportIsEditingWithSearchFocused (0.00s)
+=== RUN   TestWizardHooksEnterDoesNotToggle
+--- PASS: TestWizardHooksEnterDoesNotToggle (0.00s)
+=== RUN   TestProfileItemTitle
+=== RUN   TestProfileItemTitle/active_profile
+=== RUN   TestProfileItemTitle/inactive_profile
+--- PASS: TestProfileItemTitle (0.00s)
+    --- PASS: TestProfileItemTitle/active_profile (0.00s)
+    --- PASS: TestProfileItemTitle/inactive_profile (0.00s)
+=== RUN   TestProfileItemDescription
+=== RUN   TestProfileItemDescription/active_profile
+=== RUN   TestProfileItemDescription/inactive_profile
+--- PASS: TestProfileItemDescription (0.00s)
+    --- PASS: TestProfileItemDescription/active_profile (0.00s)
+    --- PASS: TestProfileItemDescription/inactive_profile (0.00s)
+=== RUN   TestProfileItemFilterValue
+--- PASS: TestProfileItemFilterValue (0.00s)
+=== RUN   TestNewListKeyMap
+=== RUN   TestNewListKeyMap/Switch
+    list_test.go:99: Switch key: enter
+=== RUN   TestNewListKeyMap/Edit
+    list_test.go:99: Edit key: e
+=== RUN   TestNewListKeyMap/Delete
+    list_test.go:99: Delete key: d
+=== RUN   TestNewListKeyMap/New
+    list_test.go:99: New key: n
+=== RUN   TestNewListKeyMap/Search
+    list_test.go:99: Search key: /
+=== RUN   TestNewListKeyMap/Back
+    list_test.go:99: Back key: esc
+=== RUN   TestNewListKeyMap/Import
+    list_test.go:99: Import key: i
+--- PASS: TestNewListKeyMap (0.00s)
+    --- PASS: TestNewListKeyMap/Switch (0.00s)
+    --- PASS: TestNewListKeyMap/Edit (0.00s)
+    --- PASS: TestNewListKeyMap/Delete (0.00s)
+    --- PASS: TestNewListKeyMap/New (0.00s)
+    --- PASS: TestNewListKeyMap/Search (0.00s)
+    --- PASS: TestNewListKeyMap/Back (0.00s)
+    --- PASS: TestNewListKeyMap/Import (0.00s)
+=== RUN   TestNewList
+--- PASS: TestNewList (0.00s)
+=== RUN   TestListInit
+--- PASS: TestListInit (0.00s)
+=== RUN   TestListLoadProfiles
+--- PASS: TestListLoadProfiles (0.00s)
+=== RUN   TestListSetSize
+--- PASS: TestListSetSize (0.00s)
+=== RUN   TestListUpdateListProfilesLoadedMsg
+--- PASS: TestListUpdateListProfilesLoadedMsg (0.00s)
+=== RUN   TestListUpdateWindowSizeMsg
+--- PASS: TestListUpdateWindowSizeMsg (0.00s)
+=== RUN   TestListUpdateBackKey
+--- PASS: TestListUpdateBackKey (0.00s)
+=== RUN   TestListUpdateNewKey
+--- PASS: TestListUpdateNewKey (0.00s)
+=== RUN   TestListUpdateImportKey
+--- PASS: TestListUpdateImportKey (0.00s)
+=== RUN   TestListUpdateDeleteConfirmationYes
+--- PASS: TestListUpdateDeleteConfirmationYes (0.00s)
+=== RUN   TestListUpdateDeleteConfirmationNo
+--- PASS: TestListUpdateDeleteConfirmationNo (0.00s)
+=== RUN   TestListUpdateDeleteConfirmationEsc
+--- PASS: TestListUpdateDeleteConfirmationEsc (0.00s)
+=== RUN   TestListUpdateDeleteKey
+--- PASS: TestListUpdateDeleteKey (0.00s)
+=== RUN   TestListUpdateUnknownKey
+--- PASS: TestListUpdateUnknownKey (0.00s)
+=== RUN   TestListView
+--- PASS: TestListView (0.00s)
+=== RUN   TestListViewWithConfirmingDelete
+--- PASS: TestListViewWithConfirmingDelete (0.00s)
+=== RUN   TestListSelectedProfile
+--- PASS: TestListSelectedProfile (0.00s)
+=== RUN   TestListIsConfirmingDelete
+--- PASS: TestListIsConfirmingDelete (0.00s)
+=== RUN   TestNewModelImport
+--- PASS: TestNewModelImport (0.00s)
+=== RUN   TestModelImportInit
+--- PASS: TestModelImportInit (0.00s)
+=== RUN   TestModelImportSetSize
+--- PASS: TestModelImportSetSize (0.00s)
+=== RUN   TestModelImportIsEditing
+--- PASS: TestModelImportIsEditing (0.00s)
+=== RUN   TestModelImportUpdateFetchModelsDevMsgSuccess
+--- PASS: TestModelImportUpdateFetchModelsDevMsgSuccess (0.00s)
+=== RUN   TestModelImportUpdateFetchModelsDevMsgError
+--- PASS: TestModelImportUpdateFetchModelsDevMsgError (0.00s)
+=== RUN   TestModelImportUpdateSpinnerTickMsg
+--- PASS: TestModelImportUpdateSpinnerTickMsg (0.00s)
+=== RUN   TestModelImportHandleProviderListKeysUp
+--- PASS: TestModelImportHandleProviderListKeysUp (0.00s)
+=== RUN   TestModelImportHandleProviderListKeysDown
+--- PASS: TestModelImportHandleProviderListKeysDown (0.00s)
+=== RUN   TestModelImportHandleProviderListKeysEnter
+--- PASS: TestModelImportHandleProviderListKeysEnter (0.00s)
+=== RUN   TestModelImportHandleProviderListKeysSearchSlash
+--- PASS: TestModelImportHandleProviderListKeysSearchSlash (0.00s)
+=== RUN   TestModelImportHandleProviderSearchEsc
+--- PASS: TestModelImportHandleProviderSearchEsc (0.00s)
+=== RUN   TestModelImportHandleProviderSearchEnter
+--- PASS: TestModelImportHandleProviderSearchEnter (0.00s)
+=== RUN   TestModelImportHandleProviderSearchFiltering
+--- PASS: TestModelImportHandleProviderSearchFiltering (0.00s)
+=== RUN   TestModelImportHandleProviderListEnterClearsProviderSearch
+--- PASS: TestModelImportHandleProviderListEnterClearsProviderSearch (0.00s)
+=== RUN   TestModelImportHandleProviderListKeysEsc
+--- PASS: TestModelImportHandleProviderListKeysEsc (0.00s)
+=== RUN   TestModelImportHandleModelListKeysUp
+--- PASS: TestModelImportHandleModelListKeysUp (0.00s)
+=== RUN   TestModelImportHandleModelListKeysDown
+--- PASS: TestModelImportHandleModelListKeysDown (0.00s)
+=== RUN   TestModelImportHandleModelListKeysSpace
+--- PASS: TestModelImportHandleModelListKeysSpace (0.00s)
+=== RUN   TestModelImportHandleModelListKeysEnter
+--- PASS: TestModelImportHandleModelListKeysEnter (0.00s)
+=== RUN   TestModelImportHandleModelListKeysEsc
+--- PASS: TestModelImportHandleModelListKeysEsc (0.00s)
+=== RUN   TestModelImportHandleModelListKeysSearchSlash
+--- PASS: TestModelImportHandleModelListKeysSearchSlash (0.00s)
+=== RUN   TestModelImportHandleModelListSearchEsc
+--- PASS: TestModelImportHandleModelListSearchEsc (0.00s)
+=== RUN   TestModelImportHandleErrorKeysRetry
+--- PASS: TestModelImportHandleErrorKeysRetry (0.00s)
+=== RUN   TestModelImportHandleErrorKeysEsc
+--- PASS: TestModelImportHandleErrorKeysEsc (0.00s)
+=== RUN   TestModelImportGetFilteredModelsNoSearch
+--- PASS: TestModelImportGetFilteredModelsNoSearch (0.00s)
+=== RUN   TestModelImportGetFilteredProvidersNoSearch
+--- PASS: TestModelImportGetFilteredProvidersNoSearch (0.00s)
+=== RUN   TestModelImportGetFilteredProvidersWithSearch
+--- PASS: TestModelImportGetFilteredProvidersWithSearch (0.00s)
+=== RUN   TestModelImportGetFilteredProvidersNoMatch
+--- PASS: TestModelImportGetFilteredProvidersNoMatch (0.00s)
+=== RUN   TestModelImportGetFilteredModelsWithSearch
+--- PASS: TestModelImportGetFilteredModelsWithSearch (0.00s)
+=== RUN   TestModelImportGetFilteredModelsNoMatch
+--- PASS: TestModelImportGetFilteredModelsNoMatch (0.00s)
+=== RUN   TestModelImportViewLoading
+--- PASS: TestModelImportViewLoading (0.00s)
+=== RUN   TestModelImportViewProviderList
+--- PASS: TestModelImportViewProviderList (0.00s)
+=== RUN   TestModelImportViewProviderListNoMatch
+--- PASS: TestModelImportViewProviderListNoMatch (0.00s)
+=== RUN   TestModelImportIsEditingProviderSearch
+--- PASS: TestModelImportIsEditingProviderSearch (0.00s)
+=== RUN   TestModelImportViewModelList
+--- PASS: TestModelImportViewModelList (0.00s)
+=== RUN   TestModelImportViewError
+--- PASS: TestModelImportViewError (0.00s)
+=== RUN   TestNewModelRegistry
+--- PASS: TestNewModelRegistry (0.00s)
+=== RUN   TestModelRegistryInit
+--- PASS: TestModelRegistryInit (0.00s)
+=== RUN   TestModelRegistryGetFilteredModelsNoSearch
+--- PASS: TestModelRegistryGetFilteredModelsNoSearch (0.00s)
+=== RUN   TestModelRegistryGetFilteredModelsWithSearch
+--- PASS: TestModelRegistryGetFilteredModelsWithSearch (0.00s)
+=== RUN   TestModelRegistryGetFilteredModelsNoMatch
+--- PASS: TestModelRegistryGetFilteredModelsNoMatch (0.00s)
+=== RUN   TestModelRegistrySetSize
+--- PASS: TestModelRegistrySetSize (0.00s)
+=== RUN   TestModelRegistryIsEditing
+--- PASS: TestModelRegistryIsEditing (0.00s)
+=== RUN   TestModelRegistryUpdateWindowSizeMsg
+--- PASS: TestModelRegistryUpdateWindowSizeMsg (0.00s)
+=== RUN   TestModelRegistryUpdateUpKey
+--- PASS: TestModelRegistryUpdateUpKey (0.00s)
+=== RUN   TestModelRegistryUpdateDownKey
+--- PASS: TestModelRegistryUpdateDownKey (0.00s)
+=== RUN   TestModelRegistryUpdateNewKey
+--- PASS: TestModelRegistryUpdateNewKey (0.00s)
+=== RUN   TestModelRegistryUpdateImportKey
+--- PASS: TestModelRegistryUpdateImportKey (0.00s)
+=== RUN   TestModelRegistryUpdateEditKey
+--- PASS: TestModelRegistryUpdateEditKey (0.00s)
+=== RUN   TestModelRegistryUpdateDeleteKey
+--- PASS: TestModelRegistryUpdateDeleteKey (0.00s)
+=== RUN   TestModelRegistryUpdateEscKey
+--- PASS: TestModelRegistryUpdateEscKey (0.00s)
+=== RUN   TestModelRegistryUpdateSearchKey
+--- PASS: TestModelRegistryUpdateSearchKey (0.00s)
+=== RUN   TestModelRegistryUpdateDeleteConfirmYes
+--- PASS: TestModelRegistryUpdateDeleteConfirmYes (0.00s)
+=== RUN   TestModelRegistryUpdateDeleteConfirmNo
+--- PASS: TestModelRegistryUpdateDeleteConfirmNo (0.00s)
+=== RUN   TestModelRegistryUpdateFormModeEnterWithValidation
+--- PASS: TestModelRegistryUpdateFormModeEnterWithValidation (0.00s)
+=== RUN   TestModelRegistryUpdateFormModeEnterEmptyValidation
+--- PASS: TestModelRegistryUpdateFormModeEnterEmptyValidation (0.00s)
+=== RUN   TestModelRegistryUpdateFormModeEsc
+--- PASS: TestModelRegistryUpdateFormModeEsc (0.00s)
+=== RUN   TestModelRegistryUpdateFormModeTab
+--- PASS: TestModelRegistryUpdateFormModeTab (0.00s)
+=== RUN   TestModelRegistryUpdateFormModeShiftTab
+--- PASS: TestModelRegistryUpdateFormModeShiftTab (0.00s)
+=== RUN   TestModelRegistryEnterEditMode
+--- PASS: TestModelRegistryEnterEditMode (0.00s)
+=== RUN   TestModelRegistryEnterAddMode
+--- PASS: TestModelRegistryEnterAddMode (0.00s)
+=== RUN   TestModelRegistryResetForm
+--- PASS: TestModelRegistryResetForm (0.00s)
+=== RUN   TestModelRegistryUpdateFormFocus
+--- PASS: TestModelRegistryUpdateFormFocus (0.00s)
+=== RUN   TestModelRegistryGetFocusedInputValue
+--- PASS: TestModelRegistryGetFocusedInputValue (0.00s)
+=== RUN   TestModelRegistryValidateAndSaveMissingDisplayName
+--- PASS: TestModelRegistryValidateAndSaveMissingDisplayName (0.00s)
+=== RUN   TestModelRegistryValidateAndSaveMissingModelID
+--- PASS: TestModelRegistryValidateAndSaveMissingModelID (0.00s)
+=== RUN   TestModelRegistryViewLoadError
+--- PASS: TestModelRegistryViewLoadError (0.00s)
+=== RUN   TestModelRegistryViewFormMode
+--- PASS: TestModelRegistryViewFormMode (0.00s)
+=== RUN   TestModelRegistryViewEditMode
+--- PASS: TestModelRegistryViewEditMode (0.00s)
+=== RUN   TestModelRegistryViewListMode
+--- PASS: TestModelRegistryViewListMode (0.00s)
+=== RUN   TestModelRegistryViewDeleteConfirm
+--- PASS: TestModelRegistryViewDeleteConfirm (0.00s)
+=== RUN   TestNewModelSelector
+--- PASS: TestNewModelSelector (0.00s)
+=== RUN   TestModelSelectorInit
+--- PASS: TestModelSelectorInit (0.00s)
+=== RUN   TestModelSelectorSetSize
+--- PASS: TestModelSelectorSetSize (0.00s)
+=== RUN   TestModelSelectorIsSelectable
+--- PASS: TestModelSelectorIsSelectable (0.00s)
+=== RUN   TestModelSelectorFindNextSelectable
+    model_selector_test.go:103: Found selectable item at: 1
+--- PASS: TestModelSelectorFindNextSelectable (0.00s)
+=== RUN   TestModelSelectorListHeight
+--- PASS: TestModelSelectorListHeight (0.00s)
+=== RUN   TestModelSelectorHeaderHeight
+--- PASS: TestModelSelectorHeaderHeight (0.00s)
+=== RUN   TestModelSelectorHeaderHeightWithLoadError
+--- PASS: TestModelSelectorHeaderHeightWithLoadError (0.00s)
+=== RUN   TestModelSelectorHeaderHeightWithNoResults
+--- PASS: TestModelSelectorHeaderHeightWithNoResults (0.00s)
+=== RUN   TestModelSelectorUpdateWindowSizeMsg
+--- PASS: TestModelSelectorUpdateWindowSizeMsg (0.00s)
+=== RUN   TestModelSelectorUpdateUpKey
+--- PASS: TestModelSelectorUpdateUpKey (0.00s)
+=== RUN   TestModelSelectorUpdateDownKey
+--- PASS: TestModelSelectorUpdateDownKey (0.00s)
+=== RUN   TestModelSelectorUpdateEscKey
+--- PASS: TestModelSelectorUpdateEscKey (0.00s)
+=== RUN   TestModelSelectorUpdateSearchKey
+--- PASS: TestModelSelectorUpdateSearchKey (0.00s)
+=== RUN   TestModelSelectorUpdateCustomModeEnterEmpty
+--- PASS: TestModelSelectorUpdateCustomModeEnterEmpty (0.00s)
+=== RUN   TestModelSelectorUpdateCustomModeEnterWithValue
+--- PASS: TestModelSelectorUpdateCustomModeEnterWithValue (0.00s)
+=== RUN   TestModelSelectorUpdateCustomModeEsc
+--- PASS: TestModelSelectorUpdateCustomModeEsc (0.00s)
+=== RUN   TestModelSelectorUpdateCustomModeTextInput
+--- PASS: TestModelSelectorUpdateCustomModeTextInput (0.00s)
+=== RUN   TestModelSelectorUpdateSearchInputEscEmpty
+--- PASS: TestModelSelectorUpdateSearchInputEscEmpty (0.00s)
+=== RUN   TestModelSelectorUpdateSearchInputEscWithValue
+--- PASS: TestModelSelectorUpdateSearchInputEscWithValue (0.00s)
+=== RUN   TestModelSelectorUpdateSearchInputEnter
+--- PASS: TestModelSelectorUpdateSearchInputEnter (0.00s)
+=== RUN   TestModelSelectorView
+--- PASS: TestModelSelectorView (0.00s)
+=== RUN   TestModelSelectorViewCustomMode
+--- PASS: TestModelSelectorViewCustomMode (0.00s)
+=== RUN   TestModelSelectorViewLoadError
+--- PASS: TestModelSelectorViewLoadError (0.00s)
+=== RUN   TestModelSelectorRenderCustomMode
+--- PASS: TestModelSelectorRenderCustomMode (0.00s)
+=== RUN   TestModelSelectorGetSelectedModel
+    model_selector_test.go:481: Selected model: ID="kimi-k2.5", DisplayName="Kimi K2.5", IsCustom=false
+--- PASS: TestModelSelectorGetSelectedModel (0.00s)
+=== RUN   TestModelSelectorRebuildItems
+--- PASS: TestModelSelectorRebuildItems (0.00s)
+=== RUN   TestEnsureCursorVisible
+--- PASS: TestEnsureCursorVisible (0.00s)
+=== RUN   TestNewSchemaCheck
+--- PASS: TestNewSchemaCheck (0.00s)
+=== RUN   TestSchemaCheck_Init
+--- PASS: TestSchemaCheck_Init (0.00s)
+=== RUN   TestSchemaCheck_Update_ResultMsg_Identical
+--- PASS: TestSchemaCheck_Update_ResultMsg_Identical (0.00s)
+=== RUN   TestSchemaCheck_Update_ResultMsg_Different
+--- PASS: TestSchemaCheck_Update_ResultMsg_Different (0.00s)
+=== RUN   TestSchemaCheck_Update_ResultMsg_ErrorReal
+--- PASS: TestSchemaCheck_Update_ResultMsg_ErrorReal (0.00s)
+=== RUN   TestSchemaCheck_Update_Esc
+--- PASS: TestSchemaCheck_Update_Esc (0.00s)
+=== RUN   TestDashboard_HasSchemaCheckMenuItem
+--- PASS: TestDashboard_HasSchemaCheckMenuItem (0.00s)
+=== RUN   TestParseMapStringBool
+=== RUN   TestParseMapStringBool/empty_string
+=== RUN   TestParseMapStringBool/single_pair_true
+=== RUN   TestParseMapStringBool/single_pair_false
+=== RUN   TestParseMapStringBool/multiple_pairs_mixed
+=== RUN   TestParseMapStringBool/with_spaces
+=== RUN   TestParseMapStringBool/ignores_invalid_pairs_-_no_colon
+=== RUN   TestParseMapStringBool/ignores_invalid_pairs_-_empty_key
+=== RUN   TestParseMapStringBool/non-true_values_are_false
+=== RUN   TestParseMapStringBool/case_sensitive_-_only_lowercase_true
+=== RUN   TestParseMapStringBool/only_invalid_pairs_returns_nil
+--- PASS: TestParseMapStringBool (0.00s)
+    --- PASS: TestParseMapStringBool/empty_string (0.00s)
+    --- PASS: TestParseMapStringBool/single_pair_true (0.00s)
+    --- PASS: TestParseMapStringBool/single_pair_false (0.00s)
+    --- PASS: TestParseMapStringBool/multiple_pairs_mixed (0.00s)
+    --- PASS: TestParseMapStringBool/with_spaces (0.00s)
+    --- PASS: TestParseMapStringBool/ignores_invalid_pairs_-_no_colon (0.00s)
+    --- PASS: TestParseMapStringBool/ignores_invalid_pairs_-_empty_key (0.00s)
+    --- PASS: TestParseMapStringBool/non-true_values_are_false (0.00s)
+    --- PASS: TestParseMapStringBool/case_sensitive_-_only_lowercase_true (0.00s)
+    --- PASS: TestParseMapStringBool/only_invalid_pairs_returns_nil (0.00s)
+=== RUN   TestSerializeMapStringBool
+=== RUN   TestSerializeMapStringBool/nil_map
+=== RUN   TestSerializeMapStringBool/empty_map
+=== RUN   TestSerializeMapStringBool/single_true
+=== RUN   TestSerializeMapStringBool/single_false
+=== RUN   TestSerializeMapStringBool/multiple_mixed
+=== RUN   TestSerializeMapStringBool/all_true
+=== RUN   TestSerializeMapStringBool/all_false
+--- PASS: TestSerializeMapStringBool (0.00s)
+    --- PASS: TestSerializeMapStringBool/nil_map (0.00s)
+    --- PASS: TestSerializeMapStringBool/empty_map (0.00s)
+    --- PASS: TestSerializeMapStringBool/single_true (0.00s)
+    --- PASS: TestSerializeMapStringBool/single_false (0.00s)
+    --- PASS: TestSerializeMapStringBool/multiple_mixed (0.00s)
+    --- PASS: TestSerializeMapStringBool/all_true (0.00s)
+    --- PASS: TestSerializeMapStringBool/all_false (0.00s)
+=== RUN   TestParseSerializeMapStringBoolRoundTrip
+--- PASS: TestParseSerializeMapStringBoolRoundTrip (0.00s)
+=== RUN   TestNewAgentConfig
+    wizard_agents_test.go:216: agent config created with enabled=false
+--- PASS: TestNewAgentConfig (0.00s)
+=== RUN   TestNewWizardAgents
+--- PASS: TestNewWizardAgents (0.00s)
+=== RUN   TestWizardAgentsInit
+--- PASS: TestWizardAgentsInit (0.00s)
+=== RUN   TestWizardAgentsSetSize
+--- PASS: TestWizardAgentsSetSize (0.00s)
+=== RUN   TestWizardAgentsSetConfig
+--- PASS: TestWizardAgentsSetConfig (0.00s)
+=== RUN   TestWizardAgentsApply
+--- PASS: TestWizardAgentsApply (0.00s)
+=== RUN   TestWizardAgentsLoadsCheckboxStateFromJSONPresence
+--- PASS: TestWizardAgentsLoadsCheckboxStateFromJSONPresence (0.00s)
+=== RUN   TestWizardAgentsApplyWritesOnlySelectedFields
+--- PASS: TestWizardAgentsApplyWritesOnlySelectedFields (0.00s)
+=== RUN   TestWizardAgentsApplyOmitsAgentsWithZeroSelectedFields
+--- PASS: TestWizardAgentsApplyOmitsAgentsWithZeroSelectedFields (0.00s)
+=== RUN   TestWizardAgentsDoesNotMaterializeEmptyStrings
+--- PASS: TestWizardAgentsDoesNotMaterializeEmptyStrings (0.00s)
+=== RUN   TestWizardAgentsCheckboxToggleRetainsAgentFieldValues
+--- PASS: TestWizardAgentsCheckboxToggleRetainsAgentFieldValues (0.00s)
+=== RUN   TestWizardAgentsUpdateToggleKey
+--- PASS: TestWizardAgentsUpdateToggleKey (0.00s)
+=== RUN   TestWizardAgentsUpdateExpandKey
+--- PASS: TestWizardAgentsUpdateExpandKey (0.00s)
+=== RUN   TestWizardAgentsUpdateFormEsc
+--- PASS: TestWizardAgentsUpdateFormEsc (0.00s)
+=== RUN   TestWizardAgentsUpdateModelSelectedMsg
+--- PASS: TestWizardAgentsUpdateModelSelectedMsg (0.00s)
+=== RUN   TestWizardAgentsView
+--- PASS: TestWizardAgentsView (0.00s)
+=== RUN   TestFallbackModelsStringRoundTrip
+--- PASS: TestFallbackModelsStringRoundTrip (0.00s)
+=== RUN   TestFallbackModelsArrayRoundTrip
+--- PASS: TestFallbackModelsArrayRoundTrip (0.00s)
+=== RUN   TestFallbackModelsModelObjectRoundTrip
+--- PASS: TestFallbackModelsModelObjectRoundTrip (0.00s)
+=== RUN   TestFallbackModelsComplexObjectPreserved
+--- PASS: TestFallbackModelsComplexObjectPreserved (0.00s)
+=== RUN   TestFallbackModelsEmptyRoundTrip
+--- PASS: TestFallbackModelsEmptyRoundTrip (0.00s)
+=== RUN   TestAgentApplyPreservesExistingFields
+--- PASS: TestAgentApplyPreservesExistingFields (0.00s)
+=== RUN   TestAgentApplyPreservesBashObjectPermission
+--- PASS: TestAgentApplyPreservesBashObjectPermission (0.00s)
+=== RUN   TestAgentSetConfigPopulatesPromptTextareas
+--- PASS: TestAgentSetConfigPopulatesPromptTextareas (0.00s)
+=== RUN   TestAgentApplyPreservesProviderOptions
+--- PASS: TestAgentApplyPreservesProviderOptions (0.00s)
+=== RUN   TestAgentApplyProviderOptionsRoundTrip
+--- PASS: TestAgentApplyProviderOptionsRoundTrip (0.00s)
+=== RUN   TestAgentApplyProviderOptionsEmpty
+--- PASS: TestAgentApplyProviderOptionsEmpty (0.00s)
+=== RUN   TestAgentApplyPreservesUnmanagedFieldsOnEdit
+--- PASS: TestAgentApplyPreservesUnmanagedFieldsOnEdit (0.00s)
+=== RUN   TestAgentApplyAllowNonGptModelHephaestus
+--- PASS: TestAgentApplyAllowNonGptModelHephaestus (0.00s)
+=== RUN   TestAgentApplyAllowNonGptModelNonHephaestus
+--- PASS: TestAgentApplyAllowNonGptModelNonHephaestus (0.00s)
+=== RUN   TestReasoningEffortNewValues
+=== RUN   TestReasoningEffortNewValues/none
+=== RUN   TestReasoningEffortNewValues/minimal
+--- PASS: TestReasoningEffortNewValues (0.00s)
+    --- PASS: TestReasoningEffortNewValues/none (0.00s)
+    --- PASS: TestReasoningEffortNewValues/minimal (0.00s)
+=== RUN   TestAgentApplyBashObjectRoundTrip
+--- PASS: TestAgentApplyBashObjectRoundTrip (0.00s)
+=== RUN   TestAgentApplyBashStringPreserved
+--- PASS: TestAgentApplyBashStringPreserved (0.00s)
+=== RUN   TestAllEffortLevelsRoundTrip
+=== RUN   TestAllEffortLevelsRoundTrip/#00
+=== RUN   TestAllEffortLevelsRoundTrip/none
+=== RUN   TestAllEffortLevelsRoundTrip/minimal
+=== RUN   TestAllEffortLevelsRoundTrip/low
+=== RUN   TestAllEffortLevelsRoundTrip/medium
+=== RUN   TestAllEffortLevelsRoundTrip/high
+=== RUN   TestAllEffortLevelsRoundTrip/xhigh
+--- PASS: TestAllEffortLevelsRoundTrip (0.01s)
+    --- PASS: TestAllEffortLevelsRoundTrip/#00 (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/none (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/minimal (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/low (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/medium (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/high (0.00s)
+    --- PASS: TestAllEffortLevelsRoundTrip/xhigh (0.00s)
+=== RUN   TestAllowNonGptModelFalseOnHephaestus
+--- PASS: TestAllowNonGptModelFalseOnHephaestus (0.00s)
+=== RUN   TestProviderOptionsUnicodeKeys
+--- PASS: TestProviderOptionsUnicodeKeys (0.00s)
+=== RUN   TestFallbackModelsEmptyArrayBecomesNil
+--- PASS: TestFallbackModelsEmptyArrayBecomesNil (0.00s)
+=== RUN   TestBashPermissionObjectWithThreeRules
+--- PASS: TestBashPermissionObjectWithThreeRules (0.00s)
+=== RUN   TestNewWizardCategories
+--- PASS: TestNewWizardCategories (0.00s)
+=== RUN   TestWizardCategoriesInit
+--- PASS: TestWizardCategoriesInit (0.00s)
+=== RUN   TestWizardCategoriesSetSize
+--- PASS: TestWizardCategoriesSetSize (0.00s)
+=== RUN   TestWizardCategoriesSetConfig
+--- PASS: TestWizardCategoriesSetConfig (0.00s)
+=== RUN   TestWizardCategoriesSetConfigNil
+--- PASS: TestWizardCategoriesSetConfigNil (0.00s)
+=== RUN   TestWizardCategoriesSetConfigNilCategories
+--- PASS: TestWizardCategoriesSetConfigNilCategories (0.00s)
+=== RUN   TestWizardCategoriesSetConfigWithTemperature
+--- PASS: TestWizardCategoriesSetConfigWithTemperature (0.00s)
+=== RUN   TestWizardCategoriesSetConfigWithThinking
+--- PASS: TestWizardCategoriesSetConfigWithThinking (0.00s)
+=== RUN   TestWizardCategoriesApply
+--- PASS: TestWizardCategoriesApply (0.00s)
+=== RUN   TestWizardCategoriesCheckboxesLoadFromSelection
+--- PASS: TestWizardCategoriesCheckboxesLoadFromSelection (0.00s)
+=== RUN   TestWizardCategoriesApplyWritesOnlySelectedFields
+--- PASS: TestWizardCategoriesApplyWritesOnlySelectedFields (0.00s)
+=== RUN   TestWizardCategoriesApplyOmitsCategoriesWithZeroSelectedFields
+--- PASS: TestWizardCategoriesApplyOmitsCategoriesWithZeroSelectedFields (0.00s)
+=== RUN   TestWizardCategoriesSpaceToggleRetainsFieldValue
+--- PASS: TestWizardCategoriesSpaceToggleRetainsFieldValue (0.00s)
+=== RUN   TestWizardCategoriesApplyEmptyName
+--- PASS: TestWizardCategoriesApplyEmptyName (0.00s)
+=== RUN   TestWizardCategoriesApplyWithTemperature
+--- PASS: TestWizardCategoriesApplyWithTemperature (0.00s)
+=== RUN   TestWizardCategoriesApplyWithIsUnstable
+--- PASS: TestWizardCategoriesApplyWithIsUnstable (0.00s)
+=== RUN   TestWizardCategoriesReasoningEffortNewValues
+=== RUN   TestWizardCategoriesReasoningEffortNewValues/none
+=== RUN   TestWizardCategoriesReasoningEffortNewValues/minimal
+--- PASS: TestWizardCategoriesReasoningEffortNewValues (0.00s)
+    --- PASS: TestWizardCategoriesReasoningEffortNewValues/none (0.00s)
+    --- PASS: TestWizardCategoriesReasoningEffortNewValues/minimal (0.00s)
+=== RUN   TestWizardCategoriesUpdateWindowSizeMsg
+--- PASS: TestWizardCategoriesUpdateWindowSizeMsg (0.00s)
+=== RUN   TestWizardCategoriesUpdateUpKey
+--- PASS: TestWizardCategoriesUpdateUpKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateDownKey
+--- PASS: TestWizardCategoriesUpdateDownKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateNewKey
+--- PASS: TestWizardCategoriesUpdateNewKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateDeleteKey
+--- PASS: TestWizardCategoriesUpdateDeleteKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateDeleteLastCategory
+--- PASS: TestWizardCategoriesUpdateDeleteLastCategory (0.00s)
+=== RUN   TestWizardCategoriesUpdateExpandKey
+--- PASS: TestWizardCategoriesUpdateExpandKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateExpandKeyCollapse
+--- PASS: TestWizardCategoriesUpdateExpandKeyCollapse (0.00s)
+=== RUN   TestWizardCategoriesUpdateRightKey
+--- PASS: TestWizardCategoriesUpdateRightKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateLeftKey
+--- PASS: TestWizardCategoriesUpdateLeftKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateNextKey
+--- PASS: TestWizardCategoriesUpdateNextKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateBackKey
+--- PASS: TestWizardCategoriesUpdateBackKey (0.00s)
+=== RUN   TestWizardCategoriesUpdateFormEsc
+--- PASS: TestWizardCategoriesUpdateFormEsc (0.00s)
+=== RUN   TestWizardCategoriesUpdateFormNavigateDown
+--- PASS: TestWizardCategoriesUpdateFormNavigateDown (0.00s)
+=== RUN   TestWizardCategoriesUpdateFormNavigateUp
+--- PASS: TestWizardCategoriesUpdateFormNavigateUp (0.00s)
+=== RUN   TestWizardCategoriesUpdateFormToggleIsUnstable
+--- PASS: TestWizardCategoriesUpdateFormToggleIsUnstable (0.00s)
+=== RUN   TestWizardCategoriesUpdateFormCycleThinkingType
+--- PASS: TestWizardCategoriesUpdateFormCycleThinkingType (0.00s)
+=== RUN   TestWizardCategoriesUpdateModelSelectedMsg
+--- PASS: TestWizardCategoriesUpdateModelSelectedMsg (0.00s)
+=== RUN   TestWizardCategoriesUpdateModelSelectorCancelMsg
+--- PASS: TestWizardCategoriesUpdateModelSelectorCancelMsg (0.00s)
+=== RUN   TestWizardCategoriesViewNoCategories
+--- PASS: TestWizardCategoriesViewNoCategories (0.00s)
+=== RUN   TestWizardCategoriesViewWithCategories
+--- PASS: TestWizardCategoriesViewWithCategories (0.00s)
+=== RUN   TestWizardCategoriesViewExpanded
+--- PASS: TestWizardCategoriesViewExpanded (0.00s)
+=== RUN   TestWizardCategoriesViewSelectingModel
+--- PASS: TestWizardCategoriesViewSelectingModel (0.00s)
+=== RUN   TestNewCategoryConfig
+--- PASS: TestNewCategoryConfig (0.00s)
+=== RUN   TestWizardCategoriesRenderSaveCustomPrompt
+--- PASS: TestWizardCategoriesRenderSaveCustomPrompt (0.00s)
+=== RUN   TestWizardCategoriesHandleSaveCustomModelYes
+--- PASS: TestWizardCategoriesHandleSaveCustomModelYes (0.00s)
+=== RUN   TestWizardCategoriesHandleSaveCustomModelNo
+--- PASS: TestWizardCategoriesHandleSaveCustomModelNo (0.00s)
+=== RUN   TestWizardCategoriesGetLineForField
+--- PASS: TestWizardCategoriesGetLineForField (0.00s)
+=== RUN   TestWizardCategoriesEnsureFieldVisible
+--- PASS: TestWizardCategoriesEnsureFieldVisible (0.00s)
+=== RUN   TestNewWizardHooks
+--- PASS: TestNewWizardHooks (0.00s)
+=== RUN   TestWizardHooksInit
+--- PASS: TestWizardHooksInit (0.00s)
+=== RUN   TestWizardHooksSetSize
+--- PASS: TestWizardHooksSetSize (0.00s)
+=== RUN   TestWizardHooksSetConfig
+--- PASS: TestWizardHooksSetConfig (0.00s)
+=== RUN   TestWizardHooksSetConfigResetsPreviousState
+--- PASS: TestWizardHooksSetConfigResetsPreviousState (0.00s)
+=== RUN   TestWizardHooksApply
+--- PASS: TestWizardHooksApply (0.00s)
+=== RUN   TestWizardHooksApplyNoneDisabled
+--- PASS: TestWizardHooksApplyNoneDisabled (0.00s)
+=== RUN   TestWizardHooksLoadsDisabledHooksSelectionFromJSONPresence
+--- PASS: TestWizardHooksLoadsDisabledHooksSelectionFromJSONPresence (0.00s)
+=== RUN   TestWizardHooksApplyWritesDisabledHooksOnlyWhenSelected
+--- PASS: TestWizardHooksApplyWritesDisabledHooksOnlyWhenSelected (0.00s)
+=== RUN   TestWizardHooksSelectedEmptyDisabledHooksSerializesAsEmptyArray
+--- PASS: TestWizardHooksSelectedEmptyDisabledHooksSerializesAsEmptyArray (0.00s)
+=== RUN   TestWizardHooksUpdateUpKey
+--- PASS: TestWizardHooksUpdateUpKey (0.00s)
+=== RUN   TestWizardHooksUpdateDownKey
+--- PASS: TestWizardHooksUpdateDownKey (0.00s)
+=== RUN   TestWizardHooksUpdateToggleKey
+--- PASS: TestWizardHooksUpdateToggleKey (0.00s)
+=== RUN   TestWizardHooksSeparatesFieldInclusionFromPerHookToggleState
+--- PASS: TestWizardHooksSeparatesFieldInclusionFromPerHookToggleState (0.00s)
+=== RUN   TestWizardHooksUpdateNextKey
+--- PASS: TestWizardHooksUpdateNextKey (0.00s)
+=== RUN   TestWizardHooksUpdateBackKey
+--- PASS: TestWizardHooksUpdateBackKey (0.00s)
+=== RUN   TestWizardHooksUpdatePageUpKey
+--- PASS: TestWizardHooksUpdatePageUpKey (0.00s)
+=== RUN   TestWizardHooksUpdatePageDownKey
+--- PASS: TestWizardHooksUpdatePageDownKey (0.00s)
+=== RUN   TestWizardHooksUpdateWindowSizeMsg
+--- PASS: TestWizardHooksUpdateWindowSizeMsg (0.00s)
+=== RUN   TestWizardHooksUpdateUnknownKey
+--- PASS: TestWizardHooksUpdateUnknownKey (0.00s)
+=== RUN   TestWizardHooksView
+--- PASS: TestWizardHooksView (0.00s)
+=== RUN   TestWizardHooksViewWithDisabledHooks
+--- PASS: TestWizardHooksViewWithDisabledHooks (0.00s)
+=== RUN   TestWizardHooksRenderContent
+--- PASS: TestWizardHooksRenderContent (0.00s)
+=== RUN   TestWizardHooksKeyMap
+=== RUN   TestWizardHooksKeyMap/Up
+    wizard_hooks_test.go:558: Up key binding: ↑/k
+=== RUN   TestWizardHooksKeyMap/Down
+    wizard_hooks_test.go:558: Down key binding: ↓/j
+=== RUN   TestWizardHooksKeyMap/Toggle
+    wizard_hooks_test.go:558: Toggle key binding: space
+=== RUN   TestWizardHooksKeyMap/Next
+    wizard_hooks_test.go:558: Next key binding: tab
+=== RUN   TestWizardHooksKeyMap/Back
+    wizard_hooks_test.go:558: Back key binding: shift+tab/esc
+=== RUN   TestWizardHooksKeyMap/PageUp
+    wizard_hooks_test.go:558: PageUp key binding: pgup
+=== RUN   TestWizardHooksKeyMap/PageDown
+    wizard_hooks_test.go:558: PageDown key binding: pgdown
+--- PASS: TestWizardHooksKeyMap (0.00s)
+    --- PASS: TestWizardHooksKeyMap/Up (0.00s)
+    --- PASS: TestWizardHooksKeyMap/Down (0.00s)
+    --- PASS: TestWizardHooksKeyMap/Toggle (0.00s)
+    --- PASS: TestWizardHooksKeyMap/Next (0.00s)
+    --- PASS: TestWizardHooksKeyMap/Back (0.00s)
+    --- PASS: TestWizardHooksKeyMap/PageUp (0.00s)
+    --- PASS: TestWizardHooksKeyMap/PageDown (0.00s)
+=== RUN   TestParseMapStringInt
+=== RUN   TestParseMapStringInt/empty_string
+=== RUN   TestParseMapStringInt/single_pair
+=== RUN   TestParseMapStringInt/multiple_pairs
+=== RUN   TestParseMapStringInt/with_spaces
+=== RUN   TestParseMapStringInt/ignores_invalid_pairs_-_no_colon
+=== RUN   TestParseMapStringInt/ignores_invalid_pairs_-_empty_key
+=== RUN   TestParseMapStringInt/ignores_invalid_pairs_-_non-numeric_value
+=== RUN   TestParseMapStringInt/zero_value
+=== RUN   TestParseMapStringInt/negative_values
+=== RUN   TestParseMapStringInt/only_invalid_pairs_returns_nil
+--- PASS: TestParseMapStringInt (0.00s)
+    --- PASS: TestParseMapStringInt/empty_string (0.00s)
+    --- PASS: TestParseMapStringInt/single_pair (0.00s)
+    --- PASS: TestParseMapStringInt/multiple_pairs (0.00s)
+    --- PASS: TestParseMapStringInt/with_spaces (0.00s)
+    --- PASS: TestParseMapStringInt/ignores_invalid_pairs_-_no_colon (0.00s)
+    --- PASS: TestParseMapStringInt/ignores_invalid_pairs_-_empty_key (0.00s)
+    --- PASS: TestParseMapStringInt/ignores_invalid_pairs_-_non-numeric_value (0.00s)
+    --- PASS: TestParseMapStringInt/zero_value (0.00s)
+    --- PASS: TestParseMapStringInt/negative_values (0.00s)
+    --- PASS: TestParseMapStringInt/only_invalid_pairs_returns_nil (0.00s)
+=== RUN   TestSerializeMapStringInt
+=== RUN   TestSerializeMapStringInt/nil_map
+=== RUN   TestSerializeMapStringInt/empty_map
+=== RUN   TestSerializeMapStringInt/single_item
+=== RUN   TestSerializeMapStringInt/multiple_items
+=== RUN   TestSerializeMapStringInt/zero_value
+=== RUN   TestSerializeMapStringInt/negative_values
+--- PASS: TestSerializeMapStringInt (0.00s)
+    --- PASS: TestSerializeMapStringInt/nil_map (0.00s)
+    --- PASS: TestSerializeMapStringInt/empty_map (0.00s)
+    --- PASS: TestSerializeMapStringInt/single_item (0.00s)
+    --- PASS: TestSerializeMapStringInt/multiple_items (0.00s)
+    --- PASS: TestSerializeMapStringInt/zero_value (0.00s)
+    --- PASS: TestSerializeMapStringInt/negative_values (0.00s)
+=== RUN   TestParseSerializeMapStringIntRoundTrip
+--- PASS: TestParseSerializeMapStringIntRoundTrip (0.00s)
+=== RUN   TestWizardOtherLoadsCheckboxStateFromJSONPresence
+--- PASS: TestWizardOtherLoadsCheckboxStateFromJSONPresence (0.00s)
+=== RUN   TestWizardOtherBooleanFieldSeparatesInclusionAndValue
+--- PASS: TestWizardOtherBooleanFieldSeparatesInclusionAndValue (0.00s)
+=== RUN   TestWizardOtherApplyWritesOnlySelectedFields
+--- PASS: TestWizardOtherApplyWritesOnlySelectedFields (0.00s)
+=== RUN   TestWizardOtherUntouchedSectionsRemainOmitted
+--- PASS: TestWizardOtherUntouchedSectionsRemainOmitted (0.00s)
+=== RUN   TestWizardOtherEditFlow_LoadsFieldPresence
+--- PASS: TestWizardOtherEditFlow_LoadsFieldPresence (0.00s)
+=== RUN   TestWizardOtherEditFlow_ModifyAndSave
+--- PASS: TestWizardOtherEditFlow_ModifyAndSave (0.00s)
+=== RUN   TestWizardOtherEditFlow_RemoveField
+--- PASS: TestWizardOtherEditFlow_RemoveField (0.00s)
+=== RUN   TestWizardOtherTemplateFlow_PreservesSelection
+--- PASS: TestWizardOtherTemplateFlow_PreservesSelection (0.00s)
+=== RUN   TestWizardOtherNewProfile_BlankSelection
+--- PASS: TestWizardOtherNewProfile_BlankSelection (0.00s)
+=== RUN   TestWizardOtherDisabledAgentsInclusionToggle
+--- PASS: TestWizardOtherDisabledAgentsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledSkillsInclusionToggle
+--- PASS: TestWizardOtherDisabledSkillsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledCommandsInclusionToggle
+--- PASS: TestWizardOtherDisabledCommandsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledMcpsInclusionToggle
+--- PASS: TestWizardOtherDisabledMcpsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherDisabledToolsInclusionToggle
+--- PASS: TestWizardOtherDisabledToolsInclusionToggle (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledAgents
+--- PASS: TestWizardOtherOmission_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledSkills
+--- PASS: TestWizardOtherOmission_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledCommands
+--- PASS: TestWizardOtherOmission_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledMcps
+--- PASS: TestWizardOtherOmission_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledTools
+--- PASS: TestWizardOtherOmission_DisabledTools (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledAgents
+--- PASS: TestWizardOtherEmptyArray_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledSkills
+--- PASS: TestWizardOtherEmptyArray_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledCommands
+--- PASS: TestWizardOtherEmptyArray_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledMcps
+--- PASS: TestWizardOtherEmptyArray_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledTools
+--- PASS: TestWizardOtherEmptyArray_DisabledTools (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledAgents
+--- PASS: TestWizardOtherWithValues_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledSkills
+--- PASS: TestWizardOtherWithValues_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledCommands
+--- PASS: TestWizardOtherWithValues_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledMcps
+--- PASS: TestWizardOtherWithValues_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledTools
+--- PASS: TestWizardOtherWithValues_DisabledTools (0.00s)
+=== RUN   TestWizardOtherOmission_AutoUpdate
+--- PASS: TestWizardOtherOmission_AutoUpdate (0.00s)
+=== RUN   TestWizardOtherAutoUpdate_SelectedFalse
+--- PASS: TestWizardOtherAutoUpdate_SelectedFalse (0.00s)
+=== RUN   TestWizardOtherAutoUpdate_SelectedTrue
+--- PASS: TestWizardOtherAutoUpdate_SelectedTrue (0.00s)
+=== RUN   TestWizardOtherInclusionSeparateFromValue_DisabledAgents
+--- PASS: TestWizardOtherInclusionSeparateFromValue_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherInclusionSeparateFromValue_BoolField
+--- PASS: TestWizardOtherInclusionSeparateFromValue_BoolField (0.00s)
+=== RUN   TestWizardOtherInclusionSeparateFromValue_SliceField
+--- PASS: TestWizardOtherInclusionSeparateFromValue_SliceField (0.00s)
+=== RUN   TestWizardOtherInclusionSeparateFromValue_StringField
+--- PASS: TestWizardOtherInclusionSeparateFromValue_StringField (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledAgents
+--- PASS: TestWizardOtherRoundTrip_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledAgentsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledAgentsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledAgentsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledAgentsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkills
+--- PASS: TestWizardOtherRoundTrip_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkillsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledSkillsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkillsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledSkillsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommands
+--- PASS: TestWizardOtherRoundTrip_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommandsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledCommandsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommandsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledCommandsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcps
+--- PASS: TestWizardOtherRoundTrip_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcpsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledMcpsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcpsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledMcpsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledTools
+--- PASS: TestWizardOtherRoundTrip_DisabledTools (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledToolsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledToolsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledToolsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledToolsOmitted (0.00s)
+=== RUN   TestNewWizardReview
+--- PASS: TestNewWizardReview (0.00s)
+=== RUN   TestWizardReviewInit
+--- PASS: TestWizardReviewInit (0.00s)
+=== RUN   TestWizardReviewSetSize
+--- PASS: TestWizardReviewSetSize (0.00s)
+=== RUN   TestWizardReviewSetConfig
+--- PASS: TestWizardReviewSetConfig (0.00s)
+=== RUN   TestWizardReviewSetConfigNil
+--- PASS: TestWizardReviewSetConfigNil (0.00s)
+=== RUN   TestWizardReviewValidateAndPreview
+=== RUN   TestWizardReviewValidateAndPreview/nil_config
+=== RUN   TestWizardReviewValidateAndPreview/simple_config
+--- PASS: TestWizardReviewValidateAndPreview (0.00s)
+    --- PASS: TestWizardReviewValidateAndPreview/nil_config (0.00s)
+    --- PASS: TestWizardReviewValidateAndPreview/simple_config (0.00s)
+=== RUN   TestWizardReviewUpdateWindowSizeMsg
+--- PASS: TestWizardReviewUpdateWindowSizeMsg (0.00s)
+=== RUN   TestWizardReviewUpdateSaveKey
+--- PASS: TestWizardReviewUpdateSaveKey (0.00s)
+=== RUN   TestWizardReviewUpdateBackKey
+--- PASS: TestWizardReviewUpdateBackKey (0.00s)
+=== RUN   TestWizardReviewUpdateUnknownKey
+--- PASS: TestWizardReviewUpdateUnknownKey (0.00s)
+=== RUN   TestWizardReviewIsValid
+--- PASS: TestWizardReviewIsValid (0.00s)
+=== RUN   TestWizardReviewGetErrors
+--- PASS: TestWizardReviewGetErrors (0.00s)
+=== RUN   TestWizardReviewView
+--- PASS: TestWizardReviewView (0.00s)
+=== RUN   TestWizardReviewViewWithValidConfig
+--- PASS: TestWizardReviewViewWithValidConfig (0.00s)
+=== RUN   TestWizardReviewViewWithInvalidConfig
+--- PASS: TestWizardReviewViewWithInvalidConfig (0.00s)
+=== RUN   TestWizardReviewKeyMap
+=== RUN   TestWizardReviewKeyMap/Up
+=== RUN   TestWizardReviewKeyMap/Down
+=== RUN   TestWizardReviewKeyMap/Save
+=== RUN   TestWizardReviewKeyMap/Back
+=== RUN   TestWizardReviewKeyMap/PageUp
+=== RUN   TestWizardReviewKeyMap/PageDown
+--- PASS: TestWizardReviewKeyMap (0.00s)
+    --- PASS: TestWizardReviewKeyMap/Up (0.00s)
+    --- PASS: TestWizardReviewKeyMap/Down (0.00s)
+    --- PASS: TestWizardReviewKeyMap/Save (0.00s)
+    --- PASS: TestWizardReviewKeyMap/Back (0.00s)
+    --- PASS: TestWizardReviewKeyMap/PageUp (0.00s)
+    --- PASS: TestWizardReviewKeyMap/PageDown (0.00s)
+=== RUN   TestWizardReviewPreviewMatchesSparseSaveOutput
+--- PASS: TestWizardReviewPreviewMatchesSparseSaveOutput (0.00s)
+=== RUN   TestWizardReviewBlankProfileSavesAsEmptyObject
+--- PASS: TestWizardReviewBlankProfileSavesAsEmptyObject (0.00s)
+=== RUN   TestWizardSparseCreateFlow_SavesOnlyCheckedFields
+--- PASS: TestWizardSparseCreateFlow_SavesOnlyCheckedFields (0.00s)
+=== RUN   TestWizardCheckedUncheckedTransitions_PreserveExplicitEmptyStringValue
+--- PASS: TestWizardCheckedUncheckedTransitions_PreserveExplicitEmptyStringValue (0.00s)
+=== RUN   TestWizardSparseEditRoundTrip_PreservesUnknownAndDropsUncheckedFields
+--- PASS: TestWizardSparseEditRoundTrip_PreservesUnknownAndDropsUncheckedFields (0.00s)
+=== RUN   TestWizardSparseTemplateFlow_UncheckedTemplateFieldsAreOmitted
+--- PASS: TestWizardSparseTemplateFlow_UncheckedTemplateFieldsAreOmitted (0.00s)
+=== RUN   TestWizardSparseImportAdjacentFlow_PreviewMatchesSavedOutput
+--- PASS: TestWizardSparseImportAdjacentFlow_PreviewMatchesSavedOutput (0.00s)
+=== RUN   TestNewWizardForEdit_SetsOriginalProfileName
+--- PASS: TestNewWizardForEdit_SetsOriginalProfileName (0.00s)
+=== RUN   TestNewWizard_LeavesOriginalProfileNameEmpty
+--- PASS: TestNewWizard_LeavesOriginalProfileNameEmpty (0.00s)
+=== RUN   TestWizard_Save_CreateModeSkipsRenameLogic
+--- PASS: TestWizard_Save_CreateModeSkipsRenameLogic (0.00s)
+=== RUN   TestWizard_EditMode_DetectsRename
+--- PASS: TestWizard_EditMode_DetectsRename (0.00s)
+=== RUN   TestWizard_EditMode_NoRenameWhenNameUnchanged
+--- PASS: TestWizard_EditMode_NoRenameWhenNameUnchanged (0.00s)
+=== RUN   TestWizard_Save_ValidationCalled
+--- PASS: TestWizard_Save_ValidationCalled (0.00s)
+=== RUN   TestWizardEditFlow_PreservesConfig
+--- PASS: TestWizardEditFlow_PreservesConfig (0.00s)
+=== RUN   TestWizardEditFlow_SetupAllSteps
+--- PASS: TestWizardEditFlow_SetupAllSteps (0.00s)
+=== RUN   TestWizardCreateFlow_StillWorks
+--- PASS: TestWizardCreateFlow_StillWorks (0.00s)
+=== RUN   TestWizard_GetProfile
+--- PASS: TestWizard_GetProfile (0.00s)
+=== RUN   TestWizard_IsEditMode
+--- PASS: TestWizard_IsEditMode (0.00s)
+=== RUN   TestWizardEditFlow_LoadAndSave
+--- PASS: TestWizardEditFlow_LoadAndSave (0.00s)
+=== RUN   TestWizardEditFlow_RenameDeletesOldProfile
+--- PASS: TestWizardEditFlow_RenameDeletesOldProfile (0.00s)
+=== RUN   TestWizardEditFlow_RenameToDuplicateBlocked
+--- PASS: TestWizardEditFlow_RenameToDuplicateBlocked (0.00s)
+=== RUN   TestWizardCreateFlow_SavesNewProfile
+--- PASS: TestWizardCreateFlow_SavesNewProfile (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	(cached)
+
+=== VERIFICATION ===
+Tag exists: pre-refactor-baseline

@@ -1,0 +1,80 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 1: ErrorIconStyle Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of error icon styling for consistent error display
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/styles.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/styles.go (lines 69-71)
+
+	ErrorIconStyle = lipgloss.NewStyle().
+			Foreground(Red)
+
+--------------------------------------------------------------------------------
+
+STYLE DEFINITION CONTEXT:
+
+File: internal/tui/styles.go (lines 30-71)
+
+var (
+	TitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(Purple)
+
+	SubtitleStyle = lipgloss.NewStyle().
+			Foreground(Gray)
+
+	ActiveStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(White).
+			Background(Purple)
+
+	InactiveStyle = lipgloss.NewStyle().
+			Foreground(White)
+
+	ErrorStyle = lipgloss.NewStyle().
+			Foreground(Red)
+
+	SuccessStyle = lipgloss.NewStyle().
+			Foreground(Green)
+
+	WarningStyle = lipgloss.NewStyle().
+			Foreground(Yellow)
+
+	BorderStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Purple).
+			Padding(1, 2)
+
+	HelpStyle = lipgloss.NewStyle().
+			Foreground(Gray)
+
+	AccentStyle = lipgloss.NewStyle().
+			Foreground(Magenta)
+
+	CyanAccentStyle = lipgloss.NewStyle().
+			Foreground(Cyan)
+
+	ErrorIconStyle = lipgloss.NewStyle().
+			Foreground(Red)
+)
+
+--------------------------------------------------------------------------------
+
+COLOR PALETTE:
+- Red = lipgloss.Color("#F38BA8")
+
+VERIFICATION:
+- ErrorIconStyle defined in shared styles file
+- Uses Red color (#F38BA8) for error indication
+- Consistent with other style definitions (ErrorStyle also uses Red)
+- Available for use across all TUI views
+
+STATUS: IMPLEMENTED ✓

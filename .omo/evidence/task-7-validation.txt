@@ -1,0 +1,124 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 7: Validation Indicators Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of inline validation indicators for form fields
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/views/wizard_categories.go
+- /home/diogo/dev/omo-profiler/internal/tui/views/wizard_agents.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard_categories.go (lines 57-93)
+
+// validateCategoryField returns an inline validation indicator for range fields (temperature, top_p).
+// Validation runs on field-exit (focused=false). For color, runs on every keystroke.
+func validateCategoryField(label, value string, focused bool) string {
+	switch label {
+	case "color":
+		if value == "" {
+			return ""
+		}
+		if !wizCatValidationHexRe.MatchString(value) {
+			return wizCatErrorStyle.Render(" ✗ invalid hex")
+		}
+		return wizCatValidStyle.Render(" ✓")
+	case "temperature":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
+			return wizCatErrorStyle.Render(" ✗ must be 0-2")
+		}
+		return wizCatValidStyle.Render(" ✓")
+	case "top_p":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+			return wizCatErrorStyle.Render(" ✗ must be 0-1")
+		}
+		return wizCatValidStyle.Render(" ✓")
+	}
+	return ""
+}
+
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard_agents.go (lines 77-114)
+
+// validateAgentField returns an inline validation indicator for the given field.
+// For simple fields (color), validation runs on every keystroke (focused=true).
+// For range fields (temperature, top_p), validation runs on field-exit (focused=false).
+func validateAgentField(label, value string, focused bool) string {
+	switch label {
+	case "color":
+		if value == "" {
+			return ""
+		}
+		if !validationHexRe.MatchString(value) {
+			return wizAgentErrorStyle.Render(" ✗ invalid hex")
+		}
+		return wizAgentValidStyle.Render(" ✓")
+	case "temperature":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 2 {
+			return wizAgentErrorStyle.Render(" ✗ must be 0-2")
+		}
+		return wizAgentValidStyle.Render(" ✓")
+	case "top_p":
+		if value == "" {
+			return ""
+		}
+		if focused {
+			return ""
+		}
+		if v, err := strconv.ParseFloat(value, 64); err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+			return wizAgentErrorStyle.Render(" ✗ must be 0-1")
+		}
+		return wizAgentValidStyle.Render(" ✓")
+	}
+	return ""
+}
+
+--------------------------------------------------------------------------------
+
+VALIDATION STYLES:
+
+File: internal/tui/views/wizard_categories.go (lines 50-54)
+
+	wizCatDimStyle      = lipgloss.NewStyle().Foreground(wizCatGray)
+	wizCatSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(wizCatPurple)
+	wizCatTextStyle     = lipgloss.NewStyle().Foreground(wizCatText)
+	wizCatErrorStyle    = lipgloss.NewStyle().Foreground(wizCatRed)
+	wizCatValidStyle    = lipgloss.NewStyle().Foreground(wizCatGreen)
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- validateCategoryField function validates color, temperature, top_p fields
+- validateAgentField function provides same validation for agents
+- Error indicator: " ✗ {message}" in Red color
+- Valid indicator: " ✓" in Green color
+- Color validation runs on every keystroke
+- Range validation (temperature, top_p) runs on field exit
+- Temperature must be 0-2
+- Top_p must be 0-1
+- Color must match hex regex pattern
+
+STATUS: IMPLEMENTED ✓

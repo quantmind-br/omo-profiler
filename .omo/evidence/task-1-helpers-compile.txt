@@ -1,0 +1,16 @@
+=== Task 1 Helpers Compilation Evidence ===
+
+Date: qua 08 abr 2026 19:28:26 -03
+
+Test helpers added to wizard_other_test.go:
+  - setupWizardOtherWithSelection(t, paths...)
+  - applyAndMarshal(t, w, selection)
+  - assertJSONContains(t, jsonMap, key)
+  - assertJSONOmits(t, jsonMap, key)
+  - assertJSONEquals(t, jsonMap, key, expected)
+
+=== Compilation Test ===
+SUCCESS: Test binary compiled successfully
+
+=== All Tests Pass ===
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.146s

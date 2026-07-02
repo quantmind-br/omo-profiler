@@ -1,0 +1,40 @@
+   Profiles
+
+  6 items
+
+│   cheap
+│ Press enter to switch
+
+    china
+  Press enter to switch
+
+    default
+  Press enter to switch
+
+    fast
+  Press enter to switch
+
+    smart
+  Press enter to switch
+
+  * ultracheap (active)
+  Currently active profile
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Delete 'cheap'? [y/n]
+[Enter] switch • [e] edit • [d] delete • [n] new • [/] search • [Esc] back
+
+
+

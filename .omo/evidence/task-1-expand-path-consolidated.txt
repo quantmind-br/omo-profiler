@@ -1,0 +1,40 @@
+CQ-015 — Consolidate triplicated expandPath functions into a single shared utility
+================================================================================
+
+COMPLETED: 2026-04-09
+
+CHANGES MADE:
+1. Created internal/tui/views/pathutil.go with single shared expandPath function
+   - Based on export.go's implementation (most complete with explicit error handling)
+   - Unexported (lowercase) as required
+   - Handles ~ expansion and relative-to-absolute path conversion
+
+2. Updated internal/tui/views/export.go:
+   - Changed call from expandExportPath() to expandPath()
+   - Removed local expandExportPath() function definition
+
+3. Updated internal/tui/views/export_test.go:
+   - Removed duplicate TestExpandExportPath test
+   - Removed duplicate TestExpandExportPathRelative test
+   - Tests for expandPath now exist only in import_test.go
+
+4. Updated internal/tui/views/import.go:
+   - Removed local expandPath() function definition
+   - Removed unused imports (path/filepath, strings)
+   - Call to expandPath() now uses shared function from pathutil.go
+
+5. Updated internal/tui/views/schema_check.go:
+   - Changed call from expandSchemaPath() to expandPath()
+   - Removed local expandSchemaPath() function definition
+
+VERIFICATION:
+- make test passes (all tests in ./... pass)
+- grep confirms no expandExportPath, expandSchemaPath, or duplicate expandPath functions exist
+- Shared expandPath function is unexported and located in pathutil.go
+
+FILES MODIFIED:
+- internal/tui/views/pathutil.go (created)
+- internal/tui/views/export.go
+- internal/tui/views/export_test.go
+- internal/tui/views/import.go
+- internal/tui/views/schema_check.go

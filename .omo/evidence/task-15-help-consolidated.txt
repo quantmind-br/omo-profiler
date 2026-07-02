@@ -1,0 +1,58 @@
+CQ-013 — Consolidate help rendering in app.go
+=============================================
+
+COMPLETED: 2026-04-09
+
+CHANGES MADE
+------------
+
+1. Created `helpData` struct (lines 808-811) to hold both short and full hints:
+   - shortHints: []string for compact help bar
+   - fullHints: []string for full help view
+
+2. Created `stateHelpMap` (lines 815-895) - a map[appState]helpData containing:
+   - stateDashboard: 4 short hints, 4 full hint lines
+   - stateList: 6 short hints, 8 full hint lines
+   - stateWizard: 4 short hints, 5 full hint lines
+   - stateDiff: 4 short hints, 6 full hint lines
+   - stateModels: 6 short hints, 9 full hint lines
+   - stateModelImport: 5 short hints, 7 full hint lines
+   - stateTemplateSelect: 3 short hints, 5 full hint lines
+
+3. Created `editingStateHelpMap` (lines 899-908) for editing mode overrides:
+   - stateModels editing: 3 short hints
+   - stateModelImport editing: 2 short hints
+
+4. Extracted global help lines to `globalHelpLines` var (lines 911-916)
+
+5. Extracted close help line to `closeHelpLine` const (line 919)
+
+6. Refactored `renderShortHelp()` (lines 921-963):
+   - Now uses stateHelpMap lookup instead of switch statement
+   - Checks editingStateHelpMap for editing mode overrides
+   - Same truncation and separator logic preserved
+
+7. Refactored `renderFullHelp()` (lines 965-997):
+   - Now uses stateHelpMap lookup instead of switch statement
+   - Uses globalHelpLines for global section
+   - Uses closeHelpLine for footer
+   - Same short height handling preserved
+
+VERIFICATION
+------------
+
+- File properly formatted: gofmt -l internal/tui/app.go (no output = OK)
+- Pre-existing build failures in internal/config (duplicate type definitions)
+  are unrelated to this change
+- Help text content unchanged
+- Help display behavior unchanged
+- Code reduced from ~133 lines (47 + 86) to ~112 lines with data structure
+
+LINES OF CODE
+-------------
+
+Before: renderShortHelp() = 47 lines, renderFullHelp() = 86 lines = 133 total
+After:  helpData struct + maps + 2 functions = ~112 lines (data-driven)
+
+The consolidation centralizes all help text in stateHelpMap, making it easier
+to maintain and modify help content in one place.

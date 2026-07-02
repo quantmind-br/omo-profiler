@@ -1,0 +1,81 @@
+CQ-010 — Standardize scroll variable naming
+
+Date: 2026-04-08
+Status: COMPLETE - Naming already standardized
+
+ANALYSIS:
+=========
+
+Files reviewed for scroll variable naming:
+
+1. model_import.go
+   - Uses ListRenderer (providerList, modelList)
+   - ListRenderer manages scrollOffset internally
+   - Accessed via: ScrollOffset(), SetCursor(), etc.
+   - Status: ✓ Standardized (via ListRenderer)
+
+2. model_registry.go
+   - Uses ListRenderer (list field)
+   - ListRenderer manages scrollOffset internally
+   - Accessed via: m.list.ScrollOffset(), m.list.Cursor()
+   - Status: ✓ Standardized (via ListRenderer)
+
+3. model_selector.go
+   - Uses manual scroll management
+   - Field: scrollOffset int (line 69)
+   - Status: ✓ Already uses standardized naming
+
+4. list.go
+   - Uses bubbletea's list.Model
+   - Scrolling managed internally by component
+   - Status: ✓ No manual scroll variables
+
+5. dashboard.go
+   - Uses cursor int (selection only)
+   - Uses viewport.Model for scrolling
+   - Status: ✓ No manual scroll offset variables
+
+6. template_select.go
+   - Uses cursor int (selection only)
+   - Simple list, no scrolling needed
+   - Status: ✓ No scroll offset variables
+
+7. wizard_categories.go, wizard_agents.go, wizard_hooks.go
+   - No scroll offset variables found
+   - Status: ✓ No manual scroll variables
+
+NAMING CONVENTION:
+==================
+- Standard: scrollOffset (for manual scroll management)
+- ListRenderer: Internal scrollOffset field (accessed via methods)
+- Cursor: cursor (for selection position, distinct from scroll)
+
+VERIFICATION:
+=============
+$ grep -r "scrollOffset" internal/tui/views/
+  list_renderer.go:10: scrollOffset int
+  list_renderer.go:31: return l.scrollOffset
+  list_renderer.go:36: l.scrollOffset = o
+  list_renderer.go:42: l.scrollOffset = 0
+  ... (all internal to ListRenderer)
+  model_selector.go:69: scrollOffset  int
+  model_selector.go:181: m.scrollOffset = 0
+  ... (manual scroll management using standardized name)
+
+$ grep -r "offset int" internal/tui/views/
+  (no results - no files use bare "offset" variable name)
+
+TEST RESULTS:
+=============
+$ make test
+ok      github.com/diogenes/omo-profiler/internal/tui/views   0.217s
+All tests pass.
+
+CONCLUSION:
+===========
+Scroll variable naming is already standardized across all TUI views:
+- "scrollOffset" is the consistent naming convention
+- ListRenderer encapsulates scroll state internally
+- No files use conflicting "offset" naming
+
+No changes required - naming standardization verified.

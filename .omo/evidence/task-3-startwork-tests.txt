@@ -1,0 +1,7 @@
+Task 3: sectionStartWork consistency tests passed
+- TestWizardOtherSectionStartWork_IsSimpleBoolean: PASS
+- TestWizardOtherSectionStartWork_RendersAsSimpleBoolean: PASS
+- TestWizardOtherSectionStartWork_ToggleSelectionWhenNotFocused: PASS
+- TestWizardOtherSectionStartWork_ToggleValueWhenFocused: PASS
+- TestWizardOtherSectionStartWork_EnterDoesNotExpand: PASS
+- TestWizardOtherSectionStartWork_ExpandableSectionsStillWork: PASS

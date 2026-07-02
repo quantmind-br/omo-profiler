@@ -1,0 +1,40 @@
+Review & Save
+Profile Name: test-qa-profile
+
+
+✓ Configuration is valid
+
+JSON Preview:
+{
+  "categories": {
+    "artistry": {
+      "description": "Complex problem-solving with unconventional, creative approaches - beyond standard patterns",
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on HIGHLY CREATIVE / ARTISTIC tasks.\n\nArtistic g
+    },
+    "deep": {
+      "description": "Goal-oriented autonomous problem-solving. Thorough research before action. For hairy problems requ
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on GOAL-ORIENTED AUTONOMOUS tasks.\n\nYou are NOT
+    },
+    "quick": {
+      "description": "Trivial tasks - single file changes, typo fixes, simple modifications",
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on SMALL / QUICK tasks.\n\nEfficient execution min
+    },
+    "ultrabrain": {
+      "description": "Use ONLY for genuinely hard, logic-heavy tasks. Give clear goals only, not step-by-step instructio
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on DEEP LOGICAL REASONING / COMPLEX ARCHITECTURE t
+    },
+    "unspecified-high": {
+      "description": "Tasks that don't fit other categories, high effort required",
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on tasks that don't fit specific categories but re
+    },
+    "unspecified-low": {
+      "description": "Tasks that don't fit other categories, low effort required",
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on tasks that don't fit specific categories but re
+    },
+    "visual-engineering": {
+      "description": "Frontend, UI/UX, design, styling, animation",
+      "prompt_append": "\u003cCategory_Context\u003e\nYou are working on VISUAL/UI tasks.\n\n\u003cDESIGN_SYSTEM_WORKFLO
+    },
+
+Enter to save • Shift+Tab to go back • ↑/↓ to scroll
+[Tab/Enter] next • [Shift+Tab] back • [Ctrl+S] save • [Ctrl+C] cancel

@@ -1,0 +1,4 @@
+- CQ-005: `internal/tui/views/wizard.go` agora centraliza a ordem das etapas em `stepOrder`, permitindo navegação next/prev por loop sem duplicar switches de transição.
+- CQ-001: split de wizard_other.go funcionou sem mudança comportamental ao recortar o arquivo original por marcadores de função e manter o package views intacto.
+- CQ-001 Phase 2: um dispatch table com closures para textinput/textarea reduziu drasticamente boilerplate no Update() sem alterar atalhos especiais já existentes.
+- CQ-001 Phase 3: refreshView() centralizou a atualização do viewport e eliminou chamadas repetidas de SetContent, preservando o fluxo de renderização.

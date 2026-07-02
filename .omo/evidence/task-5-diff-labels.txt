@@ -1,0 +1,55 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 5: Diff Pane Labels Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of diff pane labels for side-by-side comparison
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/views/diff.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/diff.go (lines 406-417)
+
+func (d Diff) renderPaneLabel(isLeft bool, isFocused bool) string {
+	if isLeft {
+		if isFocused {
+			return lipgloss.NewStyle().Bold(true).Foreground(diffPurple).Render("◀ Left Profile")
+		}
+		return lipgloss.NewStyle().Foreground(diffGray).Render("Left Profile")
+	}
+	if isFocused {
+		return lipgloss.NewStyle().Bold(true).Foreground(diffPurple).Render("Right Profile ▶")
+	}
+	return lipgloss.NewStyle().Foreground(diffGray).Render("Right Profile")
+}
+
+--------------------------------------------------------------------------------
+
+LABEL STYLES:
+
+File: internal/tui/views/diff.go (color definitions)
+
+	diffPurple = lipgloss.Color("#7D56F4")
+	diffGray   = lipgloss.Color("#6C7086")
+
+--------------------------------------------------------------------------------
+
+LABEL BEHAVIOR:
+- Left pane label: "◀ Left Profile" when focused, "Left Profile" when not
+- Right pane label: "Right Profile ▶" when focused, "Right Profile" when not
+- Focused labels: Bold + Purple color
+- Unfocused labels: Gray color
+- Arrow indicators show navigation direction
+
+VERIFICATION:
+- renderPaneLabel function exists in diff.go
+- Supports both left and right panes
+- Visual distinction between focused/unfocused states
+- Uses consistent color scheme (Purple for active, Gray for inactive)
+- Arrow symbols (◀ and ▶) indicate direction
+
+STATUS: IMPLEMENTED ✓

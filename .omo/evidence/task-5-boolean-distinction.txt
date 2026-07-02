@@ -1,0 +1,8 @@
+=== RUN   TestWizardOtherOmission_AutoUpdate
+--- PASS: TestWizardOtherOmission_AutoUpdate (0.00s)
+=== RUN   TestWizardOtherAutoUpdate_SelectedFalse
+--- PASS: TestWizardOtherAutoUpdate_SelectedFalse (0.00s)
+=== RUN   TestWizardOtherAutoUpdate_SelectedTrue
+--- PASS: TestWizardOtherAutoUpdate_SelectedTrue (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.008s

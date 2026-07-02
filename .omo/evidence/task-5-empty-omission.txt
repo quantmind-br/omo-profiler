@@ -1,0 +1,34 @@
+=== RUN   TestWizardOtherOmission_DisabledAgents
+--- PASS: TestWizardOtherOmission_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledSkills
+--- PASS: TestWizardOtherOmission_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledCommands
+--- PASS: TestWizardOtherOmission_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledMcps
+--- PASS: TestWizardOtherOmission_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherOmission_DisabledTools
+--- PASS: TestWizardOtherOmission_DisabledTools (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledAgents
+--- PASS: TestWizardOtherEmptyArray_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledSkills
+--- PASS: TestWizardOtherEmptyArray_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledCommands
+--- PASS: TestWizardOtherEmptyArray_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledMcps
+--- PASS: TestWizardOtherEmptyArray_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherEmptyArray_DisabledTools
+--- PASS: TestWizardOtherEmptyArray_DisabledTools (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledAgents
+--- PASS: TestWizardOtherWithValues_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledSkills
+--- PASS: TestWizardOtherWithValues_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledCommands
+--- PASS: TestWizardOtherWithValues_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledMcps
+--- PASS: TestWizardOtherWithValues_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherWithValues_DisabledTools
+--- PASS: TestWizardOtherWithValues_DisabledTools (0.00s)
+=== RUN   TestWizardOtherOmission_AutoUpdate
+--- PASS: TestWizardOtherOmission_AutoUpdate (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.019s

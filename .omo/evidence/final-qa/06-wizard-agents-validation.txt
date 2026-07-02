@@ -1,0 +1,40 @@
+Create Profile
+✓ Name → ✓ Categories → Agents → Hooks → Other Settings → Review & Save  Step 3 of 6
+
+Configure Agents
+[Space] toggle  [Enter] expand  [Tab] next step
+
+> [✓] build ▶
+  [ ] plan
+  [ ] sisyphus
+  [ ] hephaestus
+  [ ] sisyphus-junior
+  [ ] OpenCode-Builder
+  [ ] prometheus
+  [ ] metis
+  [ ] momus
+  [ ] oracle
+  [ ] librarian
+  [ ] explore
+  [ ] multimodal-looker
+  [ ] atlas
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Tab/Enter] next • [Shift+Tab] back • [Ctrl+S] save • [Ctrl+C] cancel
+
+
+

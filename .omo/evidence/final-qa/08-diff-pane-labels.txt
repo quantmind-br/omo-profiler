@@ -1,0 +1,40 @@
+Profile Diff
+
+╭──────────────────────────────────────────────────────────╮ ╭──────────────────────────────────────────────────────────
+│cheap                                                     │ │china
+╰──────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────────
+
+◀ Left Profile                                               Right Profile
+╭──────────────────────────────────────────────────────────╮ ╭──────────────────────────────────────────────────────────
+│  {                                                       │ │  {
+│    "$schema": "https://raw.githubusercontent.com/code-yeo│ │    "$schema": "https://raw.githubusercontent.com/code-yeo
+│    "disabled_mcps": [                                    │ │    "disabled_mcps": [
+│      "oh-my-claudecode:t"                                │ │      "oh-my-claudecode:t"
+│    ],                                                    │ │    ],
+│    "agents": {                                           │ │    "agents": {
+│      "atlas": {                                          │ │      "atlas": {
+│        "model": "zai-coding-plan/glm-5.1"                │ │        "model": "zai-coding-plan/glm-5.1"
+│      },                                                  │ │      },
+│      "explore": {                                        │ │      "explore": {
+│        "model": "minimax-coding-plan/MiniMax-M2.7"       │ │        "model": "minimax-coding-plan/MiniMax-M2.7"
+│      },                                                  │ │      },
+│      "hephaestus": {                                     │ │      "hephaestus": {
+│        "model": "                                        │ │        "model": "
+│- openai/gpt-5.4                                          │ │
+│                                                          │ │+ zai-coding-plan/glm-5.1
+│  ",                                                      │ │  ",
+│        "variant": "medium"                               │ │        "variant": "medium"
+│      },                                                  │ │      },
+│      "librarian": {                                      │ │      "librarian": {
+│        "model": "minimax-coding-plan/MiniMax-M2.7"       │ │        "model": "minimax-coding-plan/MiniMax-M2.7"
+│      },                                                  │ │      },
+│      "metis": {                                          │ │      "metis": {
+│        "model": "zai-coding-plan/glm-5.1"                │ │        "model": "zai-coding-plan/glm-5.1"
+│      },                                                  │ │      },
+│      "momus": {                                          │ │      "momus": {
+│        "model": "                                        │ │        "model": "
+│- openai/gpt-5.4                                          │ │
+│                                                          │ │+ zai-coding-plan/glm-5.1
+│  ",                                                      │ │  ",
+╰──────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────────
+[Tab] switch pane • [Enter] select • [↑↓] scroll • [Esc] back

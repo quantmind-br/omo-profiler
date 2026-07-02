@@ -1,0 +1,75 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 2: Loading Context Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of loading context with spinner and message display
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/app.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/app.go (lines 88-91)
+
+	// Loading state
+	spinner    spinner.Model
+	loading    bool
+	loadingMsg string
+
+--------------------------------------------------------------------------------
+
+SPINNER INITIALIZATION:
+
+File: internal/tui/app.go (lines 120-122)
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(Purple)
+
+--------------------------------------------------------------------------------
+
+LOADING MESSAGE ASSIGNMENTS:
+
+File: internal/tui/app.go
+
+Line 285:
+	a.loadingMsg = "Importing"
+
+Line 315:
+	a.loadingMsg = "Exporting"
+
+Line 386:
+	a.loadingMsg = "Switching profile"
+
+Line 415:
+	a.loadingMsg = "Deleting profile"
+
+--------------------------------------------------------------------------------
+
+LOADING VIEW RENDERING:
+
+File: internal/tui/app.go (line 655)
+
+	return a.spinner.View()+" "+a.loadingMsg+"..."
+
+--------------------------------------------------------------------------------
+
+IMPORTS:
+
+File: internal/tui/app.go (line 13)
+
+	"github.com/charmbracelet/bubbles/spinner"
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- Spinner state managed in App struct
+- loadingMsg provides context for operations
+- Used for: Importing, Exporting, Switching profile, Deleting profile
+- Spinner uses Dot animation with Purple color
+- Display format: "{spinner} {message}..."
+
+STATUS: IMPLEMENTED ✓

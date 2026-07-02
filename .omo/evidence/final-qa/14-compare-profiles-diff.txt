@@ -1,0 +1,40 @@
+Profile Diff
+
+╭──────────────────────────────────────────────────────────╮ ╭──────────────────────────────────────────────────────────
+│cheap                                                     │ │china
+╰──────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────────
+
+◀ Left Profile                                               Right Profile
+╭──────────────────────────────────────────────────────────╮ ╭──────────────────────────────────────────────────────────
+│  {                                                       │ │  {
+│    "                                                     │ │    "
+│- categories": {                                          │ │
+│-     "artistry": {                                       │ │
+│-       "description": "Complex problem-solving with uncon│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "deep": {                                           │ │
+│-       "description": "Goal-oriented autonomous problem-s│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "quick": {                                          │ │
+│-       "description": "Trivial tasks - single file change│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "ultrabrain": {                                     │ │
+│-       "description": "Use ONLY for genuinely hard, logic│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "unspecified-high": {                               │ │
+│-       "description": "Tasks that don't fit other categor│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "unspecified-low": {                                │ │
+│-       "description": "Tasks that don't fit other categor│ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+│-     },                                                  │ │
+│-     "visual-engineering": {                             │ │
+│-       "description": "Frontend, UI/UX, design, styling, │ │
+│-       "prompt_append": "\u003cCategory_Context\u003e\nYo│ │
+╰──────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────────
+[Tab] switch pane • [Enter] select • [↑↓] scroll • [Esc] back

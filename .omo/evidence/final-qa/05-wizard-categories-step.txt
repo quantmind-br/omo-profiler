@@ -1,0 +1,40 @@
+Create Profile
+✓ Name → Categories → Agents → Hooks → Other Settings → Review & Save  Step 2 of 6
+
+Configure Categories
+[↑↓] navigate  [n] new  [d] delete  [→] expand  [←] collapse  [Enter] edit  [Tab] next step
+
+> visual-engineering ▶
+  ultrabrain ▶
+  deep ▶
+  artistry ▶
+  quick ▶
+  unspecified-low ▶
+  unspecified-high ▶
+  writing ▶
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Tab/Enter] next • [Shift+Tab] back • [Ctrl+S] save • [Ctrl+C] cancel
+
+
+

@@ -1,0 +1,47 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 1: RenderConfirmDialog Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of confirmation dialog rendering for destructive actions
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/layout/layout.go
+- /home/diogo/dev/omo-profiler/internal/tui/views/list.go
+- /home/diogo/dev/omo-profiler/internal/tui/views/model_registry.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/layout/layout.go (lines 15-22)
+
+func RenderConfirmDialog(target, message string) string {
+	confirmStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(Yellow).
+		Background(Gray).
+		Padding(0, 1)
+	return confirmStyle.Render(fmt.Sprintf("%s '%s'? [y/n]", message, target))
+}
+
+--------------------------------------------------------------------------------
+
+USAGE EVIDENCE:
+
+File: internal/tui/views/list.go (line 273)
+	confirmText := layout.RenderConfirmDialog(l.deleteTarget, "Delete")
+
+File: internal/tui/views/model_registry.go (line 627)
+	confirmText := layout.RenderConfirmDialog(targetName, "Delete")
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- Function exists in layout package
+- Used for delete confirmation in list view
+- Used for delete confirmation in model registry view
+- Styled with Yellow foreground, Gray background, Bold text
+- Format: "{message} '{target}'? [y/n]"
+
+STATUS: IMPLEMENTED ✓

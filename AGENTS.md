@@ -1,113 +1,110 @@
-# PROJECT KNOWLEDGE BASE
+# omo-profiler — Agent Guide
 
-**Generated:** 2026-02-11
-**Commit:** cb84c43
-**Branch:** main
+Compact guidance for OpenCode sessions. For deeper per-package context, see the `AGENTS.md` files under `internal/*/`. For generated architecture detail, see `ARCHITECTURE.md`.
 
-## OVERVIEW
+## Project at a Glance
 
-TUI profile manager for `oh-my-openagent` configuration files. Go 1.25.6 + Bubble Tea + Cobra CLI. Manages profile CRUD, active state switching (copy-based, not symlink), and JSON schema validation against upstream.
+TUI profile manager for `oh-my-openagent` configuration files. Go 1.25.6 + Bubble Tea + Cobra CLI. Manages profile CRUD, active-state switching, and JSON schema validation against upstream.
 
-## STRUCTURE
+Entry flow:
 
 ```
-omo-profiler/
-├── cmd/omo-profiler/     # Entry point → cli.Execute()
-├── internal/
-│   ├── cli/              # Cobra root + cmd/ subcommands
-│   ├── config/           # Schema authority (types.go) + path resolution
-│   ├── profile/          # CRUD, switching, naming validation
-│   ├── tui/              # Bubble Tea app (state machine + router)
-│   │   ├── views/        # 18 view files: wizard steps, dashboard, diff, models
-│   │   └── layout/       # Terminal width helpers, min-size constants
-│   ├── schema/           # Embedded JSON schema + gojsonschema validator (singleton)
-│   ├── models/           # LLM model registry + models.dev API client
-│   ├── diff/             # Side-by-side + unified diff (go-diff wrapper)
-│   ├── backup/           # Timestamped backup rotation before profile switch
-│   └── testdata/         # JSON fixtures for cross-package tests
-├── Makefile              # build, install, test, lint, clean
-└── update-schema.sh      # Downloads upstream schema + generates diff report
+cmd/omo-profiler/main.go → cli.Execute() → rootCmd.Execute()
+  ├── no subcommand → tui.Run() → tea.NewProgram()
+  └── subcommand    → internal/cli/cmd/*.go → profile/backup/models/schema packages
 ```
 
-## WHERE TO LOOK
-
-| Task | Location | Notes |
-|------|----------|-------|
-| **Add CLI Command** | `internal/cli/cmd/` | Export var, register in `cli/root.go` `init()` |
-| **Modify Config Schema** | `internal/config/types.go` | **CRITICAL**: Must match upstream JSON schema 1:1 |
-| **Add TUI View** | `internal/tui/views/` | Add `appState` const + register in `app.go` `navigateTo()` |
-| **Add Wizard Step** | `internal/tui/views/wizard_*.go` | Implement `WizardStep` interface + implicit `SetConfig`/`Apply` |
-| **Change Profile Logic** | `internal/profile/` | Load/Save/Switch/Delete + naming in `naming.go` |
-| **Update Styles** | `internal/tui/styles.go` | Shared Lipgloss palette; views MUST import from here |
-| **Update Models** | `internal/models/` | `models.go` (local CRUD) / `modelsdev.go` (API client) |
-| **Schema Validation** | `internal/schema/validator.go` | Singleton via `GetValidator()`, embedded schema |
-| **Layout Constants** | `internal/tui/layout/layout.go` | `MinTerminalWidth/Height`, responsive field widths |
-
-## CODE MAP
-
-| Symbol | Type | Location | Role |
-|--------|------|----------|------|
-| `App` | struct | `tui/app.go` | Root TUI model, state machine, message router |
-| `appState` | enum | `tui/app.go` | 10 states: Dashboard→List→Wizard→Diff→Import→Export→Models→ModelImport→TemplateSelect→SchemaCheck |
-| `Wizard` | struct | `tui/views/wizard.go` | Multi-step profile creation orchestrator |
-| `WizardStep` | interface | `tui/views/step.go` | `Init`, `SetSize`, `View` (explicit) + `SetConfig`/`Apply` (implicit) |
-| `Config` | struct | `config/types.go` | Root config (~25 top-level fields, deeply nested) |
-| `Profile` | struct | `profile/profile.go` | Wraps `Config` + metadata (Name, Path, LegacyFields) |
-| `SetBaseDir` | func | `config/paths.go` | Test isolation: redirects all paths to temp dir |
-| `ModelsRegistry` | struct | `models/models.go` | Thread-safe local model CRUD with JSON persistence |
-| `Validator` | struct | `schema/validator.go` | Singleton JSON schema validator (`sync.Once`) |
-| `ComputeDiff` | func | `diff/diff.go` | Side-by-side diff with `DiffLine` typed results |
-| `Create` | func | `backup/backup.go` | Timestamped backup before profile switch |
-
-## CONVENTIONS
-
-- **Go Version**: `1.25.6` (go.mod)
-- **TUI Architecture**: Pure MVU — views emit `tea.Msg`, `App.Update` routes, `tea.Cmd` for async
-- **Navigation**: Message-driven — views emit `NavTo*Msg`, App intercepts and calls `navigateTo(state)`
-- **Testing**: Co-located `*_test.go`, mandatory `config.SetBaseDir(t.TempDir())`, `setupTestEnv` helper pattern
-- **Error Handling**: `tea.Cmd` returns `*Msg` with `err` field; CLI uses `RunE` for Cobra error propagation
-- **JSON Tags**: `omitempty` required; `*bool` pointers to distinguish `false` from missing
-- **Assertions**: `github.com/stretchr/testify` for test assertions
-- **Profile Naming**: Strict regex `^[a-zA-Z0-9_-]+$` enforced by `profile.SanitizeName`
-
-## ANTI-PATTERNS (THIS PROJECT)
-
-- **Schema Divergence**: Never add `Config` fields without upstream schema support
-- **Direct State Mutation**: Views must NOT modify `App` state; always emit `tea.Msg`
-- **Global Config Mutation**: Wizard steps must NOT modify `Config` directly; use `Apply()` pattern
-- **Hardcoded Paths**: Never use `~/.config` literals; use `config.ConfigDir()` / `config.ProfilesDir()`
-- **Raw Styles**: Never define hex colors in views; import from `internal/tui/styles.go`
-- **Symlinking**: Profile switching uses COPY, not symlinks (fsnotify compatibility)
-- **Blocking in Update**: File I/O must happen in `tea.Cmd`, never in `Update()` or `View()`
-- **Fat CLI Commands**: CLI `Run` must delegate to `profile`/`backup` packages; no business logic inline
-- **Type Suppression**: No `//nolint`, no type assertion shortcuts in production code
-
-## COMMANDS
+## Daily Commands
 
 ```bash
-make build       # Build binary to ./omo-profiler
-make install     # Install to ~/.local/bin/omo-profiler
-make uninstall   # Remove from ~/.local/bin
-make test        # Run tests with -v (race detector enabled)
-make lint        # Run golangci-lint
-make clean       # Remove build artifacts
+make build      # go build -v -o omo-profiler ./cmd/omo-profiler
+make test       # go test -v ./...  (race detector NOT enabled)
+make lint       # golangci-lint run ./...  (requires local install)
+make install    # cp binary to ~/.local/bin/omo-profiler
+make clean      # rm binary + go clean
 ```
 
-## EXECUTION FLOW
+Run a single package or test:
 
+```bash
+go test -v ./internal/profile/...
+go test -v -run TestLoad ./internal/profile/
 ```
-main.go → cli.Execute() → rootCmd.Execute()
-  ├── (no subcommand) → tui.Run() → NewApp() → tea.NewProgram()
-  └── (subcommand) → cmd/*.go → profile/backup packages
+
+There is **no CI, no `.golangci.yml`, no Docker, and no `update-schema.sh`** in this repo. The `update-schema.sh` script referenced in older docs has been removed; schema sync is done through `schema.CompareSchemas()` / `schema.FetchUpstreamSchema()` or manually.
+
+## Layout and Ownership
+
+| Directory | Owns | Notes |
+|-----------|------|-------|
+| `cmd/omo-profiler/` | Binary entry point | Just calls `cli.Execute()` |
+| `internal/cli/cmd/` | Cobra subcommands | 8 commands; thin wrappers only |
+| `internal/config/` | Schema authority + paths | `Config` struct (44 top-level fields) is the source of truth |
+| `internal/profile/` | CRUD, switching, naming, sparse-field detection | Switching is **copy-based**, never symlink |
+| `internal/schema/` | Embedded JSON schema + singleton validator | ~188 KB `schema.json` fetched from upstream oh-my-openagent dev branch |
+| `internal/models/` | Local model registry + models.dev API client | `models.json` with auto `.bak` on corruption |
+| `internal/backup/` | Timestamped backup rotation before profile switch | |
+| `internal/diff/` | Side-by-side + unified diff | Used by profile compare and schema drift |
+| `internal/tui/` | Bubble Tea root `App`, styles, layout | |
+| `internal/tui/views/` | 18 sub-views incl. 6-step wizard | Complexity hotspots: `wizard_other.go`, `wizard_agents.go`, `wizard_categories.go` |
+| `internal/testdata/` | JSON fixtures | `valid-config.json`, `minimal-config.json`, etc. |
+
+## TUI Architecture
+
+- **Pure MVU**: `App.Update` is the only router. Views emit `tea.Msg`, never mutate `App` state.
+- **10 states** in `internal/tui/app.go`: Dashboard, List, Wizard, Diff, Import, Export, Models, ModelImport, TemplateSelect, SchemaCheck.
+- **Wizard steps**: Name → Categories → Agents → Hooks → Other → Review.
+- **Step lifecycle**: `SetConfig(&cfg, selection)` on activation → user edits local state → `Apply(&cfg, selection)` on exit.
+- **All I/O in `tea.Cmd`**: never block inside `Update()` or `View()`.
+- **Styles**: import from `internal/tui/styles.go`; do not define raw hex colors in views.
+- **Navigation**: views emit `NavTo*Msg`; `App` intercepts and calls `navigateTo(state)`. Views are recreated on navigation.
+
+## Schema / Config Rules
+
+- `internal/config/types.go` must stay 1:1 with the upstream JSON schema.
+- Every struct field needs `json:"...,omitempty"`.
+- Use `*bool` / `*float64` / `*int` to distinguish `false`/`0` from "missing".
+- `skills` and `runtime_fallback` are `json.RawMessage` to preserve original shape.
+- Validation modes:
+  - `Validate()` — strict, enforces required fields.
+  - `ValidateForSave()` — permissive, ignores missing required fields; used for wizard save and profile save.
+- Always use `schema.GetValidator()` (singleton via `sync.Once`); don't build loaders directly.
+
+## Testing Conventions
+
+- Co-located `*_test.go`.
+- Any test touching the filesystem must redirect paths to a temp dir:
+
+  ```go
+  func setupTestEnv(t *testing.T) func() {
+      tmpDir := t.TempDir()
+      config.SetBaseDir(tmpDir)
+      return func() { config.ResetBaseDir() }
+  }
+  ```
+
+- Use `testify/assert` and `testify/require`.
+
+## Current Known Issues
+
+- None. (The pre-existing `TestModelRegistryGetFilteredModelsWithSearch` false-positive — `fuzzy.Find` returning subsequence-only matches like a Qwen model for `"claude"` — was fixed by filtering to substring membership in `model_registry.go:getFilteredModels`.)
+
+## Path Resolution
+
+```go
+config.ConfigDir()    // ~/.config/opencode/
+config.ProfilesDir()  // ~/.config/opencode/profiles/
+config.ConfigFile()   // canonical oh-my-openagent.json, falls back to legacy oh-my-opencode.json
+config.ModelsFile()   // ~/.config/opencode/models.json
 ```
 
-## NOTES
+Never hardcode `~/.config`; always use `config.*` helpers.
 
-- Profile storage: `~/.config/opencode/profiles/<name>.json`
-- Active config: `~/.config/opencode/oh-my-openagent.json`
-- State tracking: `.active-profile` sidecar (O(1) lookup) + content scan fallback (O(N))
-- Wizard steps: Name → Categories → Agents → Hooks → Other → Review
-- No CI/CD: No GitHub Actions, no Docker, no Goreleaser
-- Schema sync: `./update-schema.sh` fetches from `code-yeongyu/oh-my-openagent`
-- `models.json` corruption: auto-backup to `.bak` on load failure
- Upstream schema URL: `https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json`
+## GitNexus
+
+This repo is indexed as **omo-profiler**. If a GitNexus tool says the index is stale, run `npx gitnexus analyze` first.
+
+- Impact analysis before editing a symbol: `gitnexus_impact({target: "SymbolName", direction: "upstream"})`
+- Check affected flows before committing: `gitnexus_detect_changes()`
+- Explore concepts: `gitnexus_query({query: "..."})`
+- Rename safely: `gitnexus_rename({symbol_name: "...", new_name: "..."})`

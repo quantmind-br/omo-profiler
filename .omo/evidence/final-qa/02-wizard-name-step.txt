@@ -1,0 +1,40 @@
+Create Profile
+Name → Categories → Agents → Hooks → Other Settings → Review & Save  Step 1 of 6
+
+Profile Name
+Enter a name for your profile (letters, numbers, hyphens, underscores only)
+
+> my-profile
+Required
+
+tab/enter: next • shift+tab/esc: cancel
+[Tab/Enter] next • [Shift+Tab] back • [Ctrl+S] save • [Ctrl+C] cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

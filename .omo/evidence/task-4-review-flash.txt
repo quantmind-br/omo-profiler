@@ -1,0 +1,82 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 4: Flash Message Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of flash messages for user feedback in wizard
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/views/wizard.go
+- /home/diogo/dev/omo-profiler/internal/tui/views/wizard_review.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard.go (line 98)
+
+	flashMsg string
+
+--------------------------------------------------------------------------------
+
+FLASH MESSAGE ASSIGNMENTS IN WIZARD:
+
+File: internal/tui/views/wizard.go (lines 382-391)
+
+		w.flashMsg = "Changes applied"
+		return w, nil
+	}
+	if w.editMode {
+		w.flashMsg = "Changes applied"
+		return w, nil
+	}
+	if w.fromTemplate {
+		w.flashMsg = "Changes applied"
+		return w, nil
+	}
+	w.flashMsg = "Changes applied"
+
+--------------------------------------------------------------------------------
+
+FLASH MESSAGE DISPLAY:
+
+File: internal/tui/views/wizard.go (lines 425-426)
+
+	if w.flashMsg != "" {
+		flashDisplay = successStyle.Render("✓ " + w.flashMsg)
+
+--------------------------------------------------------------------------------
+
+WIZARD REVIEW FLASH:
+
+File: internal/tui/views/wizard_review.go (line 82)
+
+	flashMsg         string
+
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard_review.go (lines 168-175)
+
+	if !w.isValid {
+		w.flashMsg = "Fix validation errors before saving"
+		return w, nil
+	}
+
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard_review.go (lines 192-193)
+
+	if w.flashMsg != "" {
+		flash = wizReviewWarningStyle.Render(w.flashMsg)
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- flashMsg field in both Wizard and WizardReview structs
+- Success messages: "Changes applied" with ✓ icon
+- Warning messages: "Fix validation errors before saving"
+- Displayed using successStyle (Green) or wizReviewWarningStyle (Yellow)
+- Flash messages cleared on navigation
+- Provides immediate user feedback for actions
+
+STATUS: IMPLEMENTED ✓

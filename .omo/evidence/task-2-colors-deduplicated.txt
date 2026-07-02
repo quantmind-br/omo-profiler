@@ -1,0 +1,78 @@
+# CQ-016 — Remove view-specific color redefinitions
+
+## Summary
+Successfully removed all local color variable definitions from view files and replaced them with centralized palette from `internal/tui/layout/layout.go`.
+
+## Changes Made
+
+### 1. Centralized Color Palette (internal/tui/layout/layout.go)
+Added shared color variables to avoid import cycles:
+- Purple  = "#7D56F4"
+- Magenta = "#FF6AC1"
+- Cyan    = "#78DCE8"
+- Green   = "#A6E3A1"
+- Red     = "#F38BA8"
+- Yellow  = "#F9E2AF"
+- Gray    = "#6C7086"
+- White   = "#CDD6F4"
+
+### 2. Updated View Files
+
+#### export.go
+- Removed: exportWhite, exportGray, exportRed, exportPurple, exportYellow
+- Now uses: layout.White, layout.Gray, layout.Red, layout.Purple, layout.Yellow
+
+#### import.go
+- Removed: importWhite, importGray, importRed
+- Now uses: layout.White, layout.Gray, layout.Red
+
+#### diff.go
+- Removed: diffPurple, diffMagenta, diffGreen, diffRed, diffGray, diffWhite
+- Now uses: layout.Purple, layout.Magenta, layout.Green, layout.Red, layout.Gray, layout.White
+
+#### wizard_agents.go
+- Removed: wizAgentPurple, wizAgentGray, wizAgentText, wizAgentRed, wizAgentGreen, wizAgentPink
+- Now uses: layout.Purple, layout.Gray, layout.White, layout.Red, layout.Green, layout.Magenta
+
+#### wizard_categories.go
+- Removed: wizCatPurple, wizCatGray, wizCatText, wizCatRed, wizCatGreen
+- Now uses: layout.Purple, layout.Gray, layout.White, layout.Red, layout.Green
+
+#### wizard_other.go
+- Removed: wizOtherPurple, wizOtherGreen, wizOtherGray, wizOtherWhite
+- Now uses: layout.Purple, layout.Green, layout.Gray, layout.White
+
+#### model_selector.go
+- Replaced inline hex values:
+  - "#7D56F4" → layout.Purple
+  - "#6C7086" → layout.Gray
+  - "#CDD6F4" → layout.White
+  - "#FF6AC1" → layout.Magenta
+- Kept non-palette colors: "#45475A", "#89B4FA" (not in centralized palette)
+
+### 3. Updated styles.go
+- Now re-exports colors from layout package for convenience within tui package
+
+### 4. Fixed Pre-existing Issues
+- Removed duplicate `expandPath` function from import.go (now in pathutil.go)
+- Fixed `newTextInput` helper function issues in wizard files
+
+## Verification
+
+```bash
+$ make test
+# All tests pass
+ok      github.com/diogenes/omo-profiler/internal/tui/views    0.195s
+```
+
+## grep Verification
+
+No local color variables remain in view files:
+- No `exportWhite`, `exportGray`, etc. in export.go
+- No `importWhite`, `importGray`, etc. in import.go
+- No `diffPurple`, `diffMagenta`, etc. in diff.go
+- No `wizAgentPurple`, `wizAgentGray`, etc. in wizard_agents.go
+- No `wizCatPurple`, `wizCatGray`, etc. in wizard_categories.go
+- No `wizOtherPurple`, `wizOtherGray`, etc. in wizard_other.go
+
+All view files now import colors from `internal/tui/layout` package.

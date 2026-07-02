@@ -1,0 +1,1 @@
+- CQ-005: extraí `validateConfig()` do fluxo de save para manter a validação síncrona reutilizável antes da persistência assíncrona, preservando a ordem e comportamento do wizard.

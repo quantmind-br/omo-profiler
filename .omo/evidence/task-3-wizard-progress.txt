@@ -1,0 +1,81 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 3: Wizard Progress Indicator Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of progress indicator in wizard steps
+
+FILE PATHS:
+- /home/diogo/dev/omo-profiler/internal/tui/views/wizard.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard.go (lines 30-46)
+
+const (
+	StepName = iota + 1
+	StepCategories
+	StepAgents
+	StepHooks
+	StepOther
+	StepReview
+)
+
+var stepNames = map[int]string{
+	StepName:       "Name",
+	StepCategories: "Categories",
+	StepAgents:     "Agents",
+	StepHooks:      "Hooks",
+	StepOther:      "Other Settings",
+	StepReview:     "Review & Save",
+}
+
+--------------------------------------------------------------------------------
+
+WIZARD STEP STATE:
+
+File: internal/tui/views/wizard.go (line 78)
+
+	step                int
+
+--------------------------------------------------------------------------------
+
+STEP NAVIGATION:
+
+File: internal/tui/views/wizard.go (lines 206-223)
+
+	case WizardBackMsg:
+		if w.step > StepName {
+			w.step--
+			w.err = nil
+			w.flashMsg = ""
+			return w, w.initCurrentStep()
+		}
+
+File: internal/tui/views/wizard.go (lines 224-244)
+
+	case WizardNextMsg:
+		if w.step < StepReview {
+			if err := w.applyCurrentStep(); err != nil {
+				w.err = err
+				return w, nil
+			}
+			w.step++
+			w.err = nil
+			w.flashMsg = ""
+			return w, w.initCurrentStep()
+		}
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- 6 wizard steps defined with constants (StepName through StepReview)
+- stepNames map provides human-readable labels
+- Current step tracked in Wizard.step field
+- Navigation supports forward (WizardNextMsg) and backward (WizardBackMsg)
+- Step bounds checking prevents navigation beyond limits
+- Progress implicitly shown through step number and name
+
+STATUS: IMPLEMENTED ✓

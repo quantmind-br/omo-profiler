@@ -1,0 +1,5 @@
+Task 1: ✓ indicator semantics tests passed
+- TestWizardOtherCheckmarkReflectsSelection_NotValue_SimpleBoolean: PASS
+- TestWizardOtherCheckmarkReflectsSelection_NotValue_Unselected: PASS
+- TestWizardOtherCheckmarkReflectsSelection_SubSectionBoolField: PASS
+- TestWizardOtherCheckmarkReflectsSelection_SubSectionBoolField_Unselected: PASS

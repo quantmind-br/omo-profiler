@@ -1,0 +1,63 @@
+CQ-014 — Split config/types.go by domain
+=====================================
+
+COMPLETED: 2026-04-09
+
+FILES CREATED:
+--------------
+1. internal/config/types_agent.go
+   - AgentConfig (23 fields)
+   - PermissionConfig
+   - UltraworkConfig
+   - CompactionConfig
+
+2. internal/config/types_experimental.go
+   - ExperimentalConfig (12 fields)
+   - DynamicContextPruningConfig
+   - TurnProtectionConfig
+   - StrategiesConfig
+   - DeduplicationConfig
+   - SupersedeWritesConfig
+   - PurgeErrorsConfig
+
+3. internal/config/types_background_task.go
+   - BackgroundTaskConfig (12 fields)
+   - BackgroundCircuitBreaker
+
+FILES MODIFIED:
+---------------
+- internal/config/types.go
+  - Kept: Config (root struct with 33 top-level fields)
+  - Kept: CategoryConfig, ThinkingConfig, StartWorkConfig, ClaudeCodeConfig
+  - Kept: SisyphusAgentConfig, RalphLoopConfig, NotificationConfig
+  - Kept: GitMasterConfig, CommentCheckerConfig, BabysittingConfig
+  - Kept: BrowserAutomationEngineConfig, TmuxConfig, WebsearchConfig
+  - Kept: SisyphusConfig, SisyphusTasksConfig, OpenclawConfig + related
+  - Kept: ModelCapabilitiesConfig
+
+TEST RESULTS:
+-------------
+All 50+ round-trip tests PASSED
+
+ok  	github.com/diogenes/omo-profiler/internal/config	0.003s
+
+Key tests verified:
+- TestRoundTrip
+- TestMinimalConfig
+- TestAgentConfigExtendedFieldsRoundTrip
+- TestPreemptiveCompactionRoundTrip
+- TestUltraworkConfigRoundTrip
+- TestHashlineEditRoundTrip
+- TestMessageStalenessTimeoutMsRoundTrip
+- TestOpenclawRoundTrip
+- TestModelCapabilitiesRoundTrip
+- ... and 40+ more
+
+VERIFICATION:
+-------------
+- No type definitions changed
+- No struct tags modified
+- No field names altered
+- Pure file reorganization only
+- All JSON tags preserved exactly
+- All omitempty tags preserved

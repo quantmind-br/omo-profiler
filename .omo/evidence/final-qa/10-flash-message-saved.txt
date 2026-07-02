@@ -1,0 +1,40 @@
+
+OMO-Profiler
+Profile manager for oh-my-openagent
+
+Active: ultracheap
+6 profiles available
+  > Switch Profile
+    Create New
+    Create from Template
+    Edit Current
+    Compare Profiles
+    Manage Models
+    Import Profile
+    Export Profile
+    Check Schema Updates
+[↑↓] navigate • [Enter] select • [?] help • [q] quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

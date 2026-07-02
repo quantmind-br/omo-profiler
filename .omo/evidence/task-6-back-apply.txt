@@ -1,0 +1,100 @@
+================================================================================
+F1 COMPLIANCE AUDIT EVIDENCE
+Task 6: Back Navigation Feedback Implementation
+================================================================================
+
+TASK DESCRIPTION:
+Implementation of back navigation feedback in wizard steps
+
+FILE PATHS:
+- /home/diogenes/omo-profiler/internal/tui/views/wizard.go
+- /home/diogenes/omo-profiler/internal/tui/views/wizard_*.go
+
+CODE IMPLEMENTATION:
+--------------------------------------------------------------------------------
+
+File: internal/tui/views/wizard.go (lines 19-20)
+
+// Wizard message types
+type WizardNextMsg struct{}
+type WizardBackMsg struct{}
+
+--------------------------------------------------------------------------------
+
+BACK NAVIGATION HANDLING:
+
+File: internal/tui/views/wizard.go (lines 206-214)
+
+	case WizardBackMsg:
+		if w.step > StepName {
+			w.step--
+			w.err = nil
+			w.flashMsg = ""
+			return w, w.initCurrentStep()
+		}
+
+--------------------------------------------------------------------------------
+
+BACK NAVIGATION IN STEPS:
+
+File: internal/tui/views/wizard_categories.go (line 1044)
+
+	return w, func() tea.Msg { return WizardBackMsg{} }
+
+File: internal/tui/views/wizard_agents.go (line 1917)
+
+	return w, func() tea.Msg { return WizardBackMsg{} }
+
+File: internal/tui/views/wizard_hooks.go (line 247)
+
+	return w, func() tea.Msg { return WizardBackMsg{} }
+
+File: internal/tui/views/wizard_other.go (line 3322)
+
+	return w, func() tea.Msg { return WizardBackMsg{} }
+
+File: internal/tui/views/wizard_review.go (line 178)
+
+	return w, func() tea.Msg { return WizardBackMsg{} }
+
+--------------------------------------------------------------------------------
+
+KEY BINDINGS:
+
+File: internal/tui/views/wizard.go (lines 61-64)
+
+		Back: key.NewBinding(
+			key.WithKeys("shift+tab", "esc"),
+			key.WithHelp("shift+tab/esc", "back"),
+		),
+
+--------------------------------------------------------------------------------
+
+TEST EVIDENCE:
+
+File: internal/tui/views/wizard_categories_test.go (lines 742-743)
+
+	if _, ok := result.(WizardBackMsg); !ok {
+		t.Errorf("expected WizardBackMsg, got %T", result)
+
+File: internal/tui/views/wizard_review_test.go (lines 225-226)
+
+	if _, ok := result.(WizardBackMsg); !ok {
+		t.Errorf("expected WizardBackMsg, got %T", result)
+
+File: internal/tui/views/wizard_hooks_test.go (lines 369-370)
+
+	if _, ok := result.(WizardBackMsg); !ok {
+		t.Errorf("expected WizardBackMsg, got %T", result)
+
+--------------------------------------------------------------------------------
+
+VERIFICATION:
+- WizardBackMsg type defined for back navigation
+- Key bindings: Shift+Tab or Esc triggers back
+- All wizard steps emit WizardBackMsg when navigating back
+- Wizard orchestrator handles message and decrements step
+- Error and flash state cleared on back navigation
+- Tests verify correct message type is returned
+
+STATUS: IMPLEMENTED ✓

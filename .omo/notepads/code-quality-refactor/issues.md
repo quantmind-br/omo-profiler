@@ -1,0 +1,1 @@
+- CQ-005: `make test` continua bloqueado por erros de compilação pré-existentes em `internal/tui/views/wizard_agents.go` (`handleModelSelection`, `handleFormNavigation`, `handleNavigation` ausentes).

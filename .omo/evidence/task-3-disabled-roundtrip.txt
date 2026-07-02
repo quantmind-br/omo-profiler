@@ -1,0 +1,32 @@
+=== RUN   TestWizardOtherRoundTrip_DisabledAgents
+--- PASS: TestWizardOtherRoundTrip_DisabledAgents (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledAgentsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledAgentsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledAgentsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledAgentsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkills
+--- PASS: TestWizardOtherRoundTrip_DisabledSkills (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkillsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledSkillsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledSkillsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledSkillsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommands
+--- PASS: TestWizardOtherRoundTrip_DisabledCommands (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommandsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledCommandsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledCommandsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledCommandsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcps
+--- PASS: TestWizardOtherRoundTrip_DisabledMcps (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcpsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledMcpsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledMcpsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledMcpsOmitted (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledTools
+--- PASS: TestWizardOtherRoundTrip_DisabledTools (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledToolsEmpty
+--- PASS: TestWizardOtherRoundTrip_DisabledToolsEmpty (0.00s)
+=== RUN   TestWizardOtherRoundTrip_DisabledToolsOmitted
+--- PASS: TestWizardOtherRoundTrip_DisabledToolsOmitted (0.00s)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	0.017s

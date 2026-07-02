@@ -1,0 +1,40 @@
+Schema Update Check
+
+ ⚠ Differences found between embedded and upstream schema
+
+ Enter a folder path to save the diff:
+
+ > Enter folder path to save diff (e.g., ~/Downloads)
+
+ [enter] save  [esc] cancel
+[?] help • [q] quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,40 @@
+
+Manage Models
+
+Search: > type to filter...
+
+> alibaba-coding-plan/kimi-k2.5 (Kimi K2.5)
+  alibaba-coding-plan/qwen3.5-plus (Qwen3.5 Plus)
+  fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo (Kimi K2.5 Turbo (firepass))
+  google/gemini-3.1-pro-preview (Gemini 3.1 Pro Preview)
+  minimax-coding-plan/MiniMax-M2.7 (MiniMax-M2.7)
+  quantmind-anthropic/claude-haiku-4-5-20251001 (Claude Haiku 4.5)
+  quantmind-anthropic/claude-opus-4-6 (Claude Opus 4.6)
+  quantmind-anthropic/claude-opus-4-6-gemini (Claude Opus 4.6 (Gemini))
+  quantmind-anthropic/claude-sonnet-4-6 (Claude Sonnet 4.6)
+  quantmind-anthropic/claude-sonnet-4-6-gemini (Claude Sonnet 4.6 (Gemini))
+  quantmind-anthropic/glm-5 (GLM 5)
+  quantmind-anthropic/glm-5.1 (GLM 5.1)
+  quantmind-anthropic/minimax-m2.5 (MiniMax M2.5)
+  quantmind-anthropic/minimax-m2.7 (MiniMax M2.7)
+  quantmind-google/gemini-3-flash-preview (Gemini 3 Flash Preview)
+  quantmind-google/gemini-3-pro-image-preview (Gemini 3 Pro Image Preview)
+  quantmind-google/gemini-3-pro-preview (Gemini 3 Pro Preview)
+  quantmind-google/gemini-3.1-pro-high (Gemini 3.1 Pro High)
+  quantmind-google/gemini-3.1-pro-low (Gemini 3.1 Pro Low)
+  quantmind-openai/gpt-5.3-codex (GPT-5.3 Codex)
+  quantmind-openai/gpt-5.4 (GPT-5.4)
+  quantmind-openai/qwen3.6-plus (Qwen3.6 Plus)
+  Test Provider/test-model-id (Test Model)
+  zai-coding-plan/glm-4.7 (GLM-4.7)
+  zai-coding-plan/glm-5-turbo (GLM-5-Turbo)
+  zai-coding-plan/glm-5.1 (GLM-5.1)
+  Other/model1 (Model 1)
+
+[/] search  [n] new  [i] import  [e] edit  [d] delete  [Esc] back
+[n] new • [i] import • [e] edit • [d] delete • [↑↓] navigate • [Esc] back
+
+
+
+
+
