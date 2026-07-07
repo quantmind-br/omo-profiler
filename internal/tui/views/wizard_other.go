@@ -124,6 +124,7 @@ const (
 	sectionTeamMode
 	sectionMonitor
 	sectionCodegraph
+	sectionTelemetry
 	sectionTui
 )
 
@@ -162,6 +163,7 @@ var otherSectionNames = []string{
 	"Team Mode",
 	"Monitor",
 	"Codegraph",
+	"Telemetry",
 	"Tui",
 }
 
@@ -191,7 +193,7 @@ var categorySections = [][]otherSection{
 	// categoryDisabledFeatures
 	{sectionDisabledMcps, sectionDisabledAgents, sectionDisabledSkills, sectionDisabledCommands, sectionDisabledTools, sectionKeywordDetector},
 	// categoryGeneralSettings
-	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist, sectionTui},
+	{sectionAutoUpdate, sectionHashlineEdit, sectionModelFallback, sectionTelemetry, sectionNewTaskSystemEnabled, sectionStartWork, sectionMcpEnvAllowlist, sectionTui},
 	// categoryClaudeCode
 	{sectionClaudeCode, sectionModelCapabilities},
 	// categoryAgentsLoops
@@ -414,6 +416,7 @@ type WizardOther struct {
 	monPatternMaxLength textinput.Model
 
 	// Codegraph
+	cgAutoInit        bool
 	cgAutoProvision   bool
 	cgEnabled         bool
 	cgInstallDir      textinput.Model
@@ -422,6 +425,9 @@ type WizardOther struct {
 
 	// Tui
 	tuiSidebarEnabled bool
+
+	// Telemetry (top-level)
+	telemetry bool
 
 	// UI State — category navigation
 	currentCategory  otherCategory

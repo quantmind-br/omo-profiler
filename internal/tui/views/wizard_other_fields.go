@@ -55,6 +55,7 @@ const (
 	autoUpdateFieldPath                 = "auto_update"
 	hashlineEditFieldPath               = "hashline_edit"
 	modelFallbackFieldPath              = "model_fallback"
+	telemetryFieldPath                  = "telemetry"
 	newTaskSystemEnabledFieldPath       = "new_task_system_enabled"
 	defaultRunAgentFieldPath            = "default_run_agent"
 	runtimeFallbackFieldPath            = "runtime_fallback"
@@ -296,7 +297,7 @@ func (w WizardOther) monHasData() bool {
 
 func (w WizardOther) cgHasData() bool {
 	if w.selection == nil {
-		return w.cgEnabled || w.cgAutoProvision || w.cgTelemetry || strings.TrimSpace(w.cgInstallDir.Value()) != "" || strings.TrimSpace(w.cgWatchDebounceMs.Value()) != ""
+		return w.cgEnabled || w.cgAutoInit || w.cgAutoProvision || w.cgTelemetry || strings.TrimSpace(w.cgInstallDir.Value()) != "" || strings.TrimSpace(w.cgWatchDebounceMs.Value()) != ""
 	}
 	return w.selectedWithPrefix("codegraph.")
 }
@@ -328,6 +329,8 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 		return hashlineEditFieldPath
 	case sectionModelFallback:
 		return modelFallbackFieldPath
+	case sectionTelemetry:
+		return telemetryFieldPath
 	case sectionDefaultRunAgent:
 		return defaultRunAgentFieldPath
 	case sectionMcpEnvAllowlist:
@@ -349,7 +352,7 @@ func (w WizardOther) topLevelFieldPath(section otherSection) string {
 
 func (w WizardOther) isSimpleBooleanSection(section otherSection) bool {
 	switch section {
-	case sectionAutoUpdate, sectionNewTaskSystemEnabled, sectionHashlineEdit, sectionModelFallback, sectionStartWork:
+	case sectionAutoUpdate, sectionNewTaskSystemEnabled, sectionHashlineEdit, sectionModelFallback, sectionTelemetry, sectionStartWork:
 		return true
 	default:
 		return false
@@ -489,7 +492,7 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 			return paths[idx]
 		}
 	case sectionCodegraph:
-		paths := []string{"codegraph.enabled", "codegraph.auto_provision", "codegraph.install_dir", "codegraph.telemetry", "codegraph.watch_debounce_ms"}
+		paths := []string{"codegraph.enabled", "codegraph.auto_provision", "codegraph.auto_init", "codegraph.install_dir", "codegraph.telemetry", "codegraph.watch_debounce_ms"}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}

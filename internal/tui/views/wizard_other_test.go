@@ -1729,6 +1729,7 @@ func TestWizardOtherCodegraphApply(t *testing.T) {
 	selection.SetSelected("codegraph.install_dir", true)
 	selection.SetSelected("codegraph.watch_debounce_ms", true)
 	w.cgEnabled = true
+	w.cgAutoInit = true
 	w.cgAutoProvision = true
 	w.cgInstallDir.SetValue("/opt/codegraph")
 	w.cgWatchDebounceMs.SetValue("300")
@@ -1738,9 +1739,11 @@ func TestWizardOtherCodegraphApply(t *testing.T) {
 
 	require.NotNil(t, cfg.Codegraph)
 	cg := cfg.Codegraph
-	// enabled + auto_provision are schema-required and always emitted.
+	// enabled + auto_init + auto_provision are schema-required and always emitted.
 	require.NotNil(t, cg.Enabled)
 	assert.True(t, *cg.Enabled)
+	require.NotNil(t, cg.AutoInit)
+	assert.True(t, *cg.AutoInit)
 	require.NotNil(t, cg.AutoProvision)
 	assert.True(t, *cg.AutoProvision)
 	// Optional fields are emitted only when their path is selected.

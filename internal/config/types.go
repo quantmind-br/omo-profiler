@@ -11,6 +11,7 @@ type Config struct {
 	DisabledHooks           []string                       `json:"disabled_hooks,omitempty"`
 	DisabledCommands        []string                       `json:"disabled_commands,omitempty"`
 	HashlineEdit            *bool                          `json:"hashline_edit,omitempty"`
+	Telemetry               *bool                          `json:"telemetry,omitempty"`
 	ModelFallback           *bool                          `json:"model_fallback,omitempty"`
 	Agents                  map[string]*AgentConfig        `json:"agents,omitempty"`
 	Categories              map[string]*CategoryConfig     `json:"categories,omitempty"`
@@ -386,6 +387,7 @@ type MonitorConfig struct {
 
 // CodegraphConfig - code-graph indexing subsystem (oh-my-openagent v4.11.0)
 type CodegraphConfig struct {
+	AutoInit        *bool    `json:"auto_init,omitempty"`
 	AutoProvision   *bool    `json:"auto_provision,omitempty"`
 	Enabled         *bool    `json:"enabled,omitempty"`
 	InstallDir      string   `json:"install_dir,omitempty"`

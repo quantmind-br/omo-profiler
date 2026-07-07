@@ -68,6 +68,9 @@ func (w WizardOther) renderContent() string {
 				case sectionModelFallback:
 					value = onOff(w.modelFallback)
 					valid = w.fieldSelected(path)
+				case sectionTelemetry:
+					value = onOff(w.telemetry)
+					valid = w.fieldSelected(path)
 				case sectionStartWork:
 					value = onOff(w.startWorkAutoCommit)
 					valid = w.fieldSelected(path)
@@ -327,9 +330,10 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 	case sectionCodegraph:
 		lines = append(lines, renderBoolField(0, "codegraph.enabled", "enabled", w.cgEnabled))
 		lines = append(lines, renderBoolField(1, "codegraph.auto_provision", "auto_provision", w.cgAutoProvision))
-		lines = append(lines, renderValueField(2, "codegraph.install_dir", "install_dir", w.cgInstallDir.View()))
-		lines = append(lines, renderBoolField(3, "codegraph.telemetry", "telemetry", w.cgTelemetry))
-		lines = append(lines, renderValueField(4, "codegraph.watch_debounce_ms", "watch_debounce_ms", w.cgWatchDebounceMs.View()))
+		lines = append(lines, renderBoolField(2, "codegraph.auto_init", "auto_init", w.cgAutoInit))
+		lines = append(lines, renderValueField(3, "codegraph.install_dir", "install_dir", w.cgInstallDir.View()))
+		lines = append(lines, renderBoolField(4, "codegraph.telemetry", "telemetry", w.cgTelemetry))
+		lines = append(lines, renderValueField(5, "codegraph.watch_debounce_ms", "watch_debounce_ms", w.cgWatchDebounceMs.View()))
 	case sectionTui:
 		lines = append(lines, renderBoolField(0, "tui.sidebar.enabled", "sidebar.enabled", w.tuiSidebarEnabled))
 	}

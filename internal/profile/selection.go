@@ -186,6 +186,7 @@ var allFieldPaths = []string{
 	"monitor.ring_max_lines",
 	"monitor.line_max_bytes",
 	"monitor.pattern_max_length",
+	"codegraph.auto_init",
 	"codegraph.enabled",
 	"codegraph.auto_provision",
 	"codegraph.install_dir",

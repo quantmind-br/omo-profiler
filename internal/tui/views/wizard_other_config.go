@@ -62,6 +62,10 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		w.modelFallback = *cfg.ModelFallback
 	}
 
+	if cfg.Telemetry != nil {
+		w.telemetry = *cfg.Telemetry
+	}
+
 	if cfg.StartWork != nil && cfg.StartWork.AutoCommit != nil {
 		w.startWorkAutoCommit = *cfg.StartWork.AutoCommit
 	}
@@ -511,6 +515,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		if cg.Enabled != nil {
 			w.cgEnabled = *cg.Enabled
 		}
+		if cg.AutoInit != nil {
+			w.cgAutoInit = *cg.AutoInit
+		}
 		if cg.AutoProvision != nil {
 			w.cgAutoProvision = *cg.AutoProvision
 		}
@@ -614,6 +621,11 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 	cfg.ModelFallback = nil
 	if w.fieldSelected(modelFallbackFieldPath) {
 		cfg.ModelFallback = wizardOtherBoolPtr(w.modelFallback)
+	}
+
+	cfg.Telemetry = nil
+	if w.fieldSelected(telemetryFieldPath) {
+		cfg.Telemetry = wizardOtherBoolPtr(w.telemetry)
 	}
 
 	cfg.StartWork = nil
@@ -1096,9 +1108,10 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 
 	cfg.Codegraph = nil
 	if w.cgHasData() {
-		// enabled + auto_provision are required by the schema; the rest are optional.
+		// enabled + auto_init + auto_provision are required by the schema; the rest are optional.
 		cg := &config.CodegraphConfig{
 			Enabled:       wizardOtherBoolPtr(w.cgEnabled),
+			AutoInit:      wizardOtherBoolPtr(w.cgAutoInit),
 			AutoProvision: wizardOtherBoolPtr(w.cgAutoProvision),
 		}
 		if w.fieldSelected("codegraph.install_dir") {

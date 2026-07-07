@@ -197,10 +197,10 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		{section: sectionMonitor, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.monPatternMaxLength, msg)
 		}},
-		{section: sectionCodegraph, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionCodegraph, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.cgInstallDir, msg)
 		}},
-		{section: sectionCodegraph, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionCodegraph, subCursor: 5, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.cgWatchDebounceMs, msg)
 		}},
 	}
@@ -491,6 +491,12 @@ func (w *WizardOther) toggleSection() {
 		} else {
 			w.toggleFieldSelection(modelFallbackFieldPath)
 		}
+	case sectionTelemetry:
+		if w.simpleValueFocused {
+			w.telemetry = !w.telemetry
+		} else {
+			w.toggleFieldSelection(telemetryFieldPath)
+		}
 	case sectionStartWork:
 		if w.simpleValueFocused {
 			w.startWorkAutoCommit = !w.startWorkAutoCommit
@@ -578,7 +584,9 @@ func (w *WizardOther) toggleSubItem() {
 			w.cgEnabled = !w.cgEnabled
 		case 1:
 			w.cgAutoProvision = !w.cgAutoProvision
-		case 3:
+		case 2:
+			w.cgAutoInit = !w.cgAutoInit
+		case 4:
 			w.cgTelemetry = !w.cgTelemetry
 		}
 	case sectionTui:
