@@ -1,5 +1,9 @@
 {
-  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "git_master": {
+    "commit_footer": true,
+    "include_co_authored_by": true,
+    "git_env_prefix": "GIT_MASTER=1"
+  },
   "agents": {
     "sisyphus": {
       "model": "anthropic/claude-opus-4-6",
@@ -63,10 +67,5 @@
   },
   "experimental": {
     "aggressive_truncation": true
-  },
-  "git_master": {
-    "commit_footer": true,
-    "include_co_authored_by": true,
-    "git_env_prefix": "GIT_MASTER=1"
   }
 }
