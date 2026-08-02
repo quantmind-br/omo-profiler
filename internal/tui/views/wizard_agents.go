@@ -130,6 +130,51 @@ var allAgents = []string{
 	"atlas",
 }
 
+
+// defaultAgentModelChains mirrors the first few upstream fallback labels used
+// when a builtin agent has no explicit model. Display-only: never persisted.
+var defaultAgentModelChains = map[string][]string{
+	"atlas":             {"Claude Sonnet 5", "Kimi K3", "GPT-5.6 Sol", "MiniMax M3"},
+	"metis":             {"Claude Opus 5", "Kimi K3"},
+	"momus":             {"GPT-5.6 Terra", "GPT-5.6 Sol", "Claude Opus 5"},
+	"prometheus":        {"Claude Fable 5", "Kimi K3"},
+	"sisyphus":          {"Claude Opus 5", "Kimi K3", "GLM-5.2", "GPT-5.6 Sol"},
+	"hephaestus":        {"GPT-5.6 Sol", "Gemini 3.1 Pro"},
+	"oracle":            {"GPT-5.6 Sol", "Gemini 3.1 Pro", "Claude Opus 5"},
+	"librarian":         {"GPT-5.6 Luna Fast", "DeepSeek V4 Flash", "Qwen 3.7 Plus"},
+	"explore":           {"GPT-5.6 Luna Fast", "DeepSeek V4 Flash", "Qwen 3.7 Plus"},
+	"multimodal-looker": {"GPT-5.6 Sol", "Kimi K3", "GLM-4.6V"},
+	"sisyphus-junior":   {"Claude Sonnet 5", "Kimi K3", "GPT-5.6 Sol"},
+}
+
+// automaticAgentModelLabel returns a non-persistent hint for agents that rely on
+// upstream dynamic model resolution when no explicit model is configured.
+func automaticAgentModelLabel(agentName string) string {
+	chain, ok := defaultAgentModelChains[agentName]
+	if !ok || len(chain) == 0 {
+		return "Automático (resolvido pelo harness)"
+	}
+	shown := chain
+	if len(shown) > 3 {
+		shown = shown[:3]
+	}
+	return "Automático — cadeia: " + strings.Join(shown, " → ") + "…"
+}
+
+func agentModelDisplayValue(agentName string, ac *agentConfig) string {
+	if ac == nil {
+		return automaticAgentModelLabel(agentName)
+	}
+	if ac.modelDisplay != "" {
+		return ac.modelDisplay
+	}
+	if ac.modelValue != "" {
+		return ac.modelValue
+	}
+	return automaticAgentModelLabel(agentName)
+}
+
+
 // Mode options for agents
 var agentModes = []string{"", "subagent", "primary", "all"}
 
@@ -746,7 +791,11 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 		hasSelectedFields := false
 
 		if w.isAgentFieldSelected(fieldModel) {
-			agentCfg.Model = ac.modelValue
+			// Empty model means "automatic/dynamic" — omit the key so the harness
+			// keeps its fallback chain instead of locking a fixed override.
+			if ac.modelValue != "" {
+				agentCfg.Model = ac.modelValue
+			}
 			hasSelectedFields = true
 		}
 		if w.isAgentFieldSelected(fieldFallbackModels) {
@@ -962,7 +1011,12 @@ func (w *WizardAgents) applyAllAgentFields(cfg *config.Config) {
 			agentCfg = &config.AgentConfig{}
 		}
 
-		agentCfg.Model = ac.modelValue
+		// Empty model keeps dynamic harness resolution; do not persist "".
+		if ac.modelValue != "" {
+			agentCfg.Model = ac.modelValue
+		} else {
+			agentCfg.Model = ""
+		}
 		agentCfg.FallbackModels = ac.fallback.value()
 		agentCfg.Variant = ac.variant.Value()
 		agentCfg.Category = ac.category.Value()
@@ -1941,11 +1995,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	}
 
 	lines = append(lines, "")
-	modelDisplayValue := ac.modelDisplay
-	if modelDisplayValue == "" {
-		modelDisplayValue = "[Select model...]"
-	}
-	lines = append(lines, renderField("model", fieldModel, modelDisplayValue))
+	lines = append(lines, renderField("model", fieldModel, agentModelDisplayValue(name, ac)))
 	lines = append(lines, renderField("variant", fieldVariant, ac.variant.View()))
 	lines = append(lines, renderField("category", fieldCategory, ac.category.View()))
 	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View())+validateAgentField("temperature", ac.temperature.Value(), isActiveAgent && w.focusedField == fieldTemperature))

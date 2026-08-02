@@ -1693,3 +1693,70 @@ func TestAgentUltraworkLoadsLegacyVariantAsReasoning(t *testing.T) {
 	}
 }
 
+func TestAutomaticAgentModelLabelForDynamicAgents(t *testing.T) {
+	got := automaticAgentModelLabel("atlas")
+	if got == "" || got == "[Select model...]" {
+		t.Fatalf("expected automatic label, got %q", got)
+	}
+	if !strings.Contains(got, "Automático") || !strings.Contains(got, "Claude Sonnet 5") {
+		t.Fatalf("expected automatic chain label, got %q", got)
+	}
+	display := agentModelDisplayValue("atlas", &agentConfig{})
+	if display != got {
+		t.Fatalf("empty model should show automatic label, got %q want %q", display, got)
+	}
+	display = agentModelDisplayValue("atlas", &agentConfig{modelValue: "openai/gpt-5.6-sol", modelDisplay: "openai/gpt-5.6-sol"})
+	if display != "openai/gpt-5.6-sol" {
+		t.Fatalf("explicit model should win, got %q", display)
+	}
+}
+
+func TestApplyOmitsEmptyAtlasModel(t *testing.T) {
+	w := NewWizardAgents()
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"atlas":    {},
+			"sisyphus": {Model: "anthropic/claude-opus-5"},
+		},
+	}
+	w.SetConfig(cfg, nil)
+
+	sel := profile.NewBlankSelection()
+	sel.SetSelected("agents.*.model", true)
+	out := &config.Config{}
+	w.Apply(out, sel)
+
+	if out.Agents == nil {
+		t.Fatal("expected agents map")
+	}
+	atlas, ok := out.Agents["atlas"]
+	if !ok || atlas == nil {
+		t.Fatal("expected atlas agent present")
+	}
+	if atlas.Model != "" {
+		t.Fatalf("atlas.model must stay empty for dynamic resolution, got %q", atlas.Model)
+	}
+	sisyphus, ok := out.Agents["sisyphus"]
+	if !ok || sisyphus == nil || sisyphus.Model != "anthropic/claude-opus-5" {
+		t.Fatalf("sisyphus model not preserved: %+v", sisyphus)
+	}
+
+	out2 := &config.Config{}
+	w.Apply(out2, nil)
+	if out2.Agents["atlas"].Model != "" {
+		t.Fatalf("applyAll must omit empty atlas.model, got %q", out2.Agents["atlas"].Model)
+	}
+
+	raw, err := json.Marshal(out2.Agents["atlas"])
+	if err != nil {
+		t.Fatalf("marshal atlas: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("unmarshal atlas: %v", err)
+	}
+	if _, ok := decoded["model"]; ok {
+		t.Fatalf("serialized atlas must omit model key, got %s", raw)
+	}
+}
+

@@ -286,14 +286,16 @@ func TestCreateFromDefaultTemplateContainsAgents(t *testing.T) {
 	agents, ok := got.Config["agents"].(map[string]any)
 	require.True(t, ok)
 	for _, name := range []string{"sisyphus", "hephaestus", "prometheus", "oracle", "librarian", "explore", "multimodal-looker", "metis", "momus", "atlas", "sisyphus-junior"} {
+		_, ok := agents[name]
+		require.Truef(t, ok, "missing agent %s", name)
+	}
+	// Dynamic agents must stay empty so the harness can walk its fallback chain.
+	for _, name := range []string{"atlas", "metis", "momus"} {
 		agent, ok := agents[name].(map[string]any)
 		require.Truef(t, ok, "missing agent %s", name)
-		model, _ := agent["model"].(string)
-		require.NotEmptyf(t, model, "agent %s must have an explicit model in the default template", name)
+		_, hasModel := agent["model"]
+		require.Falsef(t, hasModel, "agent %s must omit model (dynamic resolution)", name)
 	}
-	atlas, ok := agents["atlas"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "anthropic/claude-sonnet-5", atlas["model"])
 	hephaestus, ok := agents["hephaestus"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "Explore thoroughly, then implement. Prefer small, testable changes.", hephaestus["prompt_append"])
