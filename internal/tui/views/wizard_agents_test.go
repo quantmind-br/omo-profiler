@@ -1631,3 +1631,65 @@ func TestWizardAgentsCustomAgentRoundTrips(t *testing.T) {
 		t.Errorf("round-tripped model = %q, want %q", got, "prov/model")
 	}
 }
+
+func TestAgentUltraworkCompactionReasoningRoundTrip(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"sisyphus": {
+				Model: "anthropic/claude-opus-5",
+				Ultrawork: &config.UltraworkConfig{
+					Model:     "anthropic/claude-opus-5",
+					Reasoning: "max",
+				},
+				Compaction: &config.CompactionConfig{
+					Model:     "openai/gpt-5.6-sol",
+					Reasoning: "high",
+				},
+			},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg, nil)
+	ac := wa.agents["sisyphus"]
+	if ac == nil {
+		t.Fatal("missing sisyphus")
+	}
+	if effortLevels[ac.ultraworkReasoningIdx] != "max" {
+		t.Fatalf("ultrawork reasoning idx -> %q", effortLevels[ac.ultraworkReasoningIdx])
+	}
+	if effortLevels[ac.compactionReasoningIdx] != "high" {
+		t.Fatalf("compaction reasoning idx -> %q", effortLevels[ac.compactionReasoningIdx])
+	}
+
+	out := &config.Config{}
+	wa.Apply(out, nil)
+	got := out.Agents["sisyphus"]
+	if got == nil || got.Ultrawork == nil || got.Compaction == nil {
+		t.Fatalf("missing ultrawork/compaction: %#v", got)
+	}
+	if got.Ultrawork.Reasoning != "max" {
+		t.Fatalf("ultrawork.reasoning = %q", got.Ultrawork.Reasoning)
+	}
+	if got.Compaction.Reasoning != "high" {
+		t.Fatalf("compaction.reasoning = %q", got.Compaction.Reasoning)
+	}
+}
+
+func TestAgentUltraworkLoadsLegacyVariantAsReasoning(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"sisyphus": {
+				Ultrawork: &config.UltraworkConfig{
+					Model:   "m",
+					Variant: "max",
+				},
+			},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg, nil)
+	if effortLevels[wa.agents["sisyphus"].ultraworkReasoningIdx] != "max" {
+		t.Fatalf("expected legacy variant max to load as reasoning, got %q", effortLevels[wa.agents["sisyphus"].ultraworkReasoningIdx])
+	}
+}
+

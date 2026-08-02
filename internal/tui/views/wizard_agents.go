@@ -105,12 +105,12 @@ func validateAgentField(label, value string, focused bool) string {
 
 func (w WizardAgents) lastFieldForCurrentAgent() agentFormField {
 	if len(w.agentOrder) == 0 || w.cursor >= len(w.agentOrder) {
-		return fieldCompactionVariant
+		return fieldCompactionReasoning
 	}
 	if w.agentOrder[w.cursor] == "hephaestus" {
 		return fieldAllowNonGpt
 	}
-	return fieldCompactionVariant
+	return fieldCompactionReasoning
 }
 
 var allAgents = []string{
@@ -179,6 +179,7 @@ const (
 	fieldThinkingBudget
 	fieldUltraworkModel
 	fieldUltraworkVariant
+	fieldUltraworkReasoning
 	fieldReasoningEffort
 	fieldTextVerbosity
 	fieldProviderOptions
@@ -191,6 +192,7 @@ const (
 	fieldFallbackModels
 	fieldCompactionModel
 	fieldCompactionVariant
+	fieldCompactionReasoning
 	fieldAllowNonGpt
 )
 
@@ -215,11 +217,13 @@ type agentConfig struct {
 	maxTokens           textinput.Model
 	thinkingTypeIdx     int
 	thinkingBudget      textinput.Model
-	ultraworkModel      textinput.Model
-	ultraworkVariant    textinput.Model
-	compactionModel     textinput.Model
-	compactionVariant   textinput.Model
-	allowNonGpt         bool
+	ultraworkModel         textinput.Model
+	ultraworkVariant       textinput.Model
+	ultraworkReasoningIdx  int
+	compactionModel        textinput.Model
+	compactionVariant      textinput.Model
+	compactionReasoningIdx int
+	allowNonGpt            bool
 	reasoningEffortIdx  int
 	textVerbosityIdx    int
 	providerOptions     map[string]interface{}
@@ -626,9 +630,24 @@ func (w *WizardAgents) SetConfig(cfg *config.Config, selection *profile.FieldSel
 					ac.thinkingBudget.SetValue(fmt.Sprintf("%.0f", *agentCfg.Thinking.BudgetTokens))
 				}
 			}
+			ac.ultraworkReasoningIdx = 0
+			ac.compactionReasoningIdx = 0
 			if agentCfg.Ultrawork != nil {
 				ac.ultraworkModel.SetValue(agentCfg.Ultrawork.Model)
 				ac.ultraworkVariant.SetValue(agentCfg.Ultrawork.Variant)
+				reasoning := agentCfg.Ultrawork.Reasoning
+				if reasoning == "" {
+					reasoning = agentCfg.Ultrawork.Variant
+				}
+				if reasoning == "none" {
+					reasoning = "off"
+				}
+				for i, e := range effortLevels {
+					if e == reasoning {
+						ac.ultraworkReasoningIdx = i
+						break
+					}
+				}
 			} else {
 				ac.ultraworkModel.SetValue("")
 				ac.ultraworkVariant.SetValue("")
@@ -636,6 +655,19 @@ func (w *WizardAgents) SetConfig(cfg *config.Config, selection *profile.FieldSel
 			if agentCfg.Compaction != nil {
 				ac.compactionModel.SetValue(agentCfg.Compaction.Model)
 				ac.compactionVariant.SetValue(agentCfg.Compaction.Variant)
+				reasoning := agentCfg.Compaction.Reasoning
+				if reasoning == "" {
+					reasoning = agentCfg.Compaction.Variant
+				}
+				if reasoning == "none" {
+					reasoning = "off"
+				}
+				for i, e := range effortLevels {
+					if e == reasoning {
+						ac.compactionReasoningIdx = i
+						break
+					}
+				}
 			} else {
 				ac.compactionModel.SetValue("")
 				ac.compactionVariant.SetValue("")
@@ -809,13 +841,16 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 			}
 			hasSelectedFields = true
 		}
-		if w.isAgentFieldSelected(fieldUltraworkModel) || w.isAgentFieldSelected(fieldUltraworkVariant) {
+		if w.isAgentFieldSelected(fieldUltraworkModel) || w.isAgentFieldSelected(fieldUltraworkVariant) || w.isAgentFieldSelected(fieldUltraworkReasoning) {
 			agentCfg.Ultrawork = &config.UltraworkConfig{}
 			if w.isAgentFieldSelected(fieldUltraworkModel) {
 				agentCfg.Ultrawork.Model = ac.ultraworkModel.Value()
 			}
 			if w.isAgentFieldSelected(fieldUltraworkVariant) {
 				agentCfg.Ultrawork.Variant = ac.ultraworkVariant.Value()
+			}
+			if w.isAgentFieldSelected(fieldUltraworkReasoning) {
+				agentCfg.Ultrawork.Reasoning = effortLevels[ac.ultraworkReasoningIdx]
 			}
 			hasSelectedFields = true
 		}
@@ -879,13 +914,16 @@ func (w *WizardAgents) Apply(cfg *config.Config, selection *profile.FieldSelecti
 			hasSelectedFields = true
 		}
 
-		if w.isAgentFieldSelected(fieldCompactionModel) || w.isAgentFieldSelected(fieldCompactionVariant) {
+		if w.isAgentFieldSelected(fieldCompactionModel) || w.isAgentFieldSelected(fieldCompactionVariant) || w.isAgentFieldSelected(fieldCompactionReasoning) {
 			agentCfg.Compaction = &config.CompactionConfig{}
 			if w.isAgentFieldSelected(fieldCompactionModel) {
 				agentCfg.Compaction.Model = ac.compactionModel.Value()
 			}
 			if w.isAgentFieldSelected(fieldCompactionVariant) {
 				agentCfg.Compaction.Variant = ac.compactionVariant.Value()
+			}
+			if w.isAgentFieldSelected(fieldCompactionReasoning) {
+				agentCfg.Compaction.Reasoning = effortLevels[ac.compactionReasoningIdx]
 			}
 			hasSelectedFields = true
 		}
@@ -1021,20 +1059,28 @@ func (w *WizardAgents) applyAllAgentFields(cfg *config.Config) {
 			agentCfg.Thinking = nil
 		}
 
-		if m := ac.ultraworkModel.Value(); m != "" {
-			agentCfg.Ultrawork = &config.UltraworkConfig{
-				Model:   m,
-				Variant: ac.ultraworkVariant.Value(),
+		if m := ac.ultraworkModel.Value(); m != "" || ac.ultraworkReasoningIdx > 0 {
+			u := &config.UltraworkConfig{Model: ac.ultraworkModel.Value()}
+			if ac.ultraworkReasoningIdx > 0 {
+				u.Reasoning = effortLevels[ac.ultraworkReasoningIdx]
 			}
+			if v := ac.ultraworkVariant.Value(); v != "" {
+				u.Variant = v
+			}
+			agentCfg.Ultrawork = u
 		} else {
 			agentCfg.Ultrawork = nil
 		}
 
-		if m := ac.compactionModel.Value(); m != "" {
-			agentCfg.Compaction = &config.CompactionConfig{
-				Model:   m,
-				Variant: ac.compactionVariant.Value(),
+		if m := ac.compactionModel.Value(); m != "" || ac.compactionReasoningIdx > 0 {
+			c := &config.CompactionConfig{Model: ac.compactionModel.Value()}
+			if ac.compactionReasoningIdx > 0 {
+				c.Reasoning = effortLevels[ac.compactionReasoningIdx]
 			}
+			if v := ac.compactionVariant.Value(); v != "" {
+				c.Variant = v
+			}
+			agentCfg.Compaction = c
 		} else {
 			agentCfg.Compaction = nil
 		}
@@ -1085,6 +1131,7 @@ var selectableAgentFields = []agentFormField{
 	fieldThinkingBudget,
 	fieldUltraworkModel,
 	fieldUltraworkVariant,
+	fieldUltraworkReasoning,
 	fieldReasoningEffort,
 	fieldTextVerbosity,
 	fieldProviderOptions,
@@ -1096,6 +1143,7 @@ var selectableAgentFields = []agentFormField{
 	fieldPermExtDir,
 	fieldCompactionModel,
 	fieldCompactionVariant,
+	fieldCompactionReasoning,
 	fieldAllowNonGpt,
 }
 
@@ -1191,6 +1239,8 @@ func agentSelectionPath(field agentFormField) (string, bool) {
 		return "agents.*.ultrawork.model", true
 	case fieldUltraworkVariant:
 		return "agents.*.ultrawork.variant", true
+	case fieldUltraworkReasoning:
+		return "agents.*.ultrawork.reasoning", true
 	case fieldReasoningEffort:
 		return "agents.*.reasoning", true
 	case fieldTextVerbosity:
@@ -1213,6 +1263,8 @@ func agentSelectionPath(field agentFormField) (string, bool) {
 		return "agents.*.compaction.model", true
 	case fieldCompactionVariant:
 		return "agents.*.compaction.variant", true
+	case fieldCompactionReasoning:
+		return "agents.*.compaction.reasoning", true
 	case fieldAllowNonGpt:
 		return "agents.*.allow_non_gpt_model", true
 	default:
@@ -1410,21 +1462,23 @@ func (w WizardAgents) getLineForField(field agentFormField) int {
 		fieldMaxTokens:         17,
 		fieldThinkingType:      18,
 		fieldThinkingBudget:    19,
-		fieldUltraworkModel:    20,
-		fieldUltraworkVariant:  21,
-		fieldReasoningEffort:   22,
-		fieldTextVerbosity:     23,
-		fieldProviderOptions:   24,
-		fieldPermEdit:          27,
-		fieldPermBash:          28,
-		fieldPermWebfetch:      29,
-		fieldPermTask:          30,
-		fieldPermDoomLoop:      31,
-		fieldPermExtDir:        32,
-		fieldFallbackModels:    33,
-		fieldCompactionModel:   34,
-		fieldCompactionVariant: 35,
-		fieldAllowNonGpt:       36,
+		fieldUltraworkModel:       20,
+		fieldUltraworkVariant:     21,
+		fieldUltraworkReasoning:   22,
+		fieldReasoningEffort:      23,
+		fieldTextVerbosity:        24,
+		fieldProviderOptions:      25,
+		fieldPermEdit:             28,
+		fieldPermBash:             29,
+		fieldPermWebfetch:         30,
+		fieldPermTask:             31,
+		fieldPermDoomLoop:         32,
+		fieldPermExtDir:           33,
+		fieldFallbackModels:       34,
+		fieldCompactionModel:      35,
+		fieldCompactionVariant:    36,
+		fieldCompactionReasoning:  37,
+		fieldAllowNonGpt:          38,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -1618,6 +1672,10 @@ func (w WizardAgents) Update(msg tea.Msg) (WizardAgents, tea.Cmd) {
 					ac.thinkingTypeIdx = (ac.thinkingTypeIdx + 1) % len(thinkingTypes)
 				case fieldReasoningEffort:
 					ac.reasoningEffortIdx = (ac.reasoningEffortIdx + 1) % len(effortLevels)
+				case fieldUltraworkReasoning:
+					ac.ultraworkReasoningIdx = (ac.ultraworkReasoningIdx + 1) % len(effortLevels)
+				case fieldCompactionReasoning:
+					ac.compactionReasoningIdx = (ac.compactionReasoningIdx + 1) % len(effortLevels)
 				case fieldTextVerbosity:
 					ac.textVerbosityIdx = (ac.textVerbosityIdx + 1) % len(verbosityLevels)
 				case fieldPermEdit:
@@ -1905,6 +1963,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, renderField("thinkBudget", fieldThinkingBudget, ac.thinkingBudget.View()))
 	lines = append(lines, renderField("ultraModel", fieldUltraworkModel, ac.ultraworkModel.View()))
 	lines = append(lines, renderField("ultraVariant", fieldUltraworkVariant, ac.ultraworkVariant.View()))
+	lines = append(lines, renderDropdown("ultraReasoning", fieldUltraworkReasoning, effortLevels, ac.ultraworkReasoningIdx))
 	lines = append(lines, renderDropdown("reasoning", fieldReasoningEffort, effortLevels, ac.reasoningEffortIdx))
 	lines = append(lines, renderDropdown("verbosity", fieldTextVerbosity, verbosityLevels, ac.textVerbosityIdx))
 	if ac.editingProviderOpts {
@@ -1988,6 +2047,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	lines = append(lines, indent+wizAgentDimStyle.Render("── Compaction ──"))
 	lines = append(lines, renderField("compModel", fieldCompactionModel, ac.compactionModel.View()))
 	lines = append(lines, renderField("compVariant", fieldCompactionVariant, ac.compactionVariant.View()))
+	lines = append(lines, renderDropdown("compReasoning", fieldCompactionReasoning, effortLevels, ac.compactionReasoningIdx))
 	if name == "hephaestus" {
 		lines = append(lines, renderBool("allow_non_gpt", fieldAllowNonGpt, ac.allowNonGpt))
 	}

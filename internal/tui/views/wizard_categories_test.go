@@ -1251,3 +1251,53 @@ func TestWizardCategoriesFallbackOverlayPersists(t *testing.T) {
 		t.Errorf("applied FallbackModels = %#v, want %q", got, "prov/m")
 	}
 }
+
+func TestWizardCategoriesCanonicalModelsAndWarnUnavailable(t *testing.T) {
+	warn := false
+	wc := NewWizardCategories()
+	cfg := &config.Config{
+		Categories: map[string]*config.CategoryConfig{
+			"quick": {
+				Model:           "openai/gpt-5.6-sol",
+				Models:          []interface{}{"a", map[string]interface{}{"model": "b", "reasoning": "high"}},
+				ProviderOptions: map[string]interface{}{"foo": true},
+				WarnUnavailable: &warn,
+				Reasoning:       "auto",
+			},
+		},
+	}
+	wc.SetConfig(cfg, nil)
+	if len(wc.categories) != 1 {
+		t.Fatalf("expected 1 category, got %d", len(wc.categories))
+	}
+	cc := wc.categories[0]
+	if cc.warnUnavailable {
+		t.Fatal("expected warnUnavailable false")
+	}
+	if len(cc.provOptKeys) != 1 || cc.provOptKeys[0] != "foo" {
+		t.Fatalf("provider options keys = %#v", cc.provOptKeys)
+	}
+	if got := cc.models.summaryLabel(); got == "(none) [Enter to edit]" {
+		t.Fatal("expected models editor to load entries")
+	}
+
+	out := &config.Config{}
+	wc.Apply(out, nil)
+	got := out.Categories["quick"]
+	if got == nil {
+		t.Fatal("missing quick category")
+	}
+	if got.Models == nil {
+		t.Fatal("expected models to be written")
+	}
+	if got.WarnUnavailable == nil || *got.WarnUnavailable {
+		t.Fatalf("warn_unavailable = %v", got.WarnUnavailable)
+	}
+	if got.ProviderOptions == nil || got.ProviderOptions["foo"] != true {
+		t.Fatalf("provider_options = %#v", got.ProviderOptions)
+	}
+	if got.Reasoning != "auto" {
+		t.Fatalf("reasoning = %q", got.Reasoning)
+	}
+}
+

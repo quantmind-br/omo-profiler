@@ -111,6 +111,9 @@ const (
 	catFieldPromptAppend
 	catFieldMaxPromptTokens
 	catFieldFallbackModels
+	catFieldModels
+	catFieldProviderOptions
+	catFieldWarnUnavailable
 )
 
 var selectableCategoryFields = []categoryFormField{
@@ -130,6 +133,9 @@ var selectableCategoryFields = []categoryFormField{
 	catFieldTools,
 	catFieldPromptAppend,
 	catFieldFallbackModels,
+	catFieldModels,
+	catFieldProviderOptions,
+	catFieldWarnUnavailable,
 }
 
 type categoryConfig struct {
@@ -149,10 +155,20 @@ type categoryConfig struct {
 	thinkingBudget     textinput.Model
 	reasoningEffortIdx int
 	textVerbosityIdx   int
-	tools              textinput.Model
-	promptAppend       textarea.Model
-	fallback           fallbackEditor
-	expanded           bool
+	tools               textinput.Model
+	promptAppend        textarea.Model
+	fallback            fallbackEditor
+	models              fallbackEditor
+	warnUnavailable     bool
+	providerOptions     map[string]interface{}
+	editingProviderOpts bool
+	provOptKeys         []string
+	provOptValues       []textinput.Model
+	provOptFocusedIdx   int
+	provOptEditingVal   bool
+	provOptNewKey       textinput.Model
+	provOptAddingKey    bool
+	expanded            bool
 	// Model selector state
 	selectingModel       bool
 	modelSelector        ModelSelector
@@ -215,6 +231,10 @@ func newCategoryConfig() categoryConfig {
 	saveProviderInput.Placeholder = "Provider (optional)"
 	saveProviderInput.Width = 30
 
+	provOptNewKey := textinput.New()
+	provOptNewKey.Placeholder = "option key"
+	provOptNewKey.Width = 20
+
 	return categoryConfig{
 		nameInput:            nameInput,
 		description:          description,
@@ -227,6 +247,8 @@ func newCategoryConfig() categoryConfig {
 		tools:                tools,
 		promptAppend:         promptAppend,
 		fallback:             newFallbackEditor(),
+		models:               newFallbackEditor(),
+		provOptNewKey:        provOptNewKey,
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -365,6 +387,7 @@ func (w *WizardCategories) SetSize(width, height int) {
 		cc.maxPromptTokens.Width = 10
 		cc.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
 		cc.fallback.setWidth(width)
+		cc.models.setWidth(width)
 		cc.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		cc.saveProviderInput.Width = layout.MediumFieldWidth(width)
 		cc.modelSelector.SetSize(width, height)
@@ -394,6 +417,7 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 			cc.modelDisplay = catCfg.Model
 		}
 		cc.fallback.load(catCfg.FallbackModels)
+		cc.models.load(catCfg.Models)
 		if catCfg.Description != "" {
 			cc.description.SetValue(catCfg.Description)
 		}
@@ -402,6 +426,23 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 		}
 		if catCfg.Disable != nil {
 			cc.disable = *catCfg.Disable
+		}
+		if catCfg.WarnUnavailable != nil {
+			cc.warnUnavailable = *catCfg.WarnUnavailable
+		}
+		cc.providerOptions = catCfg.ProviderOptions
+		if cc.providerOptions != nil {
+			cc.provOptKeys = sortedKeys(cc.providerOptions)
+			cc.provOptValues = make([]textinput.Model, len(cc.provOptKeys))
+			for i, k := range cc.provOptKeys {
+				v := textinput.New()
+				v.Width = 30
+				v.SetValue(fmt.Sprintf("%v", cc.providerOptions[k]))
+				cc.provOptValues[i] = v
+			}
+		} else {
+			cc.provOptKeys = nil
+			cc.provOptValues = nil
 		}
 		if catCfg.Variant != "" {
 			cc.variant.SetValue(catCfg.Variant)
@@ -499,6 +540,9 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 		if w.isCategoryFieldSelected(catFieldFallbackModels) {
 			catCfg.FallbackModels = cc.fallback.value()
 		}
+		if w.isCategoryFieldSelected(catFieldModels) {
+			catCfg.Models = cc.models.value()
+		}
 		if w.isCategoryFieldSelected(catFieldDescription) {
 			catCfg.Description = cc.description.Value()
 		}
@@ -507,6 +551,12 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 		}
 		if w.isCategoryFieldSelected(catFieldDisable) {
 			catCfg.Disable = &cc.disable
+		}
+		if w.isCategoryFieldSelected(catFieldWarnUnavailable) {
+			catCfg.WarnUnavailable = &cc.warnUnavailable
+		}
+		if w.isCategoryFieldSelected(catFieldProviderOptions) {
+			catCfg.ProviderOptions = buildCategoryProviderOptionsValue(cc)
 		}
 		if w.isCategoryFieldSelected(catFieldVariant) {
 			catCfg.Variant = cc.variant.Value()
@@ -608,6 +658,12 @@ func categorySelectionPath(field categoryFormField) (string, bool) {
 		return "categories.*.prompt_append", true
 	case catFieldFallbackModels:
 		return "categories.*.fallback_models", true
+	case catFieldModels:
+		return "categories.*.models", true
+	case catFieldProviderOptions:
+		return "categories.*.provider_options", true
+	case catFieldWarnUnavailable:
+		return "categories.*.warn_unavailable", true
 	default:
 		return "", false
 	}
@@ -765,6 +821,9 @@ func (w WizardCategories) getLineForField(field categoryFormField) int {
 		catFieldTools:           18,
 		catFieldPromptAppend:    19,
 		catFieldFallbackModels:  20,
+		catFieldModels:          21,
+		catFieldProviderOptions: 22,
+		catFieldWarnUnavailable: 23,
 	}
 
 	return baseLine + fieldOffsets[field]
@@ -802,7 +861,9 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 
 	case ModelSelectedMsg:
 		if currentCategory != nil {
-			if currentCategory.fallback.active {
+			if currentCategory.models.active {
+				currentCategory.models.applySelectedModel(msg.ModelID, msg.DisplayName)
+			} else if currentCategory.fallback.active {
 				currentCategory.fallback.applySelectedModel(msg.ModelID, msg.DisplayName)
 			} else {
 				currentCategory.modelValue = msg.ModelID
@@ -865,7 +926,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 				switch msg.String() {
 				case "down", "j":
 					w.focusedField++
-					if w.focusedField > catFieldFallbackModels {
+					if w.focusedField > catFieldWarnUnavailable {
 						w.focusedField = catFieldName
 					}
 					w.updateFieldFocus(cc)
@@ -874,7 +935,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "up", "k":
 					if w.focusedField == catFieldName {
-						w.focusedField = catFieldFallbackModels
+						w.focusedField = catFieldWarnUnavailable
 					} else {
 						w.focusedField--
 					}
@@ -884,7 +945,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "tab":
 					w.focusedField++
-					if w.focusedField > catFieldFallbackModels {
+					if w.focusedField > catFieldWarnUnavailable {
 						w.focusedField = catFieldName
 					}
 					w.updateFieldFocus(cc)
@@ -893,7 +954,7 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				case "shift+tab":
 					if w.focusedField == catFieldName {
-						w.focusedField = catFieldFallbackModels
+						w.focusedField = catFieldWarnUnavailable
 					} else {
 						w.focusedField--
 					}
@@ -928,6 +989,21 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 						w.viewport.SetContent(w.renderContent())
 						return w, nil
 					}
+					if w.focusedField == catFieldModels {
+						cc.models.open()
+						w.viewport.SetContent(w.renderContent())
+						return w, nil
+					}
+					if w.focusedField == catFieldProviderOptions {
+						cc.editingProviderOpts = true
+						cc.provOptFocusedIdx = 0
+						w.viewport.SetContent(w.renderContent())
+						return w, nil
+					}
+					if w.focusedField == catFieldWarnUnavailable {
+						cc.warnUnavailable = !cc.warnUnavailable
+						return w, nil
+					}
 					// Cycle through options for dropdown fields
 					switch w.focusedField {
 					case catFieldThinkingType:
@@ -940,6 +1016,101 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				}
 
+				if cc.editingProviderOpts {
+					switch msg.String() {
+					case "esc":
+						cc.editingProviderOpts = false
+						cc.provOptAddingKey = false
+						cc.provOptEditingVal = false
+						w.viewport.SetContent(w.renderContent())
+						return w, nil
+					case "a":
+						if !cc.provOptAddingKey && !cc.provOptEditingVal {
+							cc.provOptAddingKey = true
+							cc.provOptNewKey.SetValue("")
+							cc.provOptNewKey.Focus()
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+					case "d":
+						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
+							i := cc.provOptFocusedIdx
+							if i >= 0 && i < len(cc.provOptKeys) {
+								cc.provOptKeys = append(cc.provOptKeys[:i], cc.provOptKeys[i+1:]...)
+								cc.provOptValues = append(cc.provOptValues[:i], cc.provOptValues[i+1:]...)
+								if cc.provOptFocusedIdx >= len(cc.provOptKeys) && cc.provOptFocusedIdx > 0 {
+									cc.provOptFocusedIdx--
+								}
+							}
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+					case "up", "k":
+						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
+							if cc.provOptFocusedIdx > 0 {
+								cc.provOptFocusedIdx--
+							}
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+					case "down", "j":
+						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
+							if cc.provOptFocusedIdx < len(cc.provOptKeys)-1 {
+								cc.provOptFocusedIdx++
+							}
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+					case "enter":
+						if cc.provOptAddingKey {
+							k := strings.TrimSpace(cc.provOptNewKey.Value())
+							if k != "" {
+								cc.provOptKeys = append(cc.provOptKeys, k)
+								v := textinput.New()
+								v.Width = 30
+								cc.provOptValues = append(cc.provOptValues, v)
+								cc.provOptFocusedIdx = len(cc.provOptKeys) - 1
+							}
+							cc.provOptAddingKey = false
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+						if !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
+							cc.provOptEditingVal = true
+							i := cc.provOptFocusedIdx
+							if i >= 0 && i < len(cc.provOptValues) {
+								cc.provOptValues[i].Focus()
+							}
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+						if cc.provOptEditingVal {
+							cc.provOptEditingVal = false
+							i := cc.provOptFocusedIdx
+							if i >= 0 && i < len(cc.provOptValues) {
+								cc.provOptValues[i].Blur()
+							}
+							w.viewport.SetContent(w.renderContent())
+							return w, nil
+						}
+					}
+					if cc.provOptAddingKey {
+						var cmd tea.Cmd
+						cc.provOptNewKey, cmd = cc.provOptNewKey.Update(msg)
+						w.viewport.SetContent(w.renderContent())
+						return w, cmd
+					}
+					if cc.provOptEditingVal && len(cc.provOptValues) > 0 {
+						i := cc.provOptFocusedIdx
+						if i >= 0 && i < len(cc.provOptValues) {
+							var cmd tea.Cmd
+							cc.provOptValues[i], cmd = cc.provOptValues[i].Update(msg)
+							w.viewport.SetContent(w.renderContent())
+							return w, cmd
+						}
+					}
+					return w, nil
+				}
 				switch w.focusedField {
 				case catFieldName:
 					cc.nameInput.Focus()
@@ -1209,6 +1380,41 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	} else {
 		lines = append(lines, renderSelectableField("fallback_models", catFieldFallbackModels, cc.fallback.summaryLabel()))
 	}
+	if cc.models.active {
+		lines = append(lines, cc.models.render(indent, fbStyles{wizCatDimStyle, wizCatSelectedStyle, wizCatSelectedStyle, wizCatTextStyle})...)
+	} else {
+		lines = append(lines, renderSelectableField("models", catFieldModels, cc.models.summaryLabel()))
+	}
+	if cc.editingProviderOpts {
+		lines = append(lines, renderSelectableField("provider_options", catFieldProviderOptions, "[editing]"))
+		if cc.provOptAddingKey {
+			lines = append(lines, indent+"  "+wizCatDimStyle.Render("new key: ")+cc.provOptNewKey.View())
+		} else {
+			if len(cc.provOptKeys) == 0 {
+				lines = append(lines, indent+"  "+wizCatDimStyle.Render("(empty) press 'a' to add"))
+			}
+			for i, k := range cc.provOptKeys {
+				cursor := "  "
+				if i == cc.provOptFocusedIdx {
+					cursor = wizCatSelectedStyle.Render("> ")
+				}
+				val := ""
+				if i < len(cc.provOptValues) {
+					val = cc.provOptValues[i].View()
+				}
+				lines = append(lines, indent+cursor+wizCatTextStyle.Render(k+": ")+val)
+			}
+			lines = append(lines, indent+"  "+wizCatDimStyle.Render("a:add d:del ↑↓:nav enter:edit esc:done"))
+		}
+	} else {
+		count := len(cc.provOptKeys)
+		if count > 0 {
+			lines = append(lines, renderSelectableField("provider_options", catFieldProviderOptions, fmt.Sprintf("%d options set [Enter to edit]", count)))
+		} else {
+			lines = append(lines, renderSelectableField("provider_options", catFieldProviderOptions, "(none) [Enter to edit]"))
+		}
+	}
+	lines = append(lines, renderBool("warn_unavailable", catFieldWarnUnavailable, cc.warnUnavailable))
 	lines = append(lines, "")
 
 	return lines
@@ -1379,5 +1585,32 @@ func (w WizardCategories) IsCapturing() bool {
 		return false
 	}
 	cc := w.categories[w.cursor]
-	return cc.selectingModel || cc.savingCustomModel || cc.fallback.active
+	return cc.selectingModel || cc.savingCustomModel || cc.fallback.active || cc.models.active || cc.editingProviderOpts
+}
+
+func buildCategoryProviderOptionsValue(cc *categoryConfig) map[string]interface{} {
+	if len(cc.provOptKeys) == 0 {
+		return nil
+	}
+	result := make(map[string]interface{})
+	for i, k := range cc.provOptKeys {
+		if k == "" {
+			continue
+		}
+		if i >= len(cc.provOptValues) {
+			continue
+		}
+		raw := cc.provOptValues[i].Value()
+		if f, err := strconv.ParseFloat(raw, 64); err == nil {
+			result[k] = f
+		} else if b, err := strconv.ParseBool(raw); err == nil {
+			result[k] = b
+		} else {
+			result[k] = raw
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
