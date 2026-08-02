@@ -900,6 +900,18 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 			return w.handleSaveCustomModel(currentCategory, msg)
 		}
 
+		if currentCategory != nil && currentCategory.models.active {
+			action, fcmd := currentCategory.models.handleKey(msg)
+			if action == fbOpenModelSelector {
+				currentCategory.selectingModel = true
+				currentCategory.modelSelector = NewModelSelector()
+				currentCategory.modelSelector.SetSize(w.width, w.height)
+				return w, currentCategory.modelSelector.Init()
+			}
+			w.viewport.SetContent(w.renderContent())
+			return w, fcmd
+		}
+
 		if currentCategory != nil && currentCategory.fallback.active {
 			action, fcmd := currentCategory.fallback.handleKey(msg)
 			if action == fbOpenModelSelector {
@@ -910,6 +922,10 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 			}
 			w.viewport.SetContent(w.renderContent())
 			return w, fcmd
+		}
+
+		if currentCategory != nil && currentCategory.editingProviderOpts {
+			return w.handleCategoryProviderOptsEditor(currentCategory, msg)
 		}
 
 		if w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
@@ -997,6 +1013,8 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					if w.focusedField == catFieldProviderOptions {
 						cc.editingProviderOpts = true
 						cc.provOptFocusedIdx = 0
+						cc.provOptEditingVal = false
+						cc.provOptAddingKey = false
 						w.viewport.SetContent(w.renderContent())
 						return w, nil
 					}
@@ -1016,101 +1034,6 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 					return w, nil
 				}
 
-				if cc.editingProviderOpts {
-					switch msg.String() {
-					case "esc":
-						cc.editingProviderOpts = false
-						cc.provOptAddingKey = false
-						cc.provOptEditingVal = false
-						w.viewport.SetContent(w.renderContent())
-						return w, nil
-					case "a":
-						if !cc.provOptAddingKey && !cc.provOptEditingVal {
-							cc.provOptAddingKey = true
-							cc.provOptNewKey.SetValue("")
-							cc.provOptNewKey.Focus()
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-					case "d":
-						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
-							i := cc.provOptFocusedIdx
-							if i >= 0 && i < len(cc.provOptKeys) {
-								cc.provOptKeys = append(cc.provOptKeys[:i], cc.provOptKeys[i+1:]...)
-								cc.provOptValues = append(cc.provOptValues[:i], cc.provOptValues[i+1:]...)
-								if cc.provOptFocusedIdx >= len(cc.provOptKeys) && cc.provOptFocusedIdx > 0 {
-									cc.provOptFocusedIdx--
-								}
-							}
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-					case "up", "k":
-						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
-							if cc.provOptFocusedIdx > 0 {
-								cc.provOptFocusedIdx--
-							}
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-					case "down", "j":
-						if !cc.provOptAddingKey && !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
-							if cc.provOptFocusedIdx < len(cc.provOptKeys)-1 {
-								cc.provOptFocusedIdx++
-							}
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-					case "enter":
-						if cc.provOptAddingKey {
-							k := strings.TrimSpace(cc.provOptNewKey.Value())
-							if k != "" {
-								cc.provOptKeys = append(cc.provOptKeys, k)
-								v := textinput.New()
-								v.Width = 30
-								cc.provOptValues = append(cc.provOptValues, v)
-								cc.provOptFocusedIdx = len(cc.provOptKeys) - 1
-							}
-							cc.provOptAddingKey = false
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-						if !cc.provOptEditingVal && len(cc.provOptKeys) > 0 {
-							cc.provOptEditingVal = true
-							i := cc.provOptFocusedIdx
-							if i >= 0 && i < len(cc.provOptValues) {
-								cc.provOptValues[i].Focus()
-							}
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-						if cc.provOptEditingVal {
-							cc.provOptEditingVal = false
-							i := cc.provOptFocusedIdx
-							if i >= 0 && i < len(cc.provOptValues) {
-								cc.provOptValues[i].Blur()
-							}
-							w.viewport.SetContent(w.renderContent())
-							return w, nil
-						}
-					}
-					if cc.provOptAddingKey {
-						var cmd tea.Cmd
-						cc.provOptNewKey, cmd = cc.provOptNewKey.Update(msg)
-						w.viewport.SetContent(w.renderContent())
-						return w, cmd
-					}
-					if cc.provOptEditingVal && len(cc.provOptValues) > 0 {
-						i := cc.provOptFocusedIdx
-						if i >= 0 && i < len(cc.provOptValues) {
-							var cmd tea.Cmd
-							cc.provOptValues[i], cmd = cc.provOptValues[i].Update(msg)
-							w.viewport.SetContent(w.renderContent())
-							return w, cmd
-						}
-					}
-					return w, nil
-				}
 				switch w.focusedField {
 				case catFieldName:
 					cc.nameInput.Focus()
@@ -1586,6 +1509,102 @@ func (w WizardCategories) IsCapturing() bool {
 	}
 	cc := w.categories[w.cursor]
 	return cc.selectingModel || cc.savingCustomModel || cc.fallback.active || cc.models.active || cc.editingProviderOpts
+}
+
+func (w WizardCategories) handleCategoryProviderOptsEditor(cc *categoryConfig, msg tea.KeyMsg) (WizardCategories, tea.Cmd) {
+	if cc.provOptAddingKey {
+		switch msg.String() {
+		case "esc":
+			cc.provOptAddingKey = false
+			cc.provOptNewKey.Blur()
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		case "enter":
+			k := strings.TrimSpace(cc.provOptNewKey.Value())
+			if k != "" {
+				cc.provOptKeys = append(cc.provOptKeys, k)
+				v := textinput.New()
+				v.Width = 30
+				cc.provOptValues = append(cc.provOptValues, v)
+				cc.provOptFocusedIdx = len(cc.provOptKeys) - 1
+			}
+			cc.provOptAddingKey = false
+			cc.provOptNewKey.Blur()
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		}
+		var cmd tea.Cmd
+		cc.provOptNewKey, cmd = cc.provOptNewKey.Update(msg)
+		w.viewport.SetContent(w.renderContent())
+		return w, cmd
+	}
+
+	if cc.provOptEditingVal {
+		switch msg.String() {
+		case "esc", "enter":
+			cc.provOptEditingVal = false
+			if cc.provOptFocusedIdx >= 0 && cc.provOptFocusedIdx < len(cc.provOptValues) {
+				cc.provOptValues[cc.provOptFocusedIdx].Blur()
+			}
+			w.viewport.SetContent(w.renderContent())
+			return w, nil
+		}
+		if cc.provOptFocusedIdx >= 0 && cc.provOptFocusedIdx < len(cc.provOptValues) {
+			var cmd tea.Cmd
+			cc.provOptValues[cc.provOptFocusedIdx], cmd = cc.provOptValues[cc.provOptFocusedIdx].Update(msg)
+			w.viewport.SetContent(w.renderContent())
+			return w, cmd
+		}
+		return w, nil
+	}
+
+	switch msg.String() {
+	case "esc":
+		cc.editingProviderOpts = false
+		cc.provOptAddingKey = false
+		cc.provOptEditingVal = false
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "a":
+		cc.provOptAddingKey = true
+		cc.provOptNewKey.SetValue("")
+		cc.provOptNewKey.Focus()
+		w.viewport.SetContent(w.renderContent())
+		return w, textinput.Blink
+	case "d":
+		if len(cc.provOptKeys) > 0 && cc.provOptFocusedIdx >= 0 && cc.provOptFocusedIdx < len(cc.provOptKeys) {
+			i := cc.provOptFocusedIdx
+			cc.provOptKeys = append(cc.provOptKeys[:i], cc.provOptKeys[i+1:]...)
+			cc.provOptValues = append(cc.provOptValues[:i], cc.provOptValues[i+1:]...)
+			if cc.provOptFocusedIdx >= len(cc.provOptKeys) && cc.provOptFocusedIdx > 0 {
+				cc.provOptFocusedIdx--
+			}
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "up", "k":
+		if cc.provOptFocusedIdx > 0 {
+			cc.provOptFocusedIdx--
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "down", "j":
+		if cc.provOptFocusedIdx < len(cc.provOptKeys)-1 {
+			cc.provOptFocusedIdx++
+		}
+		w.viewport.SetContent(w.renderContent())
+		return w, nil
+	case "enter":
+		if len(cc.provOptValues) > 0 && cc.provOptFocusedIdx >= 0 && cc.provOptFocusedIdx < len(cc.provOptValues) {
+			cc.provOptEditingVal = true
+			cc.provOptValues[cc.provOptFocusedIdx].Focus()
+			w.viewport.SetContent(w.renderContent())
+			return w, textinput.Blink
+		}
+		return w, nil
+	}
+
+	return w, nil
 }
 
 func buildCategoryProviderOptionsValue(cc *categoryConfig) map[string]interface{} {

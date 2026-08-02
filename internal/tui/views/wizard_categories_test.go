@@ -1301,3 +1301,33 @@ func TestWizardCategoriesCanonicalModelsAndWarnUnavailable(t *testing.T) {
 	}
 }
 
+func TestWizardCategoriesProviderOptsModalBlocksFormNav(t *testing.T) {
+	wc := NewWizardCategories()
+	cfg := &config.Config{
+		Categories: map[string]*config.CategoryConfig{
+			"quick": {
+				ProviderOptions: map[string]interface{}{"a": true, "b": false},
+			},
+		},
+	}
+	wc.SetConfig(cfg, nil)
+	wc.cursor = 0
+	wc.categories[0].expanded = true
+	wc.inForm = true
+	wc.focusedField = catFieldProviderOptions
+	wc.categories[0].editingProviderOpts = true
+	wc.categories[0].provOptFocusedIdx = 0
+
+	updated, _ := wc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	wc = updated
+	if !wc.categories[0].editingProviderOpts {
+		t.Fatal("expected provider opts modal to stay open")
+	}
+	if wc.focusedField != catFieldProviderOptions {
+		t.Fatalf("form focus moved while modal open: %v", wc.focusedField)
+	}
+	if wc.categories[0].provOptFocusedIdx != 1 {
+		t.Fatalf("expected modal to consume j and move to second option, got %d", wc.categories[0].provOptFocusedIdx)
+	}
+}
+
