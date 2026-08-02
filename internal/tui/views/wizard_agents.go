@@ -131,39 +131,16 @@ var allAgents = []string{
 }
 
 
-// defaultAgentModelChains mirrors the first few upstream fallback labels used
-// when a builtin agent has no explicit model. Display-only: never persisted.
-var defaultAgentModelChains = map[string][]string{
-	"atlas":             {"Claude Sonnet 5", "Kimi K3", "GPT-5.6 Sol", "MiniMax M3"},
-	"metis":             {"Claude Opus 5", "Kimi K3"},
-	"momus":             {"GPT-5.6 Terra", "GPT-5.6 Sol", "Claude Opus 5"},
-	"prometheus":        {"Claude Fable 5", "Kimi K3"},
-	"sisyphus":          {"Claude Opus 5", "Kimi K3", "GLM-5.2", "GPT-5.6 Sol"},
-	"hephaestus":        {"GPT-5.6 Sol", "Gemini 3.1 Pro"},
-	"oracle":            {"GPT-5.6 Sol", "Gemini 3.1 Pro", "Claude Opus 5"},
-	"librarian":         {"GPT-5.6 Luna Fast", "DeepSeek V4 Flash", "Qwen 3.7 Plus"},
-	"explore":           {"GPT-5.6 Luna Fast", "DeepSeek V4 Flash", "Qwen 3.7 Plus"},
-	"multimodal-looker": {"GPT-5.6 Sol", "Kimi K3", "GLM-4.6V"},
-	"sisyphus-junior":   {"Claude Sonnet 5", "Kimi K3", "GPT-5.6 Sol"},
+// automaticAgentModelLabel is display-only. Builtin agents without an explicit
+// model keep harness fallback resolution; we deliberately do not mirror the
+// upstream chain here (it drifts). Never persist this string.
+func automaticAgentModelLabel() string {
+	return "Automático (fallback do harness)"
 }
 
-// automaticAgentModelLabel returns a non-persistent hint for agents that rely on
-// upstream dynamic model resolution when no explicit model is configured.
-func automaticAgentModelLabel(agentName string) string {
-	chain, ok := defaultAgentModelChains[agentName]
-	if !ok || len(chain) == 0 {
-		return "Automático (resolvido pelo harness)"
-	}
-	shown := chain
-	if len(shown) > 3 {
-		shown = shown[:3]
-	}
-	return "Automático — cadeia: " + strings.Join(shown, " → ") + "…"
-}
-
-func agentModelDisplayValue(agentName string, ac *agentConfig) string {
+func agentModelDisplayValue(ac *agentConfig) string {
 	if ac == nil {
-		return automaticAgentModelLabel(agentName)
+		return automaticAgentModelLabel()
 	}
 	if ac.modelDisplay != "" {
 		return ac.modelDisplay
@@ -171,7 +148,7 @@ func agentModelDisplayValue(agentName string, ac *agentConfig) string {
 	if ac.modelValue != "" {
 		return ac.modelValue
 	}
-	return automaticAgentModelLabel(agentName)
+	return automaticAgentModelLabel()
 }
 
 
@@ -1995,7 +1972,7 @@ func (w WizardAgents) renderAgentForm(name string, ac *agentConfig) []string {
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, renderField("model", fieldModel, agentModelDisplayValue(name, ac)))
+	lines = append(lines, renderField("model", fieldModel, agentModelDisplayValue(ac)))
 	lines = append(lines, renderField("variant", fieldVariant, ac.variant.View()))
 	lines = append(lines, renderField("category", fieldCategory, ac.category.View()))
 	lines = append(lines, renderField("temperature", fieldTemperature, ac.temperature.View())+validateAgentField("temperature", ac.temperature.Value(), isActiveAgent && w.focusedField == fieldTemperature))

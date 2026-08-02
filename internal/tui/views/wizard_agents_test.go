@@ -1694,18 +1694,15 @@ func TestAgentUltraworkLoadsLegacyVariantAsReasoning(t *testing.T) {
 }
 
 func TestAutomaticAgentModelLabelForDynamicAgents(t *testing.T) {
-	got := automaticAgentModelLabel("atlas")
-	if got == "" || got == "[Select model...]" {
-		t.Fatalf("expected automatic label, got %q", got)
+	got := automaticAgentModelLabel()
+	if got != "Automático (fallback do harness)" {
+		t.Fatalf("expected generic automatic label, got %q", got)
 	}
-	if !strings.Contains(got, "Automático") || !strings.Contains(got, "Claude Sonnet 5") {
-		t.Fatalf("expected automatic chain label, got %q", got)
-	}
-	display := agentModelDisplayValue("atlas", &agentConfig{})
+	display := agentModelDisplayValue(&agentConfig{})
 	if display != got {
 		t.Fatalf("empty model should show automatic label, got %q want %q", display, got)
 	}
-	display = agentModelDisplayValue("atlas", &agentConfig{modelValue: "openai/gpt-5.6-sol", modelDisplay: "openai/gpt-5.6-sol"})
+	display = agentModelDisplayValue(&agentConfig{modelValue: "openai/gpt-5.6-sol", modelDisplay: "openai/gpt-5.6-sol"})
 	if display != "openai/gpt-5.6-sol" {
 		t.Fatalf("explicit model should win, got %q", display)
 	}
