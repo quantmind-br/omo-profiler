@@ -1331,3 +1331,33 @@ func TestWizardCategoriesProviderOptsModalBlocksFormNav(t *testing.T) {
 	}
 }
 
+func TestWizardCategoriesModelsOverlayBlocksFormNav(t *testing.T) {
+	wc := NewWizardCategories()
+	cfg := &config.Config{
+		Categories: map[string]*config.CategoryConfig{
+			"quick": {
+				Models: []interface{}{"m1", "m2"},
+			},
+		},
+	}
+	wc.SetConfig(cfg, nil)
+	wc.cursor = 0
+	wc.categories[0].expanded = true
+	wc.inForm = true
+	wc.focusedField = catFieldModels
+	wc.categories[0].models.open()
+	wc.categories[0].models.focusedIdx = 0
+
+	updated, _ := wc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	wc = updated
+	if !wc.categories[0].models.active {
+		t.Fatal("expected models overlay to stay open")
+	}
+	if wc.focusedField != catFieldModels {
+		t.Fatalf("form focus moved while models overlay open: %v", wc.focusedField)
+	}
+	if wc.categories[0].models.focusedIdx != 1 {
+		t.Fatalf("expected models overlay to consume j and move focus, got %d", wc.categories[0].models.focusedIdx)
+	}
+}
+

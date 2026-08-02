@@ -286,9 +286,14 @@ func TestCreateFromDefaultTemplateContainsAgents(t *testing.T) {
 	agents, ok := got.Config["agents"].(map[string]any)
 	require.True(t, ok)
 	for _, name := range []string{"sisyphus", "hephaestus", "prometheus", "oracle", "librarian", "explore", "multimodal-looker", "metis", "momus", "atlas", "sisyphus-junior"} {
-		_, ok := agents[name]
+		agent, ok := agents[name].(map[string]any)
 		require.Truef(t, ok, "missing agent %s", name)
+		model, _ := agent["model"].(string)
+		require.NotEmptyf(t, model, "agent %s must have an explicit model in the default template", name)
 	}
+	atlas, ok := agents["atlas"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "anthropic/claude-sonnet-5", atlas["model"])
 	hephaestus, ok := agents["hephaestus"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "Explore thoroughly, then implement. Prefer small, testable changes.", hephaestus["prompt_append"])
@@ -309,7 +314,8 @@ func TestCreateFromDefaultTemplateContainsAgents(t *testing.T) {
 func TestDefaultTemplateMatchesRootTemplate(t *testing.T) {
 	root, err := os.ReadFile(filepath.Join("..", "..", "template", "opencode-profile.json"))
 	require.NoError(t, err)
-	require.JSONEq(t, string(root), string(DefaultTemplate()))
+	// embed.go requires the web asset and root template stay byte-identical.
+	require.Equal(t, root, DefaultTemplate())
 }
 
 func TestCreateDuplicateReturns409(t *testing.T) {
