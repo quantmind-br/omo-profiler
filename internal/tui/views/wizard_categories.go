@@ -1,7 +1,6 @@
 package views
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -22,7 +21,7 @@ import (
 )
 
 var thinkingTypes = []string{"", "enabled", "disabled"}
-var effortLevels = []string{"", "none", "minimal", "low", "medium", "high", "xhigh", "max"}
+var effortLevels = []string{"", "off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"}
 var verbosityLevels = []string{"", "low", "medium", "high"}
 
 var wizCatValidationHexRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -152,7 +151,7 @@ type categoryConfig struct {
 	textVerbosityIdx   int
 	tools              textinput.Model
 	promptAppend       textarea.Model
-	fallbackModels     textinput.Model
+	fallback           fallbackEditor
 	expanded           bool
 	// Model selector state
 	selectingModel       bool
@@ -203,10 +202,6 @@ func newCategoryConfig() categoryConfig {
 	tools.Placeholder = "tool1:true, tool2:false"
 	tools.Width = 40
 
-	fallbackModels := textinput.New()
-	fallbackModels.Placeholder = `"model-id" or ["model1", "model2"]`
-	fallbackModels.Width = 40
-
 	promptAppend := textarea.New()
 	promptAppend.Placeholder = "Append to prompt..."
 	promptAppend.SetWidth(50)
@@ -231,7 +226,7 @@ func newCategoryConfig() categoryConfig {
 		thinkingBudget:       thinkingBudget,
 		tools:                tools,
 		promptAppend:         promptAppend,
-		fallbackModels:       fallbackModels,
+		fallback:             newFallbackEditor(),
 		saveDisplayNameInput: saveDisplayNameInput,
 		saveProviderInput:    saveProviderInput,
 	}
@@ -270,11 +265,11 @@ func newWizardCategoriesKeyMap() wizardCategoriesKeyMap {
 			key.WithHelp("ctrl+→", "expand"),
 		),
 		New: key.NewBinding(
-			key.WithKeys("n"),
+			key.WithKeys("n", "+", "="),
 			key.WithHelp("n", "new category"),
 		),
 		Delete: key.NewBinding(
-			key.WithKeys("d"),
+			key.WithKeys("d", "-"),
 			key.WithHelp("d", "delete"),
 		),
 		Expand: key.NewBinding(
@@ -369,7 +364,7 @@ func (w *WizardCategories) SetSize(width, height int) {
 		cc.tools.Width = layout.WideFieldWidth(width, 10)
 		cc.maxPromptTokens.Width = 10
 		cc.promptAppend.SetWidth(layout.WideFieldWidth(width, 10))
-		cc.fallbackModels.Width = layout.WideFieldWidth(width, 10)
+		cc.fallback.setWidth(width)
 		cc.saveDisplayNameInput.Width = layout.MediumFieldWidth(width)
 		cc.saveProviderInput.Width = layout.MediumFieldWidth(width)
 		cc.modelSelector.SetSize(width, height)
@@ -398,16 +393,7 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 			cc.modelValue = catCfg.Model
 			cc.modelDisplay = catCfg.Model
 		}
-		if catCfg.FallbackModels != nil {
-			switch v := catCfg.FallbackModels.(type) {
-			case string:
-				cc.fallbackModels.SetValue(v)
-			default:
-				if b, err := json.Marshal(v); err == nil {
-					cc.fallbackModels.SetValue(string(b))
-				}
-			}
-		}
+		cc.fallback.load(catCfg.FallbackModels)
 		if catCfg.Description != "" {
 			cc.description.SetValue(catCfg.Description)
 		}
@@ -426,7 +412,9 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 		if catCfg.TopP != nil {
 			cc.topP.SetValue(fmt.Sprintf("%.1f", *catCfg.TopP))
 		}
-		if catCfg.MaxTokens != nil {
+		if catCfg.MaxTokensSnake != nil {
+			cc.maxTokens.SetValue(fmt.Sprintf("%d", *catCfg.MaxTokensSnake))
+		} else if catCfg.MaxTokens != nil {
 			cc.maxTokens.SetValue(fmt.Sprintf("%.0f", *catCfg.MaxTokens))
 		}
 		if catCfg.MaxPromptTokens != nil {
@@ -445,9 +433,21 @@ func (w *WizardCategories) SetConfig(cfg *config.Config, selection *profile.Fiel
 			}
 		}
 
-		if catCfg.ReasoningEffort != "" {
+		if catCfg.Reasoning != "" {
 			for i, e := range effortLevels {
-				if e == catCfg.ReasoningEffort {
+				if e == catCfg.Reasoning {
+					cc.reasoningEffortIdx = i
+					break
+				}
+			}
+		} else if catCfg.ReasoningEffort != "" {
+			// Map deprecated none→off and accept legacy values.
+			effort := catCfg.ReasoningEffort
+			if effort == "none" {
+				effort = "off"
+			}
+			for i, e := range effortLevels {
+				if e == effort {
 					cc.reasoningEffortIdx = i
 					break
 				}
@@ -497,14 +497,7 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 			catCfg.Model = cc.modelValue
 		}
 		if w.isCategoryFieldSelected(catFieldFallbackModels) {
-			v := strings.TrimSpace(cc.fallbackModels.Value())
-			v = strings.TrimSpace(v)
-			var parsed any
-			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-				catCfg.FallbackModels = parsed
-			} else {
-				catCfg.FallbackModels = v
-			}
+			catCfg.FallbackModels = cc.fallback.value()
 		}
 		if w.isCategoryFieldSelected(catFieldDescription) {
 			catCfg.Description = cc.description.Value()
@@ -532,8 +525,8 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 		}
 		if w.isCategoryFieldSelected(catFieldMaxTokens) {
 			v := strings.TrimSpace(cc.maxTokens.Value())
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				catCfg.MaxTokens = &f
+			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+				catCfg.MaxTokensSnake = &i
 			}
 		}
 		if w.isCategoryFieldSelected(catFieldMaxPromptTokens) {
@@ -556,7 +549,7 @@ func (w *WizardCategories) Apply(cfg *config.Config, selection *profile.FieldSel
 		}
 
 		if w.isCategoryFieldSelected(catFieldReasoningEffort) {
-			catCfg.ReasoningEffort = effortLevels[cc.reasoningEffortIdx]
+			catCfg.Reasoning = effortLevels[cc.reasoningEffortIdx]
 		}
 		if w.isCategoryFieldSelected(catFieldTextVerbosity) {
 			catCfg.TextVerbosity = verbosityLevels[cc.textVerbosityIdx]
@@ -606,7 +599,7 @@ func categorySelectionPath(field categoryFormField) (string, bool) {
 	case catFieldThinkingBudget:
 		return "categories.*.thinking.budget_tokens", true
 	case catFieldReasoningEffort:
-		return "categories.*.reasoning_effort", true
+		return "categories.*.reasoning", true
 	case catFieldTextVerbosity:
 		return "categories.*.text_verbosity", true
 	case catFieldTools:
@@ -627,7 +620,7 @@ func categorySelectionAliases(field categoryFormField) []string {
 	case catFieldThinkingBudget:
 		return []string{"categories.*.thinking.budgetTokens"}
 	case catFieldReasoningEffort:
-		return []string{"categories.*.reasoningEffort"}
+		return []string{"categories.*.reasoningEffort", "categories.*.reasoning_effort"}
 	case catFieldTextVerbosity:
 		return []string{"categories.*.textVerbosity"}
 	default:
@@ -716,7 +709,6 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 	cc.thinkingBudget.Blur()
 	cc.tools.Blur()
 	cc.promptAppend.Blur()
-	cc.fallbackModels.Blur()
 
 	switch w.focusedField {
 	case catFieldName:
@@ -740,8 +732,6 @@ func (w *WizardCategories) updateFieldFocus(cc *categoryConfig) {
 		cc.tools.Focus()
 	case catFieldPromptAppend:
 		cc.promptAppend.Focus()
-	case catFieldFallbackModels:
-		cc.fallbackModels.Focus()
 	}
 }
 
@@ -812,8 +802,12 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 
 	case ModelSelectedMsg:
 		if currentCategory != nil {
-			currentCategory.modelValue = msg.ModelID
-			currentCategory.modelDisplay = msg.DisplayName
+			if currentCategory.fallback.active {
+				currentCategory.fallback.applySelectedModel(msg.ModelID, msg.DisplayName)
+			} else {
+				currentCategory.modelValue = msg.ModelID
+				currentCategory.modelDisplay = msg.DisplayName
+			}
 			currentCategory.selectingModel = false
 		}
 		return w, nil
@@ -843,6 +837,18 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 
 		if currentCategory != nil && currentCategory.savingCustomModel {
 			return w.handleSaveCustomModel(currentCategory, msg)
+		}
+
+		if currentCategory != nil && currentCategory.fallback.active {
+			action, fcmd := currentCategory.fallback.handleKey(msg)
+			if action == fbOpenModelSelector {
+				currentCategory.selectingModel = true
+				currentCategory.modelSelector = NewModelSelector()
+				currentCategory.modelSelector.SetSize(w.width, w.height)
+				return w, nil
+			}
+			w.viewport.SetContent(w.renderContent())
+			return w, fcmd
 		}
 
 		if w.inForm && len(w.categories) > 0 && w.cursor < len(w.categories) {
@@ -917,6 +923,11 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 						cc.disable = !cc.disable
 						return w, nil
 					}
+					if w.focusedField == catFieldFallbackModels {
+						cc.fallback.open()
+						w.viewport.SetContent(w.renderContent())
+						return w, nil
+					}
 					// Cycle through options for dropdown fields
 					switch w.focusedField {
 					case catFieldThinkingType:
@@ -969,10 +980,6 @@ func (w WizardCategories) Update(msg tea.Msg) (WizardCategories, tea.Cmd) {
 				case catFieldPromptAppend:
 					cc.promptAppend.Focus()
 					cc.promptAppend, cmd = cc.promptAppend.Update(msg)
-					cmds = append(cmds, cmd)
-				case catFieldFallbackModels:
-					cc.fallbackModels.Focus()
-					cc.fallbackModels, cmd = cc.fallbackModels.Update(msg)
 					cmds = append(cmds, cmd)
 				}
 
@@ -1197,7 +1204,11 @@ func (w WizardCategories) renderCategoryForm(cc *categoryConfig) []string {
 	lines = append(lines, "")
 	lines = append(lines, renderSelectableField("tools", catFieldTools, cc.tools.View()))
 	lines = append(lines, renderSelectableField("prompt_append", catFieldPromptAppend, cc.promptAppend.View()))
-	lines = append(lines, renderSelectableField("fallback_models", catFieldFallbackModels, cc.fallbackModels.View()))
+	if cc.fallback.active {
+		lines = append(lines, cc.fallback.render(indent, fbStyles{wizCatDimStyle, wizCatSelectedStyle, wizCatSelectedStyle, wizCatTextStyle})...)
+	} else {
+		lines = append(lines, renderSelectableField("fallback_models", catFieldFallbackModels, cc.fallback.summaryLabel()))
+	}
 	lines = append(lines, "")
 
 	return lines
@@ -1216,9 +1227,9 @@ func (w WizardCategories) View() string {
 
 	title := wizCatLabelStyle.Render("Configure Categories")
 	var desc string
-	catHints := []string{"[↑↓] navigate", "[n] new", "[d] delete", "[ctrl+→] expand", "[ctrl+←] collapse", "[Enter] edit", "[Tab] next step"}
+	catHints := []string{"[↑↓] navigate", "[+/n] new", "[-/d] delete", "[ctrl+→] expand", "[ctrl+←] collapse", "[Enter] edit", "[Tab] next step"}
 	if layout.IsCompact(w.width) {
-		catHints = []string{"[↑↓] nav", "[n] new", "[d] del", "[ctrl+→] expand", "[Tab] next"}
+		catHints = []string{"[↑↓] nav", "[+/n] new", "[-/d] del", "[ctrl+→] expand", "[Tab] next"}
 	}
 	desc = wizCatDimStyle.Render(layout.RenderHintLine(catHints, w.width))
 
@@ -1277,19 +1288,13 @@ func (w WizardCategories) handleSaveCustomModel(cc *categoryConfig, msg tea.KeyM
 			return w, nil
 		}
 
-		registry, err := models.Load()
-		if err != nil {
-			cc.saveError = err.Error()
-			return w, nil
-		}
-
 		newModel := models.RegisteredModel{
 			DisplayName: displayName,
 			ModelID:     cc.customModelToSave,
 			Provider:    strings.TrimSpace(cc.saveProviderInput.Value()),
 		}
 
-		if err := registry.Add(newModel); err != nil {
+		if err := models.Add(newModel); err != nil {
 			cc.saveError = err.Error()
 			return w, nil
 		}
@@ -1364,4 +1369,15 @@ func (w WizardCategories) renderSaveCustomPrompt(cc *categoryConfig) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// IsCapturing reports whether an overlay (model selector, save prompt, or the
+// fallback editor) is active and should receive keys — including esc — instead
+// of the wizard router's Cancel handler.
+func (w WizardCategories) IsCapturing() bool {
+	if len(w.categories) == 0 || w.cursor >= len(w.categories) {
+		return false
+	}
+	cc := w.categories[w.cursor]
+	return cc.selectingModel || cc.savingCustomModel || cc.fallback.active
 }

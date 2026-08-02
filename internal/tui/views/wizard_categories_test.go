@@ -417,12 +417,15 @@ func TestWizardCategoriesApplyWithIsUnstable(t *testing.T) {
 
 func TestWizardCategoriesReasoningEffortNewValues(t *testing.T) {
 	tests := []struct {
-		name   string
-		effort string
-		idx    int
+		name     string
+		effort   string
+		idx      int
+		expected string
 	}{
-		{name: "none", effort: "none", idx: 1},
-		{name: "minimal", effort: "minimal", idx: 2},
+		// Legacy none loads as off (idx 1) and rewrites as reasoning=off.
+		{name: "legacy-none", effort: "none", idx: 1, expected: "off"},
+		{name: "minimal", effort: "minimal", idx: 2, expected: "minimal"},
+		{name: "auto", effort: "auto", idx: 8, expected: "auto"},
 	}
 
 	for _, tt := range tests {
@@ -448,8 +451,11 @@ func TestWizardCategoriesReasoningEffortNewValues(t *testing.T) {
 				t.Fatalf("expected test category to exist after Apply")
 			}
 
-			if catCfg.ReasoningEffort != tt.effort {
-				t.Fatalf("ReasoningEffort: expected %q, got %q", tt.effort, catCfg.ReasoningEffort)
+			if catCfg.Reasoning != tt.expected {
+				t.Fatalf("Reasoning: expected %q, got %q", tt.expected, catCfg.Reasoning)
+			}
+			if catCfg.ReasoningEffort != "" {
+				t.Fatalf("ReasoningEffort should be empty after rewrite, got %q", catCfg.ReasoningEffort)
 			}
 		})
 	}
@@ -1155,5 +1161,93 @@ func TestWizardCategoriesEnsureFieldVisible(t *testing.T) {
 	// Just verify the method runs without error
 	if !wc.ready {
 		t.Error("expected ready to be true after SetSize")
+	}
+}
+
+// TestWizardCategoriesPlusAppendsAndFocusesName verifies "+" (a New alias)
+// appends a category, enters its form expanded, and focuses the name field.
+func TestWizardCategoriesPlusAppendsAndFocusesName(t *testing.T) {
+	wc := NewWizardCategories()
+	wc.SetSize(120, 40)
+	n0 := len(wc.categories)
+
+	wc, _ = wc.Update(keyMsg("+"))
+
+	if len(wc.categories) != n0+1 {
+		t.Fatalf("expected %d categories, got %d", n0+1, len(wc.categories))
+	}
+	if !wc.inForm {
+		t.Error("expected inForm true after '+'")
+	}
+	if wc.focusedField != catFieldName {
+		t.Errorf("focusedField = %v, want catFieldName", wc.focusedField)
+	}
+	if wc.cursor != len(wc.categories)-1 {
+		t.Errorf("cursor = %d, want %d", wc.cursor, len(wc.categories)-1)
+	}
+	if !wc.categories[wc.cursor].expanded {
+		t.Error("expected new category expanded")
+	}
+}
+
+// TestWizardCategoriesMinusDeletesFocused verifies "-" (a Delete alias) removes
+// the focused category in nav mode.
+func TestWizardCategoriesMinusDeletesFocused(t *testing.T) {
+	wc := NewWizardCategories()
+	c1 := newCategoryConfig()
+	c1.nameInput.SetValue("cat1")
+	c2 := newCategoryConfig()
+	c2.nameInput.SetValue("cat2")
+	wc.categories = append(wc.categories, &c1, &c2)
+	wc.cursor = 0
+	wc.inForm = false
+
+	wc, _ = wc.Update(keyMsg("-"))
+
+	if len(wc.categories) != 1 {
+		t.Fatalf("expected 1 category after delete, got %d", len(wc.categories))
+	}
+	if got := wc.categories[0].nameInput.Value(); got != "cat2" {
+		t.Errorf("remaining category = %q, want %q", got, "cat2")
+	}
+}
+
+// TestWizardCategoriesFallbackOverlayPersists opens the shared fallback editor
+// on a category, adds a model through the selector, and asserts the value both
+// on the editor and after Apply.
+func TestWizardCategoriesFallbackOverlayPersists(t *testing.T) {
+	wc := NewWizardCategories()
+	wc.SetSize(120, 40)
+
+	wc, _ = wc.Update(keyMsg("+")) // create category, in form, focus name
+	wc.categories[wc.cursor].nameInput.SetValue("coding")
+	wc.focusedField = catFieldFallbackModels
+
+	wc, _ = wc.Update(keyMsg("enter")) // open the fallback overlay
+	if !wc.categories[wc.cursor].fallback.active {
+		t.Fatal("expected fallback overlay active after enter on fallback field")
+	}
+
+	wc, _ = wc.Update(keyMsg("+")) // fallback add -> host opens model selector
+	if !wc.categories[wc.cursor].selectingModel {
+		t.Error("expected selectingModel true after '+' in overlay")
+	}
+
+	wc, _ = wc.Update(ModelSelectedMsg{ModelID: "prov/m", DisplayName: "M"})
+	cc := wc.categories[wc.cursor]
+	if len(cc.fallback.entries) != 1 {
+		t.Fatalf("expected 1 fallback entry, got %d", len(cc.fallback.entries))
+	}
+	if got := cc.fallback.value(); got != "prov/m" {
+		t.Errorf("fallback value() = %#v, want %q", got, "prov/m")
+	}
+
+	out := &config.Config{}
+	wc.Apply(out, nil)
+	if out.Categories == nil || out.Categories["coding"] == nil {
+		t.Fatal("expected category \"coding\" after Apply")
+	}
+	if got := out.Categories["coding"].FallbackModels; got != "prov/m" {
+		t.Errorf("applied FallbackModels = %#v, want %q", got, "prov/m")
 	}
 }

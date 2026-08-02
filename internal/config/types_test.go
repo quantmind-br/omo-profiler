@@ -353,6 +353,68 @@ func TestCategoryConfigExtendedFields(t *testing.T) {
 	}
 }
 
+func TestReasoningFieldRoundTrip(t *testing.T) {
+	jsonData := `{
+		"agents": {
+			"build": {
+				"model": "claude-sonnet",
+				"reasoning": "high"
+			}
+		},
+		"categories": {
+			"quick": {
+				"model": "claude-haiku",
+				"reasoning": "auto",
+				"max_tokens": 4096,
+				"models": ["a", "b"],
+				"provider_options": {"k": true},
+				"warn_unavailable": false
+			}
+		}
+	}`
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(jsonData), &cfg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if cfg.Agents["build"].Reasoning != "high" {
+		t.Errorf("agent reasoning: expected high, got %q", cfg.Agents["build"].Reasoning)
+	}
+	cat := cfg.Categories["quick"]
+	if cat.Reasoning != "auto" {
+		t.Errorf("category reasoning: expected auto, got %q", cat.Reasoning)
+	}
+	if cat.MaxTokensSnake == nil || *cat.MaxTokensSnake != 4096 {
+		t.Errorf("max_tokens: expected 4096, got %v", cat.MaxTokensSnake)
+	}
+	if cat.WarnUnavailable == nil || *cat.WarnUnavailable {
+		t.Errorf("warn_unavailable: expected false, got %v", cat.WarnUnavailable)
+	}
+	if cat.ProviderOptions == nil || cat.ProviderOptions["k"] != true {
+		t.Errorf("provider_options not preserved: %v", cat.ProviderOptions)
+	}
+
+	marshaled, err := json.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var roundtrip Config
+	if err := json.Unmarshal(marshaled, &roundtrip); err != nil {
+		t.Fatalf("roundtrip unmarshal: %v", err)
+	}
+	if roundtrip.Agents["build"].Reasoning != "high" {
+		t.Errorf("roundtrip agent reasoning mismatch")
+	}
+	if roundtrip.Categories["quick"].Reasoning != "auto" {
+		t.Errorf("roundtrip category reasoning mismatch")
+	}
+	if roundtrip.Categories["quick"].MaxTokensSnake == nil || *roundtrip.Categories["quick"].MaxTokensSnake != 4096 {
+		t.Errorf("roundtrip max_tokens mismatch")
+	}
+}
+
+
 func TestAgentConfigExtendedFieldsRoundTrip(t *testing.T) {
 	jsonData := `{
 		"agents": {
@@ -901,7 +963,9 @@ func TestModelFallbackTitleRoundTrip(t *testing.T) {
 	}
 }
 
-func TestDefaultStrategyRoundTrip(t *testing.T) {
+// ralph_loop is a deprecated upstream compatibility shim (a free-form record);
+// the profiler preserves whatever shape it carries without interpreting it.
+func TestRalphLoopShimRoundTrip(t *testing.T) {
 	jsonData := `{"ralph_loop": {"default_strategy": "continue"}}`
 
 	var cfg Config
@@ -911,9 +975,6 @@ func TestDefaultStrategyRoundTrip(t *testing.T) {
 
 	if cfg.RalphLoop == nil {
 		t.Fatal("ralph_loop is nil")
-	}
-	if cfg.RalphLoop.DefaultStrategy != "continue" {
-		t.Errorf("expected default_strategy=continue, got %s", cfg.RalphLoop.DefaultStrategy)
 	}
 
 	marshaled, err := json.Marshal(&cfg)
@@ -1049,6 +1110,71 @@ func TestBrowserAutomationEngineProviderRoundTrip(t *testing.T) {
 	marshaled, err := json.Marshal(&cfg)
 	require.NoError(t, err)
 	assert.Contains(t, string(marshaled), `"browser_automation_engine":{"provider":"playwright"}`)
+}
+
+func TestBrowserAutomationEnginePlaywrightMCPArgsRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"browser_automation_engine": {"provider": "playwright", "playwright_mcp_args": ["--headless", "--no-sandbox"]}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BrowserAutomationEngine)
+	assert.Equal(t, []string{"--headless", "--no-sandbox"}, cfg.BrowserAutomationEngine.PlaywrightMCPArgs)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"playwright_mcp_args":["--headless","--no-sandbox"]`)
+}
+
+func TestGoalRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"goal": {"enabled": true, "auto_start": false, "default_max_iterations": 50}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Goal)
+	require.NotNil(t, cfg.Goal.Enabled)
+	require.NotNil(t, cfg.Goal.AutoStart)
+	require.NotNil(t, cfg.Goal.DefaultMaxIterations)
+	assert.True(t, *cfg.Goal.Enabled)
+	assert.False(t, *cfg.Goal.AutoStart)
+	assert.Equal(t, 50, *cfg.Goal.DefaultMaxIterations)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"goal":{"enabled":true,"auto_start":false,"default_max_iterations":50}`)
+}
+
+func TestGoalOmitempty(t *testing.T) {
+	marshaled, err := json.Marshal(&Config{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(marshaled), "goal")
+}
+
+func TestCodegraphDaemonAndExcludedRootsRoundTrip(t *testing.T) {
+	SetBaseDir(t.TempDir())
+	defer ResetBaseDir()
+
+	jsonData := `{"codegraph": {"enabled": true, "auto_init": true, "auto_provision": true, "daemon": false, "excluded_roots": ["/tmp", "/mnt"]}}`
+
+	var cfg Config
+	err := json.Unmarshal([]byte(jsonData), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Codegraph)
+	require.NotNil(t, cfg.Codegraph.Daemon)
+	assert.False(t, *cfg.Codegraph.Daemon)
+	assert.Equal(t, []string{"/tmp", "/mnt"}, cfg.Codegraph.ExcludedRoots)
+
+	marshaled, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"daemon":false`)
+	assert.Contains(t, string(marshaled), `"excluded_roots":["/tmp","/mnt"]`)
 }
 
 func TestWebsearchProviderRoundTrip(t *testing.T) {
@@ -1328,20 +1454,20 @@ func TestI18nOmitempty(t *testing.T) {
 }
 
 func TestDefaultModeRoundTrip(t *testing.T) {
-	jsonData := `{"default_mode": {"ultrawork": true, "ralph_loop": false}}`
+	jsonData := `{"default_mode": {"ultrawork": true, "goal": false}}`
 
 	var cfg Config
 	err := json.Unmarshal([]byte(jsonData), &cfg)
 	require.NoError(t, err)
 	require.NotNil(t, cfg.DefaultMode)
 	require.NotNil(t, cfg.DefaultMode.Ultrawork)
-	require.NotNil(t, cfg.DefaultMode.RalphLoop)
+	require.NotNil(t, cfg.DefaultMode.Goal)
 	assert.True(t, *cfg.DefaultMode.Ultrawork)
-	assert.False(t, *cfg.DefaultMode.RalphLoop)
+	assert.False(t, *cfg.DefaultMode.Goal)
 
 	marshaled, err := json.Marshal(&cfg)
 	require.NoError(t, err)
-	assert.Contains(t, string(marshaled), `"default_mode":{"ultrawork":true,"ralph_loop":false}`)
+	assert.Contains(t, string(marshaled), `"default_mode":{"ultrawork":true,"goal":false}`)
 }
 
 func TestDefaultModeOmitempty(t *testing.T) {

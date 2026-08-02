@@ -2,24 +2,15 @@ package profile
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"testing"
-
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
-func setupTestDir(t *testing.T) {
-	t.Helper()
-	tmpDir := t.TempDir()
-	config.SetBaseDir(tmpDir)
-	t.Cleanup(config.ResetBaseDir)
-}
-
 func TestGetActive_NoConfig(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
-	}
+	setupTestEnv(t)
 
 	active, err := GetActive()
 	if err != nil {
@@ -27,211 +18,347 @@ func TestGetActive_NoConfig(t *testing.T) {
 	}
 
 	if active.Exists {
-		t.Errorf("expected Exists=false when no config")
+		t.Errorf("expected Exists=false when no omo document")
+	}
+	if active.ProfileName != "" {
+		t.Errorf("expected empty ProfileName, got %q", active.ProfileName)
 	}
 }
 
-func TestGetActive_MatchingProfile(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
+func TestApply_NotFound(t *testing.T) {
+	setupTestEnv(t)
+
+	_, err := Apply("nonexistent")
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected errors.Is(err, fs.ErrNotExist), got %v", err)
+	}
+}
+
+func TestApply_SubstitutesDeclaredKeysOnly(t *testing.T) {
+	setupTestEnv(t)
+
+	// Root has both [opencode] and [senpi].
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true,"git_master":{"commit_footer":"base"}}`))
+	doc.SetRaw(config.SenpiKey, json.RawMessage(`{"keep":"me"}`))
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
 	}
 
-	// Create a profile
-	testConfig := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "test-model"},
-		},
+	// Profile declares only [opencode].
+	seedProfile(t, "dev", `{"telemetry":false}`)
+
+	applied, err := Apply("dev")
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
 	}
-	p := &Profile{Name: "dev", Config: testConfig}
-	if err := Save(p); err != nil {
-		t.Fatalf("failed to save profile: %v", err)
+	if applied.Snapshot != "base" {
+		t.Fatalf("Snapshot = %q, want base", applied.Snapshot)
 	}
 
-	// Set it as active
-	if err := SetActive("dev"); err != nil {
-		t.Fatalf("failed to set active: %v", err)
+	// Root [opencode] should equal the profile block, [senpi] untouched.
+	doc, err = config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument after Apply: %v", err)
+	}
+	rootOC, _ := doc.Raw(config.OpenCodeKey)
+	canonRoot, err := canonicalJSON(rootOC)
+	if err != nil {
+		t.Fatalf("canonicalJSON root: %v", err)
+	}
+	profileBlock, _, err := doc.ProfileBlock("dev")
+	if err != nil {
+		t.Fatalf("ProfileBlock: %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(profileBlock, &fields); err != nil {
+		t.Fatalf("Unmarshal profile block: %v", err)
+	}
+	canonProfile, err := canonicalJSON(fields[config.OpenCodeKey])
+	if err != nil {
+		t.Fatalf("canonicalJSON profile: %v", err)
+	}
+	if string(canonRoot) != string(canonProfile) {
+		t.Fatalf("root [opencode] = %s, want profile block %s", canonRoot, canonProfile)
 	}
 
-	// Get active
+	rootSenpi, _ := doc.Raw(config.SenpiKey)
+	canonSenpi, err := canonicalJSON(rootSenpi)
+	if err != nil {
+		t.Fatalf("canonicalJSON senpi: %v", err)
+	}
+	if string(canonSenpi) != `{"keep":"me"}` {
+		t.Fatalf("root [senpi] = %s, want {\"keep\":\"me\"}", canonSenpi)
+	}
+}
+
+func TestApply_SnapshotsUnmatchedRoot(t *testing.T) {
+	setupTestEnv(t)
+
+	// Root [opencode] matches no profile.
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true}`))
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	seedProfile(t, "dev", `{"telemetry":false}`)
+
+	applied, err := Apply("dev")
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if applied.Snapshot != "base" {
+		t.Fatalf("Snapshot = %q, want base", applied.Snapshot)
+	}
+
+	// profiles.base.[opencode] should hold the old root value.
+	doc, err = config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument after Apply: %v", err)
+	}
+	baseBlock, ok, err := doc.ProfileBlock("base")
+	if err != nil {
+		t.Fatalf("ProfileBlock: %v", err)
+	}
+	if !ok {
+		t.Fatal("profiles.base not found")
+	}
+	var baseFields map[string]json.RawMessage
+	if err := json.Unmarshal(baseBlock, &baseFields); err != nil {
+		t.Fatalf("Unmarshal base block: %v", err)
+	}
+	canonBase, err := canonicalJSON(baseFields[config.OpenCodeKey])
+	if err != nil {
+		t.Fatalf("canonicalJSON base: %v", err)
+	}
+	if string(canonBase) != `{"telemetry":true}` {
+		t.Fatalf("profiles.base.[opencode] = %s, want {\"telemetry\":true}", canonBase)
+	}
+}
+
+func TestApply_NoSnapshotWhenRootMatches(t *testing.T) {
+	setupTestEnv(t)
+
+	// Seed an unmatched root so the first apply snapshots it.
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true}`))
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	seedProfile(t, "dev", `{"telemetry":false}`)
+	// First apply: root matches no profile → snapshot.
+	applied, err := Apply("dev")
+	if err != nil {
+		t.Fatalf("Apply first: %v", err)
+	}
+	if applied.Snapshot != "base" {
+		t.Fatalf("first Snapshot = %q, want base", applied.Snapshot)
+	}
+
+	// Second apply: root now matches "dev" → no snapshot.
+	applied, err = Apply("dev")
+	if err != nil {
+		t.Fatalf("Apply second: %v", err)
+	}
+	if applied.Snapshot != "" {
+		t.Fatalf("second Snapshot = %q, want empty", applied.Snapshot)
+	}
+
+	// No extra profile should have been created.
+	doc, err = config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	names, err := doc.ProfileNames()
+	if err != nil {
+		t.Fatalf("ProfileNames: %v", err)
+	}
+	if len(names) != 2 {
+		t.Fatalf("expected 2 profiles (dev, base), got %d: %v", len(names), names)
+	}
+}
+
+func TestApply_SnapshotNameCollision(t *testing.T) {
+	setupTestEnv(t)
+
+	// Seed an unmatched root so the apply snapshots it.
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true}`))
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	seedProfile(t, "dev", `{"telemetry":false}`)
+	seedProfile(t, "base", `{"telemetry":false,"git_master":{"commit_footer":"base"}}`)
+	applied, err := Apply("dev")
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if applied.Snapshot != "base-1" {
+		t.Fatalf("Snapshot = %q, want base-1", applied.Snapshot)
+	}
+}
+
+func TestActiveName_DetectsAndReportsNone(t *testing.T) {
+	setupTestEnv(t)
+
+	seedProfile(t, "dev", `{"telemetry":false}`)
+
+	if _, err := Apply("dev"); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+
+	name, err := ActiveName(doc)
+	if err != nil {
+		t.Fatalf("ActiveName: %v", err)
+	}
+	if name != "dev" {
+		t.Fatalf("ActiveName = %q, want dev", name)
+	}
+
+	// Mutate the root.
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true}`))
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	doc, err = config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument after mutate: %v", err)
+	}
+
+	name, err = ActiveName(doc)
+	if err != nil {
+		t.Fatalf("ActiveName after mutate: %v", err)
+	}
+	if name != "" {
+		t.Fatalf("ActiveName = %q, want empty", name)
+	}
+
 	active, err := GetActive()
 	if err != nil {
-		t.Fatalf("GetActive failed: %v", err)
+		t.Fatalf("GetActive: %v", err)
 	}
-
-	if !active.Exists {
-		t.Errorf("expected Exists=true")
-	}
-	if active.IsOrphan {
-		t.Errorf("expected IsOrphan=false")
-	}
-	if active.ProfileName != "dev" {
-		t.Errorf("expected ProfileName='dev', got '%s'", active.ProfileName)
+	if !active.Modified {
+		t.Fatal("expected Modified=true after mutating root")
 	}
 }
 
-func TestGetActive_OrphanConfig(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
+func TestApply_AppliesAllDeclaredKeys(t *testing.T) {
+	setupTestEnv(t)
+
+	seedProfileBlock(t, "dev", json.RawMessage(
+		`{"[opencode]":{"telemetry":false},"[senpi]":{"keep":"me"},"agents":{"build":{"model":"test"}}}`,
+	))
+
+	if _, err := Apply("dev"); err != nil {
+		t.Fatalf("Apply: %v", err)
 	}
 
-	// Create a config file directly (not from a profile)
-	orphanConfig := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"oracle": {Model: "custom-model"},
-		},
-	}
-	data, _ := json.MarshalIndent(orphanConfig, "", "  ")
-	if err := os.WriteFile(config.ConfigFile(), data, 0644); err != nil {
-		t.Fatalf("failed to write config: %v", err)
-	}
-
-	// Get active
-	active, err := GetActive()
+	doc, err := config.LoadDocument()
 	if err != nil {
-		t.Fatalf("GetActive failed: %v", err)
+		t.Fatalf("LoadDocument: %v", err)
 	}
 
-	if !active.Exists {
-		t.Errorf("expected Exists=true")
-	}
-	if !active.IsOrphan {
-		t.Errorf("expected IsOrphan=true")
-	}
-	if active.ProfileName != "(custom)" {
-		t.Errorf("expected ProfileName='(custom)', got '%s'", active.ProfileName)
+	for _, key := range []string{config.OpenCodeKey, config.SenpiKey, "agents"} {
+		raw, ok := doc.Raw(key)
+		if !ok {
+			t.Errorf("root key %q missing after Apply", key)
+			continue
+		}
+		if len(raw) == 0 {
+			t.Errorf("root key %q is empty after Apply", key)
+		}
 	}
 }
 
-func TestSetActive(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
-	}
+// Apply must surface a parse error for a profile block that is valid JSON but
+// not a JSON object, rather than silently treating it as "no match".
+func TestApply_MalformedProfileBlock(t *testing.T) {
+	setupTestEnv(t)
 
-	// Create a profile
-	testConfig := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "my-model"},
-		},
-	}
-	p := &Profile{Name: "production", Config: testConfig}
-	if err := Save(p); err != nil {
-		t.Fatalf("failed to save profile: %v", err)
-	}
-
-	// Set it active
-	if err := SetActive("production"); err != nil {
-		t.Fatalf("SetActive failed: %v", err)
-	}
-
-	// Verify config file exists and matches
-	data, err := os.ReadFile(config.ConfigFile())
+	doc, err := config.LoadDocument()
 	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"telemetry":true}`))
+	// Profile block is a JSON string, not a JSON object.
+	if err := doc.SetProfileBlock("dev", json.RawMessage(`"not an object"`)); err != nil {
+		t.Fatalf("SetProfileBlock: %v", err)
+	}
+	doc.EnsureSchema()
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	// Capture the document before the failed apply.
+	before, err := os.ReadFile(config.OmoFile())
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var loaded config.Config
-	if err := json.Unmarshal(data, &loaded); err != nil {
-		t.Fatalf("failed to parse config: %v", err)
-	}
-
-	if loaded.Agents["build"].Model != "my-model" {
-		t.Errorf("expected model 'my-model', got '%s'", loaded.Agents["build"].Model)
-	}
-}
-
-func TestSetActive_NotFound(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
-	}
-
-	err := SetActive("nonexistent")
+	_, err = Apply("dev")
 	if err == nil {
-		t.Errorf("expected error for non-existent profile")
-	}
-}
-
-func TestMatchesConfig_SchemaDifference(t *testing.T) {
-	setupTestDir(t)
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("failed to create dirs: %v", err)
+		t.Fatal("expected error for malformed profile block")
 	}
 
-	// Create a profile without schema
-	cfg := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "test"},
-		},
-	}
-	p := &Profile{Name: "test", Config: cfg}
-
-	// Config with schema should still match
-	cfgWithSchema := cfg
-	cfgWithSchema.Schema = "https://example.com/schema.json"
-
-	if !p.MatchesConfig(&cfgWithSchema) {
-		t.Errorf("configs should match (schema is ignored)")
-	}
-}
-
-func TestMatchesProfile(t *testing.T) {
-	setupTestDir(t)
-
-	p := &Profile{
-		Name: "test",
-		Config: config.Config{
-			Agents: map[string]*config.AgentConfig{
-				"build": {Model: "model-a"},
-			},
-		},
-	}
-
-	// Matching config
-	matching := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "model-a"},
-		},
-	}
-
-	if !p.MatchesConfig(&matching) {
-		t.Errorf("expected configs to match")
-	}
-
-	// Non-matching config
-	different := config.Config{
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "model-b"},
-		},
-	}
-
-	if p.MatchesConfig(&different) {
-		t.Errorf("expected configs to not match")
-	}
-}
-
-func TestNormalizeForComparison(t *testing.T) {
-	// Test that $schema is removed
-	cfg := &config.Config{
-		Schema: "https://example.com/schema.json",
-		Agents: map[string]*config.AgentConfig{
-			"build": {Model: "test"},
-		},
-	}
-
-	data, err := normalizeForComparison(cfg)
+	// The failed apply must not mutate the document.
+	after, err := os.ReadFile(config.OmoFile())
 	if err != nil {
-		t.Fatalf("normalizeForComparison failed: %v", err)
+		t.Fatalf("ReadFile after: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("Apply mutated the document despite the parse error")
+	}
+}
+
+// ActiveName must propagate canonicalization errors for corrupt root JSON
+// rather than silently treating the profile as "no match".
+func TestActiveName_MalformedRootJSON(t *testing.T) {
+	setupTestEnv(t)
+
+	doc := config.NewDocument()
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{telemetry: false}`)) // malformed JSON
+	if err := doc.SetProfileBlock("dev", json.RawMessage(`{"[opencode]":{"telemetry":false}}`)); err != nil {
+		t.Fatalf("SetProfileBlock: %v", err)
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
+	_, err := ActiveName(doc)
+	if err == nil {
+		t.Fatal("expected error for malformed root JSON")
+	}
+}
+
+// ActiveName must propagate unmarshal errors for a profile block that is not a
+// JSON object, rather than silently skipping it.
+func TestActiveName_MalformedProfileBlock(t *testing.T) {
+	setupTestEnv(t)
+
+	doc := config.NewDocument()
+	if err := doc.SetProfileBlock("dev", json.RawMessage(`"not an object"`)); err != nil {
+		t.Fatalf("SetProfileBlock: %v", err)
 	}
 
-	if _, ok := result["$schema"]; ok {
-		t.Errorf("$schema should be removed in normalized output")
+	_, err := ActiveName(doc)
+	if err == nil {
+		t.Fatal("expected error for malformed profile block")
 	}
 }

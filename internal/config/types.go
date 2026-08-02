@@ -21,7 +21,8 @@ type Config struct {
 	Experimental            *ExperimentalConfig            `json:"experimental,omitempty"`
 	AutoUpdate              *bool                          `json:"auto_update,omitempty"`
 	Skills                  json.RawMessage                `json:"skills,omitempty"`
-	RalphLoop               *RalphLoopConfig               `json:"ralph_loop,omitempty"`
+	Goal                    *GoalConfig                    `json:"goal,omitempty"`
+	RalphLoop               json.RawMessage                `json:"ralph_loop,omitempty"`
 	RuntimeFallback         json.RawMessage                `json:"runtime_fallback,omitempty"`
 	BackgroundTask          *BackgroundTaskConfig          `json:"background_task,omitempty"`
 	Notification            *NotificationConfig            `json:"notification,omitempty"`
@@ -54,7 +55,8 @@ type Config struct {
 type AgentConfig struct {
 	Model            string                 `json:"model,omitempty"`
 	FallbackModels   interface{}            `json:"fallback_models,omitempty"`
-	Variant          string                 `json:"variant,omitempty"`
+	Reasoning        string                 `json:"reasoning,omitempty"`
+	Variant          string                 `json:"variant,omitempty"` // deprecated: use reasoning
 	Category         string                 `json:"category,omitempty"`
 	Skills           []string               `json:"skills,omitempty"`
 	Temperature      *float64               `json:"temperature,omitempty"`
@@ -70,7 +72,7 @@ type AgentConfig struct {
 	Permission       *PermissionConfig      `json:"permission,omitempty"`
 	MaxTokens        *float64               `json:"maxTokens,omitempty"`
 	Thinking         *ThinkingConfig        `json:"thinking,omitempty"`
-	ReasoningEffort  string                 `json:"reasoningEffort,omitempty"`
+	ReasoningEffort  string                 `json:"reasoningEffort,omitempty"` // deprecated: use reasoning
 	TextVerbosity    string                 `json:"textVerbosity,omitempty"`
 	ProviderOptions  map[string]interface{} `json:"providerOptions,omitempty"`
 	Ultrawork        *UltraworkConfig       `json:"ultrawork,omitempty"`
@@ -90,21 +92,26 @@ type PermissionConfig struct {
 
 // CategoryConfig
 type CategoryConfig struct {
-	Description     string          `json:"description,omitempty"`
-	Model           string          `json:"model,omitempty"`
-	FallbackModels  interface{}     `json:"fallback_models,omitempty"`
-	Variant         string          `json:"variant,omitempty"`
-	Temperature     *float64        `json:"temperature,omitempty"`
-	TopP            *float64        `json:"top_p,omitempty"`
-	MaxTokens       *float64        `json:"maxTokens,omitempty"`
-	Thinking        *ThinkingConfig `json:"thinking,omitempty"`
-	ReasoningEffort string          `json:"reasoningEffort,omitempty"`
-	TextVerbosity   string          `json:"textVerbosity,omitempty"`
-	Tools           map[string]bool `json:"tools,omitempty"`
-	PromptAppend    string          `json:"prompt_append,omitempty"`
-	MaxPromptTokens *int64          `json:"max_prompt_tokens,omitempty"`
-	IsUnstableAgent *bool           `json:"is_unstable_agent,omitempty"`
-	Disable         *bool           `json:"disable,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Model           string                 `json:"model,omitempty"`
+	Models          interface{}            `json:"models,omitempty"`
+	Reasoning       string                 `json:"reasoning,omitempty"`
+	FallbackModels  interface{}            `json:"fallback_models,omitempty"` // deprecated: use models
+	Variant         string                 `json:"variant,omitempty"`         // deprecated: use reasoning
+	Temperature     *float64               `json:"temperature,omitempty"`
+	TopP            *float64               `json:"top_p,omitempty"`
+	MaxTokensSnake  *int64                 `json:"max_tokens,omitempty"`
+	MaxTokens       *float64               `json:"maxTokens,omitempty"` // deprecated: use max_tokens
+	ProviderOptions map[string]interface{} `json:"provider_options,omitempty"`
+	Thinking        *ThinkingConfig        `json:"thinking,omitempty"`
+	ReasoningEffort string                 `json:"reasoningEffort,omitempty"` // deprecated: use reasoning
+	TextVerbosity   string                 `json:"textVerbosity,omitempty"`
+	Tools           map[string]bool        `json:"tools,omitempty"`
+	PromptAppend    string                 `json:"prompt_append,omitempty"`
+	MaxPromptTokens *int64                 `json:"max_prompt_tokens,omitempty"`
+	IsUnstableAgent *bool                  `json:"is_unstable_agent,omitempty"`
+	Disable         *bool                  `json:"disable,omitempty"`
+	WarnUnavailable *bool                  `json:"warn_unavailable,omitempty"`
 }
 
 // ThinkingConfig
@@ -115,14 +122,16 @@ type ThinkingConfig struct {
 
 // UltraworkConfig
 type UltraworkConfig struct {
-	Model   string `json:"model,omitempty"`
-	Variant string `json:"variant,omitempty"`
+	Model     string `json:"model,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"`
+	Variant   string `json:"variant,omitempty"` // deprecated: use reasoning
 }
 
 // CompactionConfig
 type CompactionConfig struct {
-	Model   string `json:"model,omitempty"`
-	Variant string `json:"variant,omitempty"`
+	Model     string `json:"model,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"`
+	Variant   string `json:"variant,omitempty"` // deprecated: use reasoning
 }
 
 // StartWorkConfig
@@ -206,12 +215,11 @@ type PurgeErrorsConfig struct {
 	Turns   *int  `json:"turns,omitempty"`
 }
 
-// RalphLoopConfig
-type RalphLoopConfig struct {
-	Enabled              *bool  `json:"enabled,omitempty"`
-	DefaultMaxIterations *int   `json:"default_max_iterations,omitempty"`
-	StateDir             string `json:"state_dir,omitempty"`
-	DefaultStrategy      string `json:"default_strategy,omitempty"`
+// GoalConfig - goal subsystem, replaces the legacy ralph_loop wiring (oh-my-openagent v4.19.0)
+type GoalConfig struct {
+	Enabled              *bool `json:"enabled,omitempty"`
+	AutoStart            *bool `json:"auto_start,omitempty"`
+	DefaultMaxIterations *int  `json:"default_max_iterations,omitempty"`
 }
 
 // BackgroundTaskConfig
@@ -261,7 +269,8 @@ type BabysittingConfig struct {
 
 // BrowserAutomationEngineConfig
 type BrowserAutomationEngineConfig struct {
-	Provider string `json:"provider,omitempty"`
+	Provider          string   `json:"provider,omitempty"`
+	PlaywrightMCPArgs []string `json:"playwright_mcp_args,omitempty"`
 }
 
 // TmuxConfig
@@ -349,10 +358,10 @@ type I18nConfig struct {
 	Locale string `json:"locale,omitempty"`
 }
 
-// DefaultModeConfig - default mode auto-activation settings (ultrawork, ralph loop)
+// DefaultModeConfig - default mode auto-activation settings (ultrawork, goal)
 type DefaultModeConfig struct {
 	Ultrawork *bool `json:"ultrawork,omitempty"`
-	RalphLoop *bool `json:"ralph_loop,omitempty"`
+	Goal      *bool `json:"goal,omitempty"`
 }
 
 // TeamModeConfig
@@ -389,7 +398,9 @@ type MonitorConfig struct {
 type CodegraphConfig struct {
 	AutoInit        *bool    `json:"auto_init,omitempty"`
 	AutoProvision   *bool    `json:"auto_provision,omitempty"`
+	Daemon          *bool    `json:"daemon,omitempty"`
 	Enabled         *bool    `json:"enabled,omitempty"`
+	ExcludedRoots   []string `json:"excluded_roots,omitempty"`
 	InstallDir      string   `json:"install_dir,omitempty"`
 	Telemetry       *bool    `json:"telemetry,omitempty"`
 	WatchDebounceMs *float64 `json:"watch_debounce_ms,omitempty"`

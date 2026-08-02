@@ -245,6 +245,10 @@ func TestNewWizardAgents(t *testing.T) {
 		t.Errorf("expected %d agents, got %d", len(allAgents), len(wa.agents))
 	}
 
+	if len(wa.agentOrder) != len(allAgents) {
+		t.Errorf("expected agentOrder len %d, got %d", len(allAgents), len(wa.agentOrder))
+	}
+
 	if wa.cursor != 0 {
 		t.Errorf("expected cursor 0, got %d", wa.cursor)
 	}
@@ -748,9 +752,17 @@ func TestFallbackModelsModelObjectRoundTrip(t *testing.T) {
 			"reasoningEffort": "high",
 		},
 	}
+	// Structured editor rewrites deprecated reasoningEffort → reasoning.
+	want := []interface{}{
+		map[string]interface{}{
+			"model":     "model1",
+			"variant":   "fast",
+			"reasoning": "high",
+		},
+	}
 	got := roundTripFallbackModels(t, input)
-	if !reflect.DeepEqual(normalizeJSONValue(t, got), normalizeJSONValue(t, input)) {
-		t.Fatalf("expected model object fallback preserved, got %#v", got)
+	if !reflect.DeepEqual(normalizeJSONValue(t, got), normalizeJSONValue(t, want)) {
+		t.Fatalf("expected model object fallback rewritten to reasoning, got %#v", got)
 	}
 }
 
@@ -1111,8 +1123,8 @@ func TestAgentApplyPreservesUnmanagedFieldsOnEdit(t *testing.T) {
 		}
 	}
 
-	if agentCfg.ReasoningEffort != "high" {
-		t.Errorf("ReasoningEffort: expected 'high', got %q", agentCfg.ReasoningEffort)
+	if agentCfg.Reasoning != "high" {
+		t.Errorf("Reasoning: expected 'high', got %q", agentCfg.Reasoning)
 	}
 	if agentCfg.TextVerbosity != "high" {
 		t.Errorf("TextVerbosity: expected 'high', got %q", agentCfg.TextVerbosity)
@@ -1171,12 +1183,16 @@ func TestAgentApplyAllowNonGptModelNonHephaestus(t *testing.T) {
 
 func TestReasoningEffortNewValues(t *testing.T) {
 	tests := []struct {
-		name   string
-		effort string
-		idx    int
+		name     string
+		effort   string
+		idx      int
+		expected string
 	}{
-		{name: "none", effort: "none", idx: 1},
-		{name: "minimal", effort: "minimal", idx: 2},
+		// Legacy none loads as off (idx 1) and rewrites as reasoning=off.
+		{name: "legacy-none", effort: "none", idx: 1, expected: "off"},
+		{name: "minimal", effort: "minimal", idx: 2, expected: "minimal"},
+		{name: "off", effort: "off", idx: 1, expected: "off"},
+		{name: "auto", effort: "auto", idx: 8, expected: "auto"},
 	}
 
 	for _, tt := range tests {
@@ -1202,8 +1218,11 @@ func TestReasoningEffortNewValues(t *testing.T) {
 				t.Fatalf("expected build agent to exist after Apply")
 			}
 
-			if agentCfg.ReasoningEffort != tt.effort {
-				t.Fatalf("ReasoningEffort: expected %q, got %q", tt.effort, agentCfg.ReasoningEffort)
+			if agentCfg.Reasoning != tt.expected {
+				t.Fatalf("Reasoning: expected %q, got %q", tt.expected, agentCfg.Reasoning)
+			}
+			if agentCfg.ReasoningEffort != "" {
+				t.Fatalf("ReasoningEffort should be empty after rewrite, got %q", agentCfg.ReasoningEffort)
 			}
 		})
 	}
@@ -1283,11 +1302,15 @@ func TestAgentApplyBashStringPreserved(t *testing.T) {
 func TestAllEffortLevelsRoundTrip(t *testing.T) {
 	for _, effort := range effortLevels {
 		t.Run(effort, func(t *testing.T) {
+			// Empty string is the "unset" sentinel in the dropdown; skip it.
+			if effort == "" {
+				return
+			}
 			cfg := &config.Config{
 				Agents: map[string]*config.AgentConfig{
 					"build": {
-						Model:           "test",
-						ReasoningEffort: effort,
+						Model:     "test",
+						Reasoning: effort,
 					},
 				},
 			}
@@ -1301,8 +1324,8 @@ func TestAllEffortLevelsRoundTrip(t *testing.T) {
 			if agentCfg == nil {
 				t.Fatal("expected build agent")
 			}
-			if agentCfg.ReasoningEffort != effort {
-				t.Errorf("expected %q, got %q", effort, agentCfg.ReasoningEffort)
+			if agentCfg.Reasoning != effort {
+				t.Errorf("expected %q, got %q", effort, agentCfg.Reasoning)
 			}
 		})
 	}
@@ -1376,8 +1399,7 @@ func TestFallbackModelsEmptyArrayBecomesNil(t *testing.T) {
 	wa := NewWizardAgents()
 	wa.agents["build"].enabled = true
 	wa.agents["build"].modelValue = "test"
-	wa.agents["build"].fallbackEntries = []fallbackModelEntry{}
-	wa.agents["build"].fallbackModels.SetValue("")
+	wa.agents["build"].fallback.load(nil)
 
 	out := &config.Config{}
 	wa.Apply(out, nil)
@@ -1434,5 +1456,178 @@ func TestBashPermissionObjectWithThreeRules(t *testing.T) {
 	}
 	if bashMap["docker"] != "ask" {
 		t.Errorf("expected docker=ask, got %v", bashMap["docker"])
+	}
+}
+
+// TestWizardAgentsPlusStartsAddFlow verifies "+" in nav mode enters the
+// add-agent prompt.
+func TestWizardAgentsPlusStartsAddFlow(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	wa, _ = wa.Update(keyMsg("+"))
+
+	if !wa.addingAgent {
+		t.Error("expected addingAgent true after '+'")
+	}
+}
+
+// TestWizardAgentsAddValidNameCreatesAndFocuses drives the add flow by typing a
+// name rune-by-rune, then asserts the new agent is appended, enabled, expanded,
+// focused, and that the prompt is dismissed.
+func TestWizardAgentsAddValidNameCreatesAndFocuses(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	wa, _ = wa.Update(keyMsg("+"))
+	for _, r := range []string{"t", "e", "s", "t"} {
+		wa, _ = wa.Update(keyMsg(r))
+	}
+	wa, _ = wa.Update(keyMsg("enter"))
+
+	if got := wa.agentOrder[len(wa.agentOrder)-1]; got != "test" {
+		t.Errorf("agentOrder last = %q, want %q", got, "test")
+	}
+	ac := wa.agents["test"]
+	if ac == nil {
+		t.Fatal("expected agents[\"test\"] to exist")
+	}
+	if !ac.enabled {
+		t.Error("expected new agent to be enabled")
+	}
+	if !ac.expanded {
+		t.Error("expected new agent to be expanded")
+	}
+	if !wa.inForm {
+		t.Error("expected inForm true after creating agent")
+	}
+	if wa.cursor != len(wa.agentOrder)-1 {
+		t.Errorf("cursor = %d, want %d", wa.cursor, len(wa.agentOrder)-1)
+	}
+	if wa.addingAgent {
+		t.Error("expected addingAgent false after creation")
+	}
+}
+
+// TestWizardAgentsAddDuplicateNameRejected verifies a name that already exists
+// is refused with an error and does not grow the list.
+func TestWizardAgentsAddDuplicateNameRejected(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	wa, _ = wa.Update(keyMsg("+"))
+	wa.newAgentNameInput.SetValue("build") // seeded agent
+	wa, _ = wa.Update(keyMsg("enter"))
+
+	if wa.addAgentErr == "" {
+		t.Error("expected addAgentErr for duplicate name")
+	}
+	if len(wa.agentOrder) != len(allAgents) {
+		t.Errorf("agentOrder len = %d, want unchanged %d", len(wa.agentOrder), len(allAgents))
+	}
+	if !wa.addingAgent {
+		t.Error("expected to remain in add flow after rejection")
+	}
+}
+
+// TestWizardAgentsAddInvalidNameRejected verifies a name failing
+// profile.ValidateName is refused and not appended.
+func TestWizardAgentsAddInvalidNameRejected(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	wa, _ = wa.Update(keyMsg("+"))
+	wa.newAgentNameInput.SetValue("bad name!")
+	wa, _ = wa.Update(keyMsg("enter"))
+
+	if wa.addAgentErr == "" {
+		t.Error("expected addAgentErr for invalid name")
+	}
+	if _, ok := wa.agents["bad name!"]; ok {
+		t.Error("expected invalid name not to be added")
+	}
+	if len(wa.agentOrder) != len(allAgents) {
+		t.Errorf("agentOrder len = %d, want unchanged %d", len(wa.agentOrder), len(allAgents))
+	}
+}
+
+// TestWizardAgentsDeleteRemovesFocused verifies "-" in nav mode drops the
+// focused agent from both the order slice and the map.
+func TestWizardAgentsDeleteRemovesFocused(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.cursor = 0
+	first := wa.agentOrder[0]
+
+	wa, _ = wa.Update(keyMsg("-"))
+
+	if len(wa.agentOrder) != len(allAgents)-1 {
+		t.Errorf("agentOrder len = %d, want %d", len(wa.agentOrder), len(allAgents)-1)
+	}
+	if _, ok := wa.agents[first]; ok {
+		t.Errorf("expected %q removed from agents map", first)
+	}
+	for _, n := range wa.agentOrder {
+		if n == first {
+			t.Errorf("expected %q removed from agentOrder", first)
+		}
+	}
+}
+
+// TestWizardAgentsDeleteToEmptyIsSafe deletes every agent, then exercises
+// View() and a couple of Updates to prove the empty state does not panic.
+func TestWizardAgentsDeleteToEmptyIsSafe(t *testing.T) {
+	wa := NewWizardAgents()
+	wa.SetSize(80, 24)
+
+	for len(wa.agentOrder) > 0 {
+		wa, _ = wa.Update(keyMsg("-"))
+	}
+
+	if len(wa.agentOrder) != 0 {
+		t.Fatalf("expected 0 agents, got %d", len(wa.agentOrder))
+	}
+	if wa.inForm {
+		t.Error("expected inForm false when empty")
+	}
+
+	// None of these may panic on the empty list.
+	_ = wa.View()
+	wa, _ = wa.Update(keyMsg("+"))
+	wa, _ = wa.Update(keyMsg("j"))
+}
+
+// TestWizardAgentsCustomAgentRoundTrips verifies a custom agent name present in
+// a loaded config survives SetConfig (appears in agentOrder/agents) and is
+// re-emitted by Apply instead of being dropped.
+func TestWizardAgentsCustomAgentRoundTrips(t *testing.T) {
+	cfg := &config.Config{
+		Agents: map[string]*config.AgentConfig{
+			"mycustom": {Model: "prov/model"},
+		},
+	}
+	wa := NewWizardAgents()
+	wa.SetConfig(cfg, nil)
+
+	found := false
+	for _, n := range wa.agentOrder {
+		if n == "mycustom" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected \"mycustom\" in agentOrder after SetConfig")
+	}
+	if _, ok := wa.agents["mycustom"]; !ok {
+		t.Error("expected \"mycustom\" in agents map after SetConfig")
+	}
+
+	out := &config.Config{}
+	wa.Apply(out, nil)
+	if out.Agents == nil || out.Agents["mycustom"] == nil {
+		t.Fatal("expected \"mycustom\" to round-trip through Apply")
+	}
+	if got := out.Agents["mycustom"].Model; got != "prov/model" {
+		t.Errorf("round-tripped model = %q, want %q", got, "prov/model")
 	}
 }
