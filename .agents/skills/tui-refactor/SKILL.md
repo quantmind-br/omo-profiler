@@ -45,8 +45,7 @@ Disambiguation:
   **this skill**.
 
 If the user has not pointed at a codebase, ask which directory to use. Do not
-guess. For local testing the canonical targets are `~/dev/omo-profiler`,
-`~/dev/shotgun-cli`, and similar.
+guess.
 
 ## What it produces
 
@@ -64,7 +63,10 @@ the plan at the codebase root:
 │   ├── 03-components.md       # target component library
 │   ├── 04-keybindings.md      # target keybinding scheme + conflict audit
 │   ├── 06-style-guide.md      # palette, borders, glyphs, density, capability tiers
-│   └── 07-states.md           # empty/loading/error/disabled/confirm patterns
+│   ├── 07-states.md           # empty/loading/error/disabled/confirm patterns
+│   ├── 08-navigation-map.md   # how the user moves between screens/modes
+│   └── 09-accessibility.md    # low-vision/no-color/keyboard-only coverage
+│   #  02 (modals) and 05 (flows) are intentionally reserved — see note below
 ├── 04-refactor-plan.md       # file-level migration plan (the deliverable)
 ├── keybindings.json           # extracted current keymap: key/action/context/source
 ├── findings.json             # structured smells (schema in references/refactor-planning.md)
@@ -107,6 +109,13 @@ available.
 
 Use these scripts when available; they reduce boilerplate but do not replace
 the design judgment in the phases below.
+
+> **Platform.** These scripts assume **Linux with GNU coreutils** (GNU
+> `find -printf`, `date -u`, `mktemp --suffix`) and `ripgrep` for the best
+> detection (a `grep`/`find` fallback runs without it). They are not tested on
+> macOS/BSD; on those hosts do the phases by hand or run inside a Linux
+> container. Live capture additionally reuses `tui-validator`, which needs
+> Wayland.
 
 - `scripts/tui-refactor-init.sh <codebase-root> [--name <name>] [--workspace-root <dir>]`
   creates the run workspace, directory skeleton, initial `meta.json`, and copies
@@ -155,7 +164,11 @@ Combine two sources of truth:
   path?)
 
 **Live (reuse tui-validator when available):** if the tui-validator scripts
-exist, prefer them over ad-hoc tmux automation. Check these locations in order:
+exist, prefer them over ad-hoc tmux automation. The three TUI skills normally
+install side by side, so resolve the sibling **relative to this skill's own
+directory first** — `<dir-of-this-SKILL.md>/../tui-validator/scripts/` — before
+trying global locations. Check these locations in order:
+`../tui-validator/scripts/` (relative to this skill),
 `~/dev/skills/tui-validator/scripts/`, `~/.agents/skills/tui-validator/scripts/`,
 then `~/.codex/skills/tui-validator/scripts/`. Run
 `tui-check-prereqs.sh` when present; live Wayland capture is useful, but a
@@ -220,7 +233,11 @@ overriding the user.
 
 Produce the optimized design under `03-target-design/`, sized to the ambition
 the user chose in Phase 4. Reuse the design knowledge in `references/` (and, if
-the `tui-design` skill is installed, its richer catalogs). Check
+the `tui-design` skill is installed, its richer catalogs). The three TUI skills
+normally install side by side, so resolve the sibling **relative to this skill's
+own directory first** — `<dir-of-this-SKILL.md>/../tui-design/references/` —
+before trying global locations. Check
+`../tui-design/references/` (relative to this skill),
 `~/dev/skills/tui-design/references/`, `~/.agents/skills/tui-design/references/`,
 then `~/.codex/skills/tui-design/references/` for `layout-patterns.md`,
 `component-library.md`, `interaction-patterns.md`, and `inspiration.md`.
@@ -249,6 +266,19 @@ Deliver:
 6. `07-states.md` — canonical empty / loading / error (recoverable + fatal) /
    disabled / stale / confirm patterns. Confirmations default-focus the SAFE
    choice, never Delete/Overwrite.
+7. `08-navigation-map.md` — how the user moves between screens/modes: the edges
+   of the screen tree, back-stack behavior, and where each global key lands.
+8. `09-accessibility.md` — low-vision, no-color, and keyboard-only coverage:
+   never rely on color alone (pair with glyph/label), a 16-color and
+   monochrome fallback, and a full keyboard path to every action. When the
+   ambition is a **bold redesign**, this file is **required** and its summary
+   must also appear in `00-overview.md`; for a conservative cleanup it may be
+   `n/a — <reason>`.
+
+> **File numbering.** The `03-target-design/` tree skips `02` and `05` on
+> purpose: `02` is reserved for a modals catalogue and `05` for user-flow
+> diagrams, both optional and only added when the target design needs them.
+> The gaps are intentional, not missing files.
 
 Honor Phase 4: don't re-key what the user asked to preserve; don't over-redesign
 when they asked for a cleanup.

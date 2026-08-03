@@ -8,14 +8,14 @@ Cobra CLI commands for headless profile management. Thin wrappers delegating to 
 
 | Command | File | Args | Action |
 |---------|------|------|--------|
-| `list` | `list.go` | none | Tabulates profiles; marks active with `*` and `(active)` |
-| `current` | `current.go` | none | Prints active name or `(custom - unsaved)` if orphaned |
-| `switch` | `switch.go` | `<name>` | `backup.Create` → `profile.SetActive` (copy-based) |
-| `import` | `import.go` | `<file>` | Loads JSON → saves to profiles dir |
-| `export` | `export.go` | `<name> <path>` | Saves profile to target JSON file |
+| `list` | `list.go` | none | Tabulates profiles from the omo document; marks the applied profile with `*` |
+| `current` | `current.go` | none | Prints the profile matching the root of `~/.omo/omo.json` via `profile.GetActive()`; warns if the root matches no profile |
+| `switch` | `switch.go` | `<name>` | `profile.Apply` — substitutes profile keys into the document root with a pre-write backup |
+| `import` | `import.go` | `<file>` | Loads JSON → `profiles.<name>` in the omo document (backup `OmoFile` before mutate) |
+| `export` | `export.go` | `<name> <path>` | Writes the profile's `[opencode]` payload to a JSON file |
 | `create` | `create.go` | `<name>` | Headless clone via `--from` flag; wizard logic stays in TUI |
 | `models` | `models.go` | none | Lists LLM providers and models from registry |
-| `schema-check` | `schema_check.go` | none | Validates active config against upstream schema |
+| `schema-check` | `schema_check.go` | none | Validates / compares against upstream `assets/omo.schema.json` |
 
 ## REGISTRATION
 
@@ -39,4 +39,5 @@ rootCmd.AddCommand(cmd.SwitchCmd)
 - **Fat Commands**: No business logic or FS operations in `Run` — delegate to packages
 - **Interactive Prompts**: CLI must be non-interactive; use TUI for wizards
 - **Global State**: Avoid modifying globals; use flags and arguments
-- **Raw Paths**: Never hardcode `~/.config`; use `config.Paths` helpers
+- **Raw Paths**: Never hardcode `~/.omo`; use `config.OmoDir` / `OmoFile` / `ModelsFile` helpers
+- **Claiming switch activated**: `Apply` mutates the document, so the profile is live — no shell command to emit

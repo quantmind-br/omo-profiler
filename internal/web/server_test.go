@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -50,6 +51,15 @@ func readProfileOpenCode(t *testing.T, name string) map[string]any {
 	var m map[string]any
 	require.NoError(t, json.Unmarshal(raw, &m))
 	return m
+}
+
+func sortedKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func hasBakInOmoDir(t *testing.T) bool {
@@ -271,7 +281,7 @@ func TestSaveProfileOnDeletedProfileIs404(t *testing.T) {
 	require.False(t, profile.Exists("ghost"), "a rejected save must not create the profile")
 }
 
-func TestCreateFromDefaultTemplateContainsAgents(t *testing.T) {
+func TestCreateFromDefaultTemplatePreservesOmoDefaults(t *testing.T) {
 	setupTestEnv(t)
 
 	rec := do(t, "POST", "/api/profiles", `{"name":"dev","from":"__default__"}`)
@@ -283,34 +293,49 @@ func TestCreateFromDefaultTemplateContainsAgents(t *testing.T) {
 		Config map[string]any
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	agents, ok := got.Config["agents"].(map[string]any)
-	require.True(t, ok)
-	for _, name := range []string{"sisyphus", "hephaestus", "prometheus", "oracle", "librarian", "explore", "multimodal-looker", "metis", "momus", "atlas", "sisyphus-junior"} {
-		_, ok := agents[name]
-		require.Truef(t, ok, "missing agent %s", name)
-	}
-	// Dynamic agents must stay empty so the harness can walk its fallback chain.
-	for _, name := range []string{"atlas", "metis", "momus"} {
-		agent, ok := agents[name].(map[string]any)
-		require.Truef(t, ok, "missing agent %s", name)
-		_, hasModel := agent["model"]
-		require.Falsef(t, hasModel, "agent %s must omit model (dynamic resolution)", name)
-	}
-	hephaestus, ok := agents["hephaestus"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "Explore thoroughly, then implement. Prefer small, testable changes.", hephaestus["prompt_append"])
-	prometheus, ok := agents["prometheus"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "Always interview first. Validate scope before planning.", prometheus["prompt_append"])
-	sisyphus, ok := agents["sisyphus"].(map[string]any)
-	require.True(t, ok)
-	ultrawork, ok := sisyphus["ultrawork"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "max", ultrawork["reasoning"])
-	_, hasVariant := ultrawork["variant"]
-	require.False(t, hasVariant)
+
+	// Seed is the active "[opencode]" object from oh-my-openagent/omo.jsonc —
+	// agents/categories stay absent so the harness keeps its factory chains.
+	_, hasAgents := got.Config["agents"]
+	require.False(t, hasAgents, "default template must omit agents (factory fallback)")
+	_, hasCategories := got.Config["categories"]
+	require.False(t, hasCategories, "default template must omit categories (factory fallback)")
 	_, hasSchema := got.Config["$schema"]
 	require.False(t, hasSchema)
+
+	require.Equal(t, "sisyphus", got.Config["default_run_agent"])
+	order, ok := got.Config["agent_order"].([]any)
+	require.True(t, ok)
+	require.Equal(t, []any{"sisyphus", "hephaestus", "prometheus", "atlas"}, order)
+
+	// Explicit zeros must survive the raw seed path (not typed omitempty).
+	for _, key := range []string{
+		"agent_definitions", "disabled_mcps", "disabled_agents", "disabled_skills",
+		"disabled_hooks", "disabled_commands", "disabled_tools", "disabled_providers",
+	} {
+		arr, ok := got.Config[key].([]any)
+		require.Truef(t, ok, "%s must be present as []", key)
+		require.Emptyf(t, arr, "%s must be empty array", key)
+	}
+	require.Equal(t, false, got.Config["hashline_edit"])
+	require.Equal(t, true, got.Config["telemetry"])
+	require.Equal(t, false, got.Config["model_fallback"])
+	require.Equal(t, true, got.Config["auto_update"])
+
+	gitMaster, ok := got.Config["git_master"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, gitMaster["commit_footer"])
+	require.Equal(t, true, gitMaster["include_co_authored_by"])
+	require.Equal(t, "GIT_MASTER=1", gitMaster["git_env_prefix"])
+
+	experimental, ok := got.Config["experimental"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, false, experimental["aggressive_truncation"])
+
+	// Full key set must match the bundled default template.
+	var want map[string]any
+	require.NoError(t, json.Unmarshal(DefaultTemplate(), &want))
+	require.Equal(t, sortedKeys(want), sortedKeys(got.Config))
 }
 
 func TestDefaultTemplateMatchesRootTemplate(t *testing.T) {

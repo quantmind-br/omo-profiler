@@ -5,10 +5,33 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/models"
 )
 
+// setupModelRegistryEnv redirects config paths to a temp dir and seeds a
+// deterministic registry, so these tests never read the developer's real
+// ~/.omo/models.json.
+func setupModelRegistryEnv(t *testing.T) {
+	t.Helper()
+	config.SetBaseDir(t.TempDir())
+	t.Cleanup(config.ResetBaseDir)
+
+	reg := &models.ModelsRegistry{Models: []models.RegisteredModel{
+		{DisplayName: "Alpha", ModelID: "alpha-1", Provider: "anthropic"},
+		{DisplayName: "Beta", ModelID: "beta-1", Provider: "anthropic"},
+		{DisplayName: "Gamma", ModelID: "gamma-1", Provider: "openai"},
+		{DisplayName: "Delta", ModelID: "delta-1", Provider: "openai"},
+		{DisplayName: "Epsilon", ModelID: "epsilon-1", Provider: "google"},
+		{DisplayName: "Zeta", ModelID: "zeta-1", Provider: "google"},
+	}}
+	if err := reg.Save(); err != nil {
+		t.Fatalf("seed models registry: %v", err)
+	}
+}
+
 func TestNewModelRegistry(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	if mr.cursor != 0 {
@@ -62,6 +85,7 @@ func TestNewModelRegistry(t *testing.T) {
 }
 
 func TestModelRegistryInit(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	cmd := mr.Init()
 
@@ -71,6 +95,7 @@ func TestModelRegistryInit(t *testing.T) {
 }
 
 func TestModelRegistryGetFilteredModelsNoSearch(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	// Without search term, should return all flat models
@@ -82,6 +107,7 @@ func TestModelRegistryGetFilteredModelsNoSearch(t *testing.T) {
 }
 
 func TestModelRegistryGetFilteredModelsWithSearch(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.searchInput.SetValue("claude")
 
@@ -103,6 +129,7 @@ func TestModelRegistryGetFilteredModelsWithSearch(t *testing.T) {
 }
 
 func TestModelRegistryGetFilteredModelsNoMatch(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.searchInput.SetValue("nonexistent-model-xyz-123")
 
@@ -114,6 +141,7 @@ func TestModelRegistryGetFilteredModelsNoMatch(t *testing.T) {
 }
 
 func TestModelRegistrySetSize(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	mr.SetSize(100, 50)
@@ -128,6 +156,7 @@ func TestModelRegistrySetSize(t *testing.T) {
 }
 
 func TestModelRegistryIsEditing(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	if mr.IsEditing() {
@@ -147,6 +176,7 @@ func TestModelRegistryIsEditing(t *testing.T) {
 }
 
 func TestModelRegistryUpdateWindowSizeMsg(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	msg := tea.WindowSizeMsg{Width: 80, Height: 24}
@@ -166,6 +196,7 @@ func TestModelRegistryUpdateWindowSizeMsg(t *testing.T) {
 }
 
 func TestModelRegistryUpdateUpKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.cursor = 5
 
@@ -191,6 +222,7 @@ func TestModelRegistryUpdateUpKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateDownKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.cursor = 0
 
@@ -207,6 +239,7 @@ func TestModelRegistryUpdateDownKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateNewKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
@@ -226,6 +259,7 @@ func TestModelRegistryUpdateNewKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateImportKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")}
@@ -242,6 +276,7 @@ func TestModelRegistryUpdateImportKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateEditKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	// Need to have some models to edit
@@ -266,6 +301,7 @@ func TestModelRegistryUpdateEditKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateDeleteKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	// Need to have some models to delete
@@ -289,7 +325,46 @@ func TestModelRegistryUpdateDeleteKey(t *testing.T) {
 	}
 }
 
+// Mutations go through the models package transaction, which never touches the
+// view's in-memory registry. Confirming a delete must therefore re-read from
+// disk, or the list keeps rendering a model that no longer exists.
+func TestModelRegistryDeleteRefreshesFromDisk(t *testing.T) {
+	setupModelRegistryEnv(t)
+	mr := NewModelRegistry()
+
+	before := len(mr.flatModels)
+	if before == 0 {
+		t.Fatal("expected seeded models")
+	}
+
+	mr, _ = mr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	target := mr.deleteTarget.modelID
+	if target == "" {
+		t.Fatal("expected a delete target")
+	}
+
+	mr, _ = mr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	if mr.errorMsg != "" {
+		t.Fatalf("unexpected error: %s", mr.errorMsg)
+	}
+
+	if len(mr.flatModels) != before-1 {
+		t.Fatalf("view still shows %d models, want %d — it rendered a stale registry", len(mr.flatModels), before-1)
+	}
+	for _, fm := range mr.flatModels {
+		if fm.ModelID == target {
+			t.Fatalf("deleted model %q is still listed", target)
+		}
+	}
+
+	// And the deletion really is on disk.
+	if models.Exists("anthropic", target) || models.Exists("openai", target) || models.Exists("google", target) {
+		t.Fatalf("model %q was not deleted from the registry file", target)
+	}
+}
+
 func TestModelRegistryUpdateEscKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -306,6 +381,7 @@ func TestModelRegistryUpdateEscKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateSearchKey(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")}
@@ -321,6 +397,7 @@ func TestModelRegistryUpdateSearchKey(t *testing.T) {
 }
 
 func TestModelRegistryUpdateDeleteConfirmYes(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.confirmDelete = true
 	mr.deleteTarget = struct {
@@ -344,6 +421,7 @@ func TestModelRegistryUpdateDeleteConfirmYes(t *testing.T) {
 }
 
 func TestModelRegistryUpdateDeleteConfirmNo(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.confirmDelete = true
 	mr.deleteTarget = struct {
@@ -368,6 +446,7 @@ func TestModelRegistryUpdateDeleteConfirmNo(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormModeEnterWithValidation(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.displayNameInput.SetValue("Test Model")
@@ -389,6 +468,7 @@ func TestModelRegistryUpdateFormModeEnterWithValidation(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormModeEnterEmptyValidation(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.displayNameInput.SetValue("")
@@ -411,6 +491,7 @@ func TestModelRegistryUpdateFormModeEnterEmptyValidation(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormModeEsc(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.editMode = true
@@ -438,6 +519,7 @@ func TestModelRegistryUpdateFormModeEsc(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormModeTab(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.focusedField = 0
@@ -464,6 +546,7 @@ func TestModelRegistryUpdateFormModeTab(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormModeShiftTab(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.focusedField = 0
@@ -481,6 +564,7 @@ func TestModelRegistryUpdateFormModeShiftTab(t *testing.T) {
 }
 
 func TestModelRegistryEnterEditMode(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	testModel := models.RegisteredModel{
@@ -517,6 +601,7 @@ func TestModelRegistryEnterEditMode(t *testing.T) {
 }
 
 func TestModelRegistryEnterAddMode(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.displayNameInput.SetValue("Old Value")
 	mr.modelIdInput.SetValue("old-id")
@@ -541,6 +626,7 @@ func TestModelRegistryEnterAddMode(t *testing.T) {
 }
 
 func TestModelRegistryResetForm(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.displayNameInput.SetValue("Test")
 	mr.modelIdInput.SetValue("test-id")
@@ -562,6 +648,7 @@ func TestModelRegistryResetForm(t *testing.T) {
 }
 
 func TestModelRegistryUpdateFormFocus(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 
 	// Field 0 - Display Name
@@ -587,6 +674,7 @@ func TestModelRegistryUpdateFormFocus(t *testing.T) {
 }
 
 func TestModelRegistryGetFocusedInputValue(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.displayNameInput.SetValue("Display Name")
 	mr.modelIdInput.SetValue("model-id")
@@ -618,6 +706,7 @@ func TestModelRegistryGetFocusedInputValue(t *testing.T) {
 }
 
 func TestModelRegistryValidateAndSaveMissingDisplayName(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.displayNameInput.SetValue("")
@@ -635,6 +724,7 @@ func TestModelRegistryValidateAndSaveMissingDisplayName(t *testing.T) {
 }
 
 func TestModelRegistryValidateAndSaveMissingModelID(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.formMode = true
 	mr.displayNameInput.SetValue("Test Model")
@@ -652,6 +742,7 @@ func TestModelRegistryValidateAndSaveMissingModelID(t *testing.T) {
 }
 
 func TestModelRegistryViewLoadError(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.loadError = &testError{}
 	mr.width = 80
@@ -669,6 +760,7 @@ func TestModelRegistryViewLoadError(t *testing.T) {
 }
 
 func TestModelRegistryViewFormMode(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.width = 80
 	mr.height = 24
@@ -700,6 +792,7 @@ func TestModelRegistryViewFormMode(t *testing.T) {
 }
 
 func TestModelRegistryViewEditMode(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.width = 80
 	mr.height = 24
@@ -714,6 +807,7 @@ func TestModelRegistryViewEditMode(t *testing.T) {
 }
 
 func TestModelRegistryViewListMode(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.width = 80
 	mr.height = 24
@@ -742,6 +836,7 @@ func TestModelRegistryViewListMode(t *testing.T) {
 }
 
 func TestModelRegistryViewDeleteConfirm(t *testing.T) {
+	setupModelRegistryEnv(t)
 	mr := NewModelRegistry()
 	mr.width = 80
 	mr.height = 24

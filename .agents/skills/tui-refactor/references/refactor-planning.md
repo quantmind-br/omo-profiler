@@ -24,6 +24,15 @@ Use normalized key names from `tui-validator` when live capture is available
 (`C-h`, `Escape`, `BTab`, arrows as `Up`/`Down`/`Left`/`Right`). If the same key
 does different things in different contexts, keep one object per context.
 
+**Cross-skill compatibility.** `tui-validator` emits the same records but names
+the central field `description` (and wraps the array in `{"bindings": [...]}`).
+The two names are interchangeable aliases: `action` is the refactor-native name,
+`description` is the validator-native name. When you ingest a
+`keybindings.json` produced by `tui-validator`, read `description` as `action`;
+when you hand a file back for validation, either name is accepted. Prefer
+emitting **both** keys when authoring fresh, so the file round-trips through
+either skill without translation.
+
 ## `findings.json` schema (Phase 3)
 
 A JSON array. One object per design smell:
@@ -32,12 +41,13 @@ A JSON array. One object per design smell:
 [
   {
     "id": "F001",
-    "severity": "blocker | major | minor | cosmetic",
+    "severity": "blocker | major | minor | cosmetic | info",
     "principle": "short name of the violated principle, e.g. 'color-only state'",
     "title": "one-line description",
     "evidence": {
       "files": ["internal/ui/view.go:142"],
-      "screenshot": "before/profiles-80x24.png"
+      "screenshot": "before/profiles-80x24.png",
+      "capture": "captures/0017-profiles.txt"
     },
     "impact": "what this does to the user",
     "fix_direction": "one sentence; full detail goes in the plan item",
@@ -48,6 +58,23 @@ A JSON array. One object per design smell:
 
 `plan_items` links the smell to the plan items that resolve it — used in Phase 7
 to prove every finding is addressed (or deferred).
+
+### Severity + evidence — cross-skill compatibility with `tui-validator`
+
+The validator emits findings wrapped in `{"findings": [...]}`; this skill's file
+is the bare inner array. **Unwrap on ingest, wrap on export** if a validator
+tool will re-read the file. Two more reconciliations so a validator report feeds
+straight into a refactor without hand-editing:
+
+- **`severity`** shares the enum `blocker | major | minor | cosmetic` plus
+  `info`. `info` findings are not smells to fix — they are notes the validator
+  preserved (e.g. "skipped destructive key X"). Carry them through as
+  **deferred** (list them in Phase 7's "explicitly deferred" set); never drop
+  them just because they are not `blocker..cosmetic`.
+- **`evidence`** may be the structured object above
+  (`{files, screenshot, capture}`) **or** a bare string shorthand — a single
+  capture/PNG path, which is what the validator writes. Accept both; normalize a
+  string `s` to `{"capture": s}` (or `{"screenshot": s}` for an image) on ingest.
 
 ## `plan-items.json` schema (Phase 6)
 

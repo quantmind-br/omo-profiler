@@ -115,7 +115,10 @@ The report renderer accepts any of these three shapes:
 Fields:
 - `key` (required) — tmux key name (`?`, `F1`, `C-c`, `Up`, `Space`, `Enter`)
 - `context` (optional, default `"global"`) — tab / modal / mode the binding belongs to
-- `description` (optional) — human description
+- `description` (optional) — human description. **`action` is an accepted alias**
+  — `tui-refactor` names this same field `action`. The renderer reads whichever
+  is present, so a `keybindings.json` produced by `tui-refactor` renders here
+  without translation.
 - `source` (optional) — one of `documented`, `observed`, `documented+observed`, `inferred`
 - `status` (optional) — `active`, `dead`, `error`, `crash`, `skipped`, `info`
 - `notes` (optional) — anything else (extra evidence, related findings, etc.)
@@ -165,7 +168,11 @@ Fields:
 - `title` (required) — one-line summary
 - `phase` (optional) — `discover | inventory | probe | stress | visual`
 - `description` (required) — what happened, why it matters
-- `evidence` (optional) — path (relative to workspace) to a capture or PNG
+- `evidence` (optional) — a path string (relative to workspace) to a capture or
+  PNG. `tui-refactor` reads the same field as a structured object
+  `{files, screenshot, capture}`; a bare string is the accepted shorthand and
+  normalizes to `{"capture": <path>}` (or `{"screenshot": <path>}` for a PNG) when
+  that skill ingests this file.
 - `suggestion` (optional) — concrete proposed fix
 - `repro` (optional) — array of repro steps from a fresh launch
 

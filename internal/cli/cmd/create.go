@@ -13,7 +13,7 @@ var fromTemplate string
 var CreateCmd = &cobra.Command{
 	Use:   "create [new-profile-name]",
 	Short: "Create a new profile",
-	Long:  `Create a new profile. Use --from to create from an existing template.`,
+	Long:  `Create a new profile block in ~/.omo/omo.json. Use --from to create from an existing template.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if fromTemplate == "" {
@@ -44,19 +44,10 @@ var CreateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		template, err := profile.Load(fromTemplate)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to load template: %v\n", err)
-			os.Exit(1)
-		}
-
-		newProfile := &profile.Profile{
-			Name:   newProfileName,
-			Config: template.Config,
-		}
-
-		if err := profile.Save(newProfile); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to save profile: %v\n", err)
+		// Clones the whole profile block ([opencode] plus its unknown keys and
+		// sibling blocks) in one transaction.
+		if err := profile.CreateFrom(newProfileName, fromTemplate); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to create profile: %v\n", err)
 			os.Exit(1)
 		}
 

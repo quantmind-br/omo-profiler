@@ -1,0 +1,46 @@
+===== toda diferenca entre a arvore do usuario e a arvore da caca
+Os arquivos /home/diogo/dev/omo-profiler/go.sum e /tmp/tmp.arEwbyb9d0/wt/go.sum são diferentes
+Os arquivos /home/diogo/dev/omo-profiler/internal/backup/backup.go e /tmp/tmp.arEwbyb9d0/wt/internal/backup/backup.go são diferentes
+Os arquivos /home/diogo/dev/omo-profiler/internal/cli/root.go e /tmp/tmp.arEwbyb9d0/wt/internal/cli/root.go são diferentes
+Os arquivos /home/diogo/dev/omo-profiler/internal/web/server.go e /tmp/tmp.arEwbyb9d0/wt/internal/web/server.go são diferentes
+Somente em /home/diogo/dev/omo-profiler/.claude: agents
+Somente em /home/diogo/dev/omo-profiler/.claude: commands
+Somente em /home/diogo/dev/omo-profiler/.claude: hooks
+Somente em /home/diogo/dev/omo-profiler: .codegraph
+Somente em /home/diogo/dev/omo-profiler: .gitnexus
+Somente em /home/diogo/dev/omo-profiler: omo-profiler
+Somente em /home/diogo/dev/omo-profiler/.opencode: .gitignore
+Somente em /home/diogo/dev/omo-profiler/.opencode: package.json
+Somente em /home/diogo/dev/omo-profiler/.opencode: package-lock.json
+Somente em /home/diogo/dev/omo-profiler: .pi
+Somente em /home/diogo/dev/omo-profiler: .ruff_cache
+Somente em /home/diogo/dev/omo-profiler/.serena: cache
+Somente em /home/diogo/dev/omo-profiler: .sisyphus
+Somente em /home/diogo/dev/omo-profiler: views.test
+Somente em /home/diogo/dev/omo-profiler: .worktrees
+Somente em /tmp/tmp.arEwbyb9d0/wt: BUGHUNT.md
+Somente em /tmp/tmp.arEwbyb9d0/wt/internal/backup: hunt_probe_test.go
+Somente em /tmp/tmp.arEwbyb9d0/wt/internal/cli: root_hunt_test.go
+Somente em /tmp/tmp.arEwbyb9d0/wt/internal/config: hunt_fuzz_test.go
+Somente em /tmp/tmp.arEwbyb9d0/wt/internal/web: hunt_probe_test.go
+
+===== arquivos novos sob testdata (corpus de fuzz)
+
+===== patch dos arquivos modificados
+159 /tmp/tmp.arEwbyb9d0/deliver/bughunt.patch
+novo: internal/web/frontend/dist/.gitkeep
+novo: internal/backup/hunt_probe_test.go
+novo: internal/web/hunt_probe_test.go
+novo: internal/cli/root_hunt_test.go
+novo: internal/config/hunt_fuzz_test.go
+novo: internal/config/testdata/fuzz/FuzzStripJSONCInvariants/36579a76c7cf530c
+
+===== conteudo entregue
+BUGHUNT.md
+bughunt.patch
+novos/internal/backup/hunt_probe_test.go
+novos/internal/cli/root_hunt_test.go
+novos/internal/config/hunt_fuzz_test.go
+novos/internal/config/testdata/fuzz/FuzzStripJSONCInvariants/36579a76c7cf530c
+novos/internal/web/frontend/dist/.gitkeep
+novos/internal/web/hunt_probe_test.go

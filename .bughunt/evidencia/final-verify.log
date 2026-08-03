@@ -1,0 +1,11 @@
+--- git config --global --list (shell pai, config REAL):
+credential.https://github.com.helper=
+credential.https://github.com.helper=!/usr/bin/gh auth git-credential
+credential.https://gist.github.com.helper=
+credential.https://gist.github.com.helper=!/usr/bin/gh auth git-credential
+CONFIG-REAL-INTACTA
+SANDBOX-REMOVIDO
+/home/diogo/dev/omo-profiler                                    b117b82 [main]
+/home/diogo/.herdr/worktrees/omo-profiler/fix-models-dev-import b117b82 [fix/models-dev-import]
+diff: /tmp/bughunt-dirty-398595.txt: Arquivo ou diretório inexistente
+REPO-ORIGINAL-ALTERADO

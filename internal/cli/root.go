@@ -15,8 +15,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:     "omo-profiler",
-	Short:   "TUI profile manager for oh-my-openagent",
-	Long:    `omo-profiler is a TUI application for managing oh-my-openagent configuration profiles.`,
+	Short:   "TUI profile manager for ~/.omo/omo.json",
+	Long:    `omo-profiler is a TUI application for managing configuration profiles stored in ~/.omo/omo.json.`,
 	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := tui.Run(); err != nil {
@@ -40,4 +40,5 @@ func init() {
 	rootCmd.AddCommand(cmd.ModelsCmd)
 	rootCmd.AddCommand(cmd.CreateCmd)
 	rootCmd.AddCommand(cmd.SchemaCheckCmd)
+	rootCmd.AddCommand(cmd.WebCmd)
 }

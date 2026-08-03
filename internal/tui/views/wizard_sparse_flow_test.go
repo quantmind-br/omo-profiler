@@ -2,8 +2,7 @@ package views
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
@@ -48,9 +47,7 @@ func TestWizardSparseCreateFlow_SavesOnlyCheckedFields(t *testing.T) {
 	if saveMsg.Profile == nil || saveMsg.Profile.Name != "sparse-create" {
 		t.Fatalf("unexpected saved profile metadata: %#v", saveMsg.Profile)
 	}
-	if saved != preview {
-		t.Fatalf("preview/save mismatch\npreview:\n%s\n\nsaved:\n%s", preview, saved)
-	}
+	assertJSONEqual(t, saved, preview, "preview/save")
 
 	reloaded, err := profile.Load("sparse-create")
 	if err != nil {
@@ -101,9 +98,7 @@ func TestWizardCheckedUncheckedTransitions_PreserveExplicitEmptyStringValue(t *t
 	}
 
 	saved, _ := saveWizardAndRead(t, &w)
-	if saved != recheckedPreview {
-		t.Fatalf("preview/save mismatch after recheck\npreview:\n%s\n\nsaved:\n%s", recheckedPreview, saved)
-	}
+	assertJSONEqual(t, saved, recheckedPreview, "preview/save after recheck")
 	if w.config.DefaultRunAgent != "" {
 		t.Fatalf("expected wizard config value to survive toggle cycle, got %q", w.config.DefaultRunAgent)
 	}
@@ -113,7 +108,7 @@ func TestWizardSparseEditRoundTrip_PreservesUnknownAndDropsUncheckedFields(t *te
 	cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	writeRawProfileJSON(t, "existing-sparse", "{\n  \"custom\": \"data\",\n  \"disabled_mcps\": [\"mcp1\"],\n  \"hashline_edit\": false\n}")
+	writeProfile(t, "existing-sparse", "{\n  \"custom\": \"data\",\n  \"disabled_mcps\": [\"mcp1\"],\n  \"hashline_edit\": false\n}")
 
 	loaded, err := profile.Load("existing-sparse")
 	if err != nil {
@@ -149,9 +144,7 @@ func TestWizardSparseEditRoundTrip_PreservesUnknownAndDropsUncheckedFields(t *te
 	}
 
 	saved, _ := saveWizardAndRead(t, &w)
-	if saved != preview {
-		t.Fatalf("preview/save mismatch\npreview:\n%s\n\nsaved:\n%s", preview, saved)
-	}
+	assertJSONEqual(t, saved, preview, "preview/save")
 
 	reloaded, err := profile.Load("existing-sparse")
 	if err != nil {
@@ -180,7 +173,7 @@ func TestWizardSparseTemplateFlow_UncheckedTemplateFieldsAreOmitted(t *testing.T
 	cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	writeRawProfileJSON(t, "template-sparse", "{\n  \"default_run_agent\": \"\",\n  \"disabled_hooks\": []\n}")
+	writeProfile(t, "template-sparse", "{\n  \"default_run_agent\": \"\",\n  \"disabled_hooks\": []\n}")
 
 	w, err := NewWizardFromTemplate("template-sparse")
 	if err != nil {
@@ -212,16 +205,14 @@ func TestWizardSparseTemplateFlow_UncheckedTemplateFieldsAreOmitted(t *testing.T
 	}
 
 	saved, _ := saveWizardAndRead(t, &w)
-	if saved != preview {
-		t.Fatalf("preview/save mismatch\npreview:\n%s\n\nsaved:\n%s", preview, saved)
-	}
+	assertJSONEqual(t, saved, preview, "preview/save")
 }
 
 func TestWizardSparseImportAdjacentFlow_PreviewMatchesSavedOutput(t *testing.T) {
 	cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	writeRawProfileJSON(t, "imported-sparse", "{\n  \"background_task\": {\n    \"providerConcurrency\": {\n      \"openai\": 0\n    }\n  },\n  \"custom_import\": {\"keep\": true},\n  \"default_run_agent\": \"\"\n}")
+	writeProfile(t, "imported-sparse", "{\n  \"background_task\": {\n    \"providerConcurrency\": {\n      \"openai\": 0\n    }\n  },\n  \"custom_import\": {\"keep\": true},\n  \"default_run_agent\": \"\"\n}")
 
 	loaded, err := profile.Load("imported-sparse")
 	if err != nil {
@@ -255,9 +246,7 @@ func TestWizardSparseImportAdjacentFlow_PreviewMatchesSavedOutput(t *testing.T) 
 	if saveMsg.Profile == nil || saveMsg.Profile.Name != "imported-sparse" {
 		t.Fatalf("unexpected saved profile metadata: %#v", saveMsg.Profile)
 	}
-	if saved != preview {
-		t.Fatalf("preview/save mismatch\npreview:\n%s\n\nsaved:\n%s", preview, saved)
-	}
+	assertJSONEqual(t, saved, preview, "preview/save")
 }
 
 func wizardReviewPreview(t *testing.T, w *Wizard) string {
@@ -301,24 +290,66 @@ func saveWizardAndRead(t *testing.T, w *Wizard) (string, WizardSaveMsg) {
 		t.Fatalf("expected WizardSaveMsg, got %T", result)
 	}
 
-	savedBytes, err := os.ReadFile(filepath.Join(config.ProfilesDir(), w.profileName+".json"))
-	if err != nil {
-		t.Fatalf("read saved profile: %v", err)
-	}
-	if string(savedBytes) != preview {
-		t.Fatalf("preview/save mismatch\npreview:\n%s\n\nsaved:\n%s", preview, string(savedBytes))
-	}
+	saved := readSavedOpenCode(t, w.profileName)
+	assertJSONEqual(t, saved, preview, "preview/save")
 
 	*w = updated
-	return string(savedBytes), saveMsg
+	return saved, saveMsg
 }
 
-func writeRawProfileJSON(t *testing.T, name, contents string) {
+func writeProfile(t *testing.T, name, openCodeJSON string) {
 	t.Helper()
 
-	path := filepath.Join(config.ProfilesDir(), name+".json")
-	if err := os.WriteFile(path, []byte(contents), 0644); err != nil {
-		t.Fatalf("write raw profile %s: %v", name, err)
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("load document: %v", err)
+	}
+	if err := doc.SetProfileBlock(name, json.RawMessage(`{"[opencode]":`+openCodeJSON+`}`)); err != nil {
+		t.Fatalf("set profile block %s: %v", name, err)
+	}
+	if err := doc.Save(); err != nil {
+		t.Fatalf("save document: %v", err)
+	}
+}
+
+func readSavedOpenCode(t *testing.T, name string) string {
+	t.Helper()
+
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("load document: %v", err)
+	}
+	block, ok, err := doc.ProfileBlock(name)
+	if err != nil {
+		t.Fatalf("profile block %s: %v", name, err)
+	}
+	if !ok {
+		t.Fatalf("profile %q not found in document", name)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(block, &fields); err != nil {
+		t.Fatalf("parse profile block %s: %v", name, err)
+	}
+	openCode, ok := fields[config.OpenCodeKey]
+	if !ok {
+		t.Fatalf("profile %q missing %s block", name, config.OpenCodeKey)
+	}
+	return string(openCode)
+}
+
+func assertJSONEqual(t *testing.T, got, want, label string) {
+	t.Helper()
+
+	var gotV, wantV any
+	if err := json.Unmarshal([]byte(got), &gotV); err != nil {
+		t.Fatalf("decode %s got JSON: %v\n%s", label, err, got)
+	}
+	if err := json.Unmarshal([]byte(want), &wantV); err != nil {
+		t.Fatalf("decode %s want JSON: %v\n%s", label, err, want)
+	}
+	if !reflect.DeepEqual(gotV, wantV) {
+		t.Fatalf("%s mismatch\ngot:\n%s\n\nwant:\n%s", label, got, want)
 	}
 }
 

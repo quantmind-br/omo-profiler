@@ -1,0 +1,173 @@
+
+===== help
+$ /tmp/tmp.arEwbyb9d0/omo-profiler --help
+omo-profiler is a TUI application for managing configuration profiles stored in ~/.omo/omo.json.
+
+Usage:
+  omo-profiler [flags]
+  omo-profiler [command]
+
+Available Commands:
+  completion   Generate the autocompletion script for the specified shell
+  create       Create a new profile
+  current      Show the name of the active profile
+  export       Export a profile to a file
+  help         Help about any command
+  import       Import a profile from a JSON file
+  list         List all profiles
+  models       Manage registered models
+  schema-check Check if embedded schema differs from upstream
+  switch       Select a profile for activation
+  web          Launch the web UI for managing profiles
+
+Flags:
+  -h, --help      help for omo-profiler
+  -v, --version   version for omo-profiler
+
+Use "omo-profiler [command] --help" for more information about a command.
+-> exit=0
+
+===== list
+$ /tmp/tmp.arEwbyb9d0/omo-profiler list
+  dev
+-> exit=0
+
+===== current
+$ /tmp/tmp.arEwbyb9d0/omo-profiler current
+(none)
+-> exit=1
+
+===== create_ok
+$ /tmp/tmp.arEwbyb9d0/omo-profiler create staging
+Error: TUI mode not implemented. Use --from to create from template.
+-> exit=1
+
+===== create_dup
+$ /tmp/tmp.arEwbyb9d0/omo-profiler create staging
+Error: TUI mode not implemented. Use --from to create from template.
+-> exit=1
+
+===== create_bad
+$ /tmp/tmp.arEwbyb9d0/omo-profiler create ev/il
+Error: TUI mode not implemented. Use --from to create from template.
+-> exit=1
+
+===== create_dots
+$ /tmp/tmp.arEwbyb9d0/omo-profiler create ..
+Error: TUI mode not implemented. Use --from to create from template.
+-> exit=1
+
+===== create_empty
+$ /tmp/tmp.arEwbyb9d0/omo-profiler create 
+Error: TUI mode not implemented. Use --from to create from template.
+-> exit=1
+
+===== switch_ok
+$ /tmp/tmp.arEwbyb9d0/omo-profiler switch dev
+A profile cannot be activated from a child process.
+Run this in your shell:
+  export OMO_PROFILE=dev
+One-shot alternative: ocx oc -p dev
+-> exit=0
+
+===== switch_absent
+$ /tmp/tmp.arEwbyb9d0/omo-profiler switch nope
+Error: failed to switch profile: profile "nope" not found
+-> exit=1
+
+===== import_null
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/null.json
+Error: validation failed:
+  - (root): Invalid type. Expected: object, given: null
+-> exit=2
+
+===== import_array
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/arr.json
+Error: invalid JSON: json: cannot unmarshal array into Go value of type config.Config
+-> exit=1
+
+===== import_ok
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/ok.json
+Imported profile: ok
+-> exit=0
+
+===== import_again
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/ok.json
+Profile "ok" exists, imported as "ok-1"
+-> exit=0
+
+===== import_dotname
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/....json
+Error: cannot derive valid profile name from filename "...". Use --name <name> to specify.
+-> exit=1
+
+===== import_missing
+$ /tmp/tmp.arEwbyb9d0/omo-profiler import /tmp/tmp.arEwbyb9d0/clihome/absent.json
+Error: file not found: /tmp/tmp.arEwbyb9d0/clihome/absent.json
+-> exit=1
+
+===== export_ok
+$ /tmp/tmp.arEwbyb9d0/omo-profiler export dev /tmp/tmp.arEwbyb9d0/clihome/out.json
+Exported profile "dev" to /tmp/tmp.arEwbyb9d0/clihome/out.json
+-> exit=0
+
+===== export_exists
+$ /tmp/tmp.arEwbyb9d0/omo-profiler export dev /tmp/tmp.arEwbyb9d0/clihome/out.json
+Error: destination file already exists: /tmp/tmp.arEwbyb9d0/clihome/out.json. Use --force to overwrite
+-> exit=1
+
+===== export_nodir
+$ /tmp/tmp.arEwbyb9d0/omo-profiler export dev /tmp/tmp.arEwbyb9d0/clihome/no/such/dir/out.json
+Error: failed to write file: open /tmp/tmp.arEwbyb9d0/clihome/no/such/dir/out.json: no such file or directory
+-> exit=1
+
+===== export_absent
+$ /tmp/tmp.arEwbyb9d0/omo-profiler export nope /tmp/tmp.arEwbyb9d0/clihome/x.json
+Error: profile not found: nope
+-> exit=1
+
+===== list_corrupt
+$ /tmp/tmp.arEwbyb9d0/omo-profiler list
+Error: failed to list profiles: parse /tmp/tmp.arEwbyb9d0/clihome/.omo/omo.json: unexpected end of JSON input
+Usage:
+  omo-profiler list [flags]
+
+Flags:
+  -h, --help   help for list
+
+-> exit=1
+
+===== current_corrupt
+$ /tmp/tmp.arEwbyb9d0/omo-profiler current
+Error: parse /tmp/tmp.arEwbyb9d0/clihome/.omo/omo.json: unexpected end of JSON input
+-> exit=1
+
+===== list_empty
+$ /tmp/tmp.arEwbyb9d0/omo-profiler list
+(No profiles found)
+-> exit=0
+
+===== list_null
+$ /tmp/tmp.arEwbyb9d0/omo-profiler list
+(No profiles found)
+-> exit=0
+
+===== current_null
+$ /tmp/tmp.arEwbyb9d0/omo-profiler current
+(none)
+Selection hint "dev" is not active.
+Run this in your shell:
+  export OMO_PROFILE=dev
+-> exit=1
+
+===== final document
+null
+
+===== omo dir
+total 16
+drwxr-xr-x 2 diogo diogo 120 jul 29 11:23 .
+drwxr-xr-x 3 diogo diogo 160 jul 29 11:23 ..
+-rw-r--r-- 1 diogo diogo   5 jul 29 11:23 omo.json
+-rw-r--r-- 1 diogo diogo  55 jul 29 11:23 omo.json.bak.2026-07-29-112333.756984973
+-rw-r--r-- 1 diogo diogo 280 jul 29 11:23 omo.json.bak.2026-07-29-112333.785431125
+-rw-r--r-- 1 diogo diogo  14 jul 29 11:23 .omo-profiler-selection

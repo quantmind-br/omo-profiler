@@ -1,0 +1,5 @@
+Na interface web do omo-profiler (`omo-profiler web`), os campos do editor visual que possuem um conjunto conhecido de valores devem ser apresentados como menus drop-down em vez de dependerem de digitação livre. Isso inclui campos com opções predefinidas pelo schema JSON embutido e qualquer campo que represente seleção ou definição de modelo.
+
+Para campos relacionados a modelos, as opções do menu devem refletir os modelos cadastrados em `models.json`, permitindo que o usuário escolha facilmente um modelo existente. Se uma configuração atual já tiver um valor de modelo que não esteja presente em `models.json`, esse valor deve continuar visível e preservável na interface para evitar perda ou substituição indevida de configurações existentes.
+
+A melhoria deve se limitar à interface web e ao editor visual. A TUI, os comandos CLI, a aba/edição de JSON bruto, o fluxo de cadastro/importação de modelos e as regras de validação existentes ficam fora do escopo. O resultado esperado é que a edição web de perfis fique mais guiada e segura para campos com valores conhecidos, mantendo compatibilidade com configurações já existentes.

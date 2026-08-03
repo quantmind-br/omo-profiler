@@ -708,13 +708,13 @@ func TestWizardOtherWithValues_DisabledSkills(t *testing.T) {
 
 func TestWizardOtherWithValues_DisabledCommands(t *testing.T) {
 	w := setupWizardOtherWithSelection(t, "disabled_commands")
-	w.disabledCommands["ralph-loop"] = true
+	w.disabledCommands["goal"] = true
 	w.disabledCommands["refactor"] = true
 	result := applyAndMarshal(t, w, w.selection)
 	assertJSONContains(t, result, "disabled_commands")
 	actual := result["disabled_commands"].([]interface{})
 	assert.Equal(t, 2, len(actual), "expected 2 disabled commands")
-	assert.Equal(t, "ralph-loop", actual[0])
+	assert.Equal(t, "goal", actual[0])
 	assert.Equal(t, "refactor", actual[1])
 }
 
@@ -989,13 +989,13 @@ func TestWizardOtherRoundTrip_DisabledSkillsOmitted(t *testing.T) {
 
 func TestWizardOtherRoundTrip_DisabledCommands(t *testing.T) {
 	w := setupWizardOtherWithSelection(t, disabledCommandsFieldPath)
-	w.disabledCommands["ralph-loop"] = true
+	w.disabledCommands["goal"] = true
 	w.disabledCommands["refactor"] = true
 
 	result := applyAndMarshal(t, w, w.selection)
 
 	assertJSONContains(t, result, "disabled_commands")
-	assertJSONEquals(t, result, "disabled_commands", []interface{}{"ralph-loop", "refactor"})
+	assertJSONEquals(t, result, "disabled_commands", []interface{}{"goal", "refactor"})
 }
 
 func TestWizardOtherRoundTrip_DisabledCommandsEmpty(t *testing.T) {
@@ -1750,6 +1750,80 @@ func TestWizardOtherCodegraphApply(t *testing.T) {
 	assert.Equal(t, "/opt/codegraph", cg.InstallDir)
 	require.NotNil(t, cg.WatchDebounceMs)
 	assert.Equal(t, float64(300), *cg.WatchDebounceMs)
+}
+
+func TestWizardOtherCodegraphDaemonAndExcludedRootsApply(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("codegraph.enabled", true)
+	selection.SetSelected("codegraph.daemon", true)
+	selection.SetSelected("codegraph.excluded_roots", true)
+	w.cgEnabled = true
+	w.cgDaemon = true
+	w.cgExcludedRoots.SetValue("/tmp, /mnt/scratch")
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.Codegraph)
+	require.NotNil(t, cfg.Codegraph.Daemon)
+	assert.True(t, *cfg.Codegraph.Daemon)
+	assert.Equal(t, []string{"/tmp", "/mnt/scratch"}, cfg.Codegraph.ExcludedRoots)
+}
+
+func TestWizardOtherGoalApply(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected("goal.enabled", true)
+	selection.SetSelected("goal.auto_start", true)
+	selection.SetSelected("goal.default_max_iterations", true)
+	w.goalEnabled = true
+	w.goalAutoStart = true
+	w.goalDefaultMaxIterations.SetValue("50")
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.Goal)
+	require.NotNil(t, cfg.Goal.Enabled)
+	assert.True(t, *cfg.Goal.Enabled)
+	require.NotNil(t, cfg.Goal.AutoStart)
+	assert.True(t, *cfg.Goal.AutoStart)
+	require.NotNil(t, cfg.Goal.DefaultMaxIterations)
+	assert.Equal(t, 50, *cfg.Goal.DefaultMaxIterations)
+}
+
+func TestWizardOtherGoalRoundTrip(t *testing.T) {
+	w := NewWizardOther()
+	cfg := &config.Config{Goal: &config.GoalConfig{
+		Enabled:              boolPtr(true),
+		AutoStart:            boolPtr(true),
+		DefaultMaxIterations: intPtr(25),
+	}}
+	w.SetConfig(cfg, nil)
+
+	assert.True(t, w.goalEnabled)
+	assert.True(t, w.goalAutoStart)
+	assert.Equal(t, "25", w.goalDefaultMaxIterations.Value())
+
+	out := &config.Config{}
+	w.Apply(out, nil)
+	require.NotNil(t, out.Goal)
+	require.NotNil(t, out.Goal.DefaultMaxIterations)
+	assert.Equal(t, 25, *out.Goal.DefaultMaxIterations)
+}
+
+func TestWizardOtherPlaywrightMCPArgsApply(t *testing.T) {
+	w := NewWizardOther()
+	selection := profile.NewBlankSelection()
+	selection.SetSelected(browserPlaywrightMCPArgsFieldPath, true)
+	w.baePlaywrightMCPArgs.SetValue("--headless, --no-sandbox")
+
+	cfg := &config.Config{}
+	w.Apply(cfg, selection)
+
+	require.NotNil(t, cfg.BrowserAutomationEngine)
+	assert.Equal(t, []string{"--headless", "--no-sandbox"}, cfg.BrowserAutomationEngine.PlaywrightMCPArgs)
 }
 
 func TestWizardOtherTuiApply(t *testing.T) {

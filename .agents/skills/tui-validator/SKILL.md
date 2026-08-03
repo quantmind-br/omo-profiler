@@ -1,6 +1,10 @@
 ---
 name: tui-validator
-description: Audit a terminal user interface (TUI) by driving it inside a tmux session, capturing both text and pixel screenshots (live Wayland or headless Chromium fallback), probing every keybinding, hammering it with special characters and resize events, and producing a markdown diagnostic that lists broken bindings, shortcut conflicts, dropped inputs, rendering glitches and visual degradation. Use this skill whenever the user asks to validate, audit, smoke-test, QA, fuzz, regression-check or "find bugs in" a terminal/CLI UI — even when they don't name tmux, grim, or screenshots — including phrases like "test this TUI", "check keybindings", "see if the layout breaks", "review the design of my CLI tool", "does this TUI render correctly", "find shortcut conflicts" or "validate the keyboard shortcuts of <something>". Strongly prefer this skill over ad-hoc tmux scripting whenever the target is interactive (Bubble Tea, Textual, blessed, ratatui, ncurses, etc.).
+description: >-
+  Use when validating, auditing, smoke-testing, QA-testing, fuzzing, or
+  regression-checking a terminal UI or CLI, including keybindings, shortcut
+  conflicts, input handling, rendering, resize behavior, unicode/paste, and
+  visual regressions.
 ---
 
 # TUI Validator
@@ -25,7 +29,7 @@ Trigger this skill any time the user wants to:
 
 Examples that should trigger it: "test this TUI", "check the shortcuts of my
 CLI", "does my Bubble Tea app render right when I resize", "find UX issues in
-shotgun-cli", "audit omo-profiler", "screenshot the TUI for me and tell me
+my-tui", "audit ./mytool", "screenshot the TUI for me and tell me
 what's wrong".
 
 ## Prerequisites (verify before running)
@@ -35,6 +39,11 @@ Run this once before the first audit:
 ```bash
 scripts/tui-check-prereqs.sh
 ```
+
+> **Platform.** The bundled scripts assume **Linux with GNU coreutils** (GNU
+> `find -printf`, `sed -E`, `date -u`, `mktemp --suffix`) and, for live pixel
+> capture, a **Wayland** session. They are not tested on macOS/BSD; on those
+> hosts prefer the text-mode phases or run inside a Linux container.
 
 Only `tmux` and `jq` are hard requirements for text-mode auditing. Other tools
 enable richer phases and degrade gracefully:
@@ -115,7 +124,7 @@ Goal: figure out what we are testing without blindly launching it.
    first** — it saves the entire probing phase a lot of guesswork.
 3. Try `--help` first; if that prints a non-trivial usage block, parse it for
    subcommands and flags. A TUI that has subcommands often has a flagless entry
-   point that drops you into the interface (see shotgun-cli).
+   point that drops you into the interface.
 4. Decide an initial geometry: default to `80x24`. Note it in `meta.json`.
    `tui-launch.sh` also records a best-effort `--version` result when the
    command returns quickly.
@@ -134,7 +143,7 @@ Capture each help screen as plain text and parse it. Most TUIs format help as
 `<key>  <description>` on each line — a regex like `^\s*([A-Za-z0-9?/<>\-]+|Ctrl-[A-Z]|Alt-[A-Z]|F\d+)\s{2,}(.+)$` covers a lot of them. Be tolerant: write the
 binding list to `keybindings.json` with `{key, description, context}` triples.
 `context` defaults to `"global"` but distinguish per-mode/per-tab whenever the
-help text labels sections (e.g. shotgun-cli's "Profiles Tab", "Launcher Tab").
+help text labels sections (e.g. a tabbed app's "Profiles Tab", "Launcher Tab").
 
 If no help screen exists, fall back to:
 
@@ -162,9 +171,10 @@ Classify the result:
 - **crash** — tmux pane reports the process died (`tmux list-panes` shows `dead`)
 
 After each key, restore a known state (usually `Escape` then a navigation back
-to the initial screen). If the key is in `references/common-keys.md`'s
-**danger list** (`d`, `D`, `x`, `Delete`, `C-k`, `C-w`, `C-u`), require explicit user opt-in before
-sending it — TUIs that manage real resources can lose data.
+to the initial screen). If the key is on the **danger list** — the single canonical enumeration lives in
+`references/common-keys.md` (`d` `D` `x` `X` `Delete` `Backspace` `C-k` `C-w`
+`C-u` `!` `:q!`) — require explicit user opt-in before sending it; TUIs that
+manage real resources can lose data.
 
 Crashes terminate the phase early — capture the last screen, dump the tmux
 buffer history, and record the crashing key in `findings.json`.
@@ -235,7 +245,7 @@ phase outright.
 
 `scripts/tui-report.sh` reads `meta.json`, `keybindings.json`, `findings.json`
 and the artefacts in `captures/` and `screenshots/` and renders
-`assets/report-template.md` into **two** locations:
+`templates/report-template.md` into **two** locations:
 
 1. `<workspace>/report.md` — working copy kept alongside captures/screenshots.
 2. `<tui_cwd>/TUI_AUDIT.md` — **canonical copy at the root of the audited
@@ -269,8 +279,8 @@ blockers and majors; cosmetic stuff goes at the bottom.
 
 - **Never** run the audit against a TUI that manages production resources
   without the user opting in. Ask if you're unsure.
-- Destructive keys (`d`, `D`, `x`, `Delete`, `C-k`, `C-w`, `C-u`) are skipped
-  by default. Mention this in the methodology section.
+- Destructive keys are skipped by default — see the canonical danger list in
+  `references/common-keys.md`. Mention this in the methodology section.
 - The TUI runs as the current user — if it can shell out (run profiles, exec
   models, etc.), it can affect the system. Stay in the audit, don't trigger
   arbitrary executions.
@@ -327,7 +337,7 @@ lower; say so in the report's Limitations section.
 scripts/tui-check-prereqs.sh
 
 # 1. launch
-SESSION=$(scripts/tui-launch.sh ~/dev/shotgun-cli/build/shotgun-cli)
+SESSION=$(scripts/tui-launch.sh ./build/my-tui)   # example fictional app
 
 # 2. inventory (try help, fall back to common keys)
 scripts/tui-send.sh "$SESSION" "?"

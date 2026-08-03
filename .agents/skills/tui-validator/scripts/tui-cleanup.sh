@@ -24,8 +24,9 @@ if ! tmux has-session -t "$session" 2>/dev/null; then
   exit 0
 fi
 
-# Polite quit: try common quit keys, then kill if still alive.
-for k in 'q' 'Escape' 'C-c' 'C-d'; do
+# Polite quit: send Escape first to dismiss any open modal, so a following 'q'
+# quits the app itself rather than just closing the modal. Then kill if alive.
+for k in 'Escape' 'q' 'C-c' 'C-d'; do
   tmux send-keys -t "$session" "$k" 2>/dev/null || true
   sleep 0.15
   pane_is_dead "$session" && break

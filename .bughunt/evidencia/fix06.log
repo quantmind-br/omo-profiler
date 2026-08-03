@@ -1,0 +1,14 @@
+ok  	github.com/diogenes/omo-profiler/internal/cli	0.002s
+ok  	github.com/diogenes/omo-profiler/internal/cli/cmd	0.002s
+===== I2: a document created from scratch must not be world-readable
+Imported profile: fresh
+-rw------- 1 diogo diogo 207 jul 29 11:26 /tmp/tmp.arEwbyb9d0/clihome2/.omo/omo.json
+
+===== runtime error on a RunE command prints the usage block?
+BEGIN-WEB-OUTPUT
+Error: failed to listen on 127.0.0.1:1: listen tcp 127.0.0.1:1: bind: permission denied
+-> exit=1
+
+===== same failure shape on `list`
+Error: failed to list profiles: parse /tmp/tmp.arEwbyb9d0/clihome2/.omo/omo.json: invalid character 'o' in literal null (expecting 'u')
+-> exit=1

@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
@@ -19,6 +16,8 @@ func setupTestEnv(t *testing.T) func() {
 	}
 }
 
+// createTestProfile seeds a profile into the omo document via the profile
+// package persistence contract (document blocks), not a per-profile file.
 func createTestProfile(t *testing.T, name string, cfg *config.Config) {
 	t.Helper()
 	if err := config.EnsureDirs(); err != nil {
@@ -31,9 +30,11 @@ func createTestProfile(t *testing.T, name string, cfg *config.Config) {
 		}
 	}
 
-	data, _ := json.MarshalIndent(cfg, "", "  ")
-	profilePath := filepath.Join(config.ProfilesDir(), name+".json")
-	if err := os.WriteFile(profilePath, data, 0644); err != nil {
+	p := &profile.Profile{
+		Name:   name,
+		Config: *cfg,
+	}
+	if err := profile.Save(p); err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
 }

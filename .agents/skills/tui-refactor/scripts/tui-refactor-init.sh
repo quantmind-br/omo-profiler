@@ -10,6 +10,8 @@ json_escape() {
   value=${value//\\/\\\\}
   value=${value//\"/\\\"}
   value=${value//$'\n'/\\n}
+  value=${value//$'\r'/\\r}
+  value=${value//$'\t'/\\t}
   printf '%s' "$value"
 }
 
@@ -92,6 +94,8 @@ printf '# Components — %s\n\nn/a — not generated yet.\n' "$name" > "$workspa
 printf '# Keybindings — %s\n\nn/a — not generated yet.\n' "$name" > "$workspace/03-target-design/04-keybindings.md"
 printf '# Style guide — %s\n\nn/a — not generated yet.\n' "$name" > "$workspace/03-target-design/06-style-guide.md"
 printf '# States — %s\n\nn/a — not generated yet.\n' "$name" > "$workspace/03-target-design/07-states.md"
+printf '# Navigation map — %s\n\nn/a — not generated yet.\n' "$name" > "$workspace/03-target-design/08-navigation-map.md"
+printf '# Accessibility — %s\n\nn/a — not generated yet.\n' "$name" > "$workspace/03-target-design/09-accessibility.md"
 
 printf '[]\n' > "$workspace/keybindings.json"
 printf '[]\n' > "$workspace/findings.json"

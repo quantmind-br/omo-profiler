@@ -113,10 +113,12 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		{section: sectionDisabledMcps, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledMcps, msg) }},
 		{section: sectionDisabledTools, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.disabledTools, msg) }},
 		{section: sectionMcpEnvAllowlist, subCursor: -1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.mcpEnvAllowlist, msg) }},
-		{section: sectionRalphLoop, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
-			return w.updateTextInputField(&w.rlDefaultMaxIterations, msg)
+		{section: sectionGoal, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.goalDefaultMaxIterations, msg)
 		}},
-		{section: sectionRalphLoop, subCursor: 2, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd { return w.updateTextInputField(&w.rlStateDir, msg) }},
+		{section: sectionBrowserAutomationEngine, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.baePlaywrightMCPArgs, msg)
+		}},
 		{section: sectionGitMaster, subCursor: 1, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.gmCommitFooterText, msg)
 		}},
@@ -197,10 +199,13 @@ func (w *WizardOther) fieldBindings() []fieldBinding {
 		{section: sectionMonitor, subCursor: 10, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.monPatternMaxLength, msg)
 		}},
-		{section: sectionCodegraph, subCursor: 3, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+		{section: sectionCodegraph, subCursor: 4, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.cgInstallDir, msg)
 		}},
 		{section: sectionCodegraph, subCursor: 5, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
+			return w.updateTextInputField(&w.cgExcludedRoots, msg)
+		}},
+		{section: sectionCodegraph, subCursor: 7, update: func(w *WizardOther, msg tea.KeyMsg) tea.Cmd {
 			return w.updateTextInputField(&w.cgWatchDebounceMs, msg)
 		}},
 	}
@@ -272,19 +277,6 @@ func (w WizardOther) Update(msg tea.Msg) (WizardOther, tea.Cmd) {
 					return w, nil
 				case "left", "h":
 					w.dcpNotificationIdx = (w.dcpNotificationIdx - 1 + len(dcpNotificationValues)) % len(dcpNotificationValues)
-					w.refreshView()
-					return w, nil
-				}
-			}
-
-			if w.currentSection == sectionRalphLoop && w.subCursor == 3 {
-				switch msg.String() {
-				case "right", "l":
-					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx + 1) % len(ralphLoopStrategies)
-					w.refreshView()
-					return w, nil
-				case "left", "h":
-					w.rlDefaultStrategyIdx = (w.rlDefaultStrategyIdx - 1 + len(ralphLoopStrategies)) % len(ralphLoopStrategies)
 					w.refreshView()
 					return w, nil
 				}
@@ -586,7 +578,9 @@ func (w *WizardOther) toggleSubItem() {
 			w.cgAutoProvision = !w.cgAutoProvision
 		case 2:
 			w.cgAutoInit = !w.cgAutoInit
-		case 4:
+		case 3:
+			w.cgDaemon = !w.cgDaemon
+		case 6:
 			w.cgTelemetry = !w.cgTelemetry
 		}
 	case sectionTui:
@@ -654,9 +648,12 @@ func (w *WizardOther) toggleSubItem() {
 		case 4:
 			w.saTDD = !w.saTDD
 		}
-	case sectionRalphLoop:
-		if w.subCursor == 0 {
-			w.rlEnabled = !w.rlEnabled
+	case sectionGoal:
+		switch w.subCursor {
+		case 0:
+			w.goalEnabled = !w.goalEnabled
+		case 1:
+			w.goalAutoStart = !w.goalAutoStart
 		}
 	case sectionNotification:
 		if w.subCursor == 0 {

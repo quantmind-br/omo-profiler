@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Render <workspace>/report.md from meta.json + keybindings.json + findings.json
-# plus the artifacts in captures/ and screenshots/. Uses assets/report-template.md
+# plus the artifacts in captures/ and screenshots/. Uses templates/report-template.md
 # as a skeleton.
 #
 # Usage:
@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 session="${1:?usage: tui-report.sh SESSION}"
 workspace="$(workspace_for "$session")"
-template="$HERE/../assets/report-template.md"
+template="$HERE/../templates/report-template.md"
 out="$workspace/report.md"
 final_name="TUI_AUDIT.md"
 

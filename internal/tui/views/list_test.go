@@ -3,9 +3,9 @@ package views
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestProfileItemTitle(t *testing.T) {
@@ -431,5 +431,27 @@ func TestListIsConfirmingDelete(t *testing.T) {
 
 	if !l.IsConfirmingDelete() {
 		t.Error("expected confirmingDelete to be true after setting")
+	}
+}
+
+func TestProfileItemActiveMarkingUsesProfileName(t *testing.T) {
+	// LoadProfiles marks active via ProfileName equality only.
+	activeName := "prod"
+	items := []profileItem{
+		{name: "prod", isActive: activeName == "prod"},
+		{name: "dev", isActive: activeName == "dev"},
+	}
+
+	if !items[0].isActive {
+		t.Fatal("expected profile matching ProfileName to be marked active")
+	}
+	if items[1].isActive {
+		t.Fatal("expected other profiles to remain inactive")
+	}
+	if items[0].Title() != "* prod (active)" {
+		t.Fatalf("unexpected active title: %q", items[0].Title())
+	}
+	if items[1].Title() != "  dev" {
+		t.Fatalf("unexpected inactive title: %q", items[1].Title())
 	}
 }

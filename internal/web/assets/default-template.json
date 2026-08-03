@@ -1,82 +1,223 @@
 {
+  "default_run_agent": "sisyphus",
+  "agent_order": [
+    "sisyphus",
+    "hephaestus",
+    "prometheus",
+    "atlas"
+  ],
+  "agent_definitions": [],
+  "disabled_mcps": [],
+  "disabled_agents": [],
+  "disabled_skills": [],
+  "disabled_hooks": [],
+  "disabled_commands": [],
+  "disabled_tools": [],
+  "disabled_providers": [],
+  "hashline_edit": false,
+  "telemetry": true,
+  "model_fallback": false,
+  "auto_update": true,
+  "claude_code": {
+    "mcp": true,
+    "commands": true,
+    "skills": true,
+    "agents": true,
+    "hooks": true,
+    "plugins": true,
+    "plugins_override": {},
+    "anthropic_provider": "anthropic"
+  },
+  "sisyphus_agent": {
+    "disabled": false,
+    "default_builder_enabled": false,
+    "planner_enabled": true,
+    "replace_plan": true,
+    "tdd": true
+  },
+  "experimental": {
+    "aggressive_truncation": false,
+    "preemptive_compaction": false,
+    "truncate_all_tool_outputs": false,
+    "dynamic_context_pruning": {
+      "enabled": false,
+      "notification": "detailed",
+      "protected_tools": [
+        "task",
+        "todowrite",
+        "todoread",
+        "lsp_rename",
+        "session_read",
+        "session_write",
+        "session_search"
+      ],
+      "strategies": {
+        "deduplication": {
+          "enabled": true
+        },
+        "supersede_writes": {
+          "enabled": true,
+          "aggressive": false
+        },
+        "purge_errors": {
+          "enabled": true,
+          "turns": 5
+        }
+      },
+      "turn_protection": {
+        "enabled": true,
+        "turns": 3
+      }
+    },
+    "task_system": false,
+    "plugin_load_timeout_ms": 10000,
+    "safe_hook_creation": true,
+    "disable_omo_env": false,
+    "hashline_edit": false,
+    "model_fallback_title": false,
+    "disable_live_parent_wake_routing": false
+  },
+  "skills": {
+    "sources": [],
+    "enable": [],
+    "disable": []
+  },
+  "goal": {
+    "enabled": false,
+    "auto_start": false,
+    "default_max_iterations": 100
+  },
+  "runtime_fallback": {
+    "enabled": false,
+    "retry_on_errors": [
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "max_fallback_attempts": 3,
+    "cooldown_seconds": 60,
+    "timeout_seconds": 30,
+    "notify_on_fallback": true,
+    "restore_primary_after_cooldown": false
+  },
+  "background_task": {
+    "defaultConcurrency": 5,
+    "providerConcurrency": {},
+    "modelConcurrency": {},
+    "maxDepth": 3,
+    "staleTimeoutMs": 2700000,
+    "messageStalenessTimeoutMs": 3600000,
+    "taskTtlMs": 1800000,
+    "sessionGoneTimeoutMs": 60000,
+    "taskCleanupDelayMs": 600000,
+    "syncPollTimeoutMs": 1800000,
+    "maxToolCalls": 4000,
+    "circuitBreaker": {
+      "enabled": true,
+      "maxToolCalls": 4000,
+      "consecutiveThreshold": 20
+    }
+  },
+  "notification": {
+    "force_enable": false
+  },
+  "model_capabilities": {
+    "enabled": true,
+    "auto_refresh_on_start": true,
+    "refresh_timeout_ms": 5000,
+    "source_url": "https://models.dev/api.json"
+  },
+  "openclaw": {
+    "enabled": false,
+    "gateways": {},
+    "hooks": {},
+    "replyListener": {
+      "authorizedDiscordUserIds": [],
+      "pollIntervalMs": 3000,
+      "rateLimitPerMinute": 10,
+      "maxMessageLength": 500,
+      "includePrefix": true
+    }
+  },
+  "monitor": {
+    "enabled": false,
+    "live_mode_enabled": false,
+    "max_monitors_per_session": 3,
+    "max_runtime_ms": 1800000,
+    "batch_max_lines": 50,
+    "batch_max_bytes": 16384,
+    "flush_interval_ms": 1000,
+    "ring_max_lines": 1000,
+    "line_max_bytes": 8192,
+    "pattern_max_length": 512
+  },
+  "codegraph": {
+    "auto_init": true,
+    "auto_provision": true,
+    "daemon": true,
+    "enabled": true,
+    "telemetry": false
+  },
+  "team_mode": {
+    "enabled": false,
+    "tmux_visualization": false,
+    "max_parallel_members": 4,
+    "max_members": 8,
+    "max_messages_per_run": 10000,
+    "max_wall_clock_minutes": 120,
+    "max_member_turns": 500,
+    "message_payload_max_bytes": 32768,
+    "recipient_unread_max_bytes": 262144,
+    "mailbox_poll_interval_ms": 3000
+  },
+  "keyword_detector": {
+    "enabled_expansions": [
+      "ultrawork",
+      "team",
+      "hyperplan",
+      "hyperplan-ultrawork"
+    ],
+    "disabled_keywords": []
+  },
+  "babysitting": {
+    "timeout_ms": 120000
+  },
   "git_master": {
     "commit_footer": true,
     "include_co_authored_by": true,
     "git_env_prefix": "GIT_MASTER=1"
   },
-  "agents": {
-    "sisyphus": {
-      "model": "anthropic/claude-opus-5",
-      "ultrawork": {
-        "model": "anthropic/claude-opus-5",
-        "reasoning": "max"
-      }
-    },
-    "hephaestus": {
-      "model": "openai/gpt-5.6-sol",
-      "prompt_append": "Explore thoroughly, then implement. Prefer small, testable changes."
-    },
-    "prometheus": {
-      "prompt_append": "Always interview first. Validate scope before planning."
-    },
-    "oracle": {
-      "model": "openai/gpt-5.6-sol",
-      "reasoning": "high"
-    },
-    "librarian": {
-      "model": "google/gemini-3.6-flash"
-    },
-    "explore": {
-      "model": "github-copilot/grok-code-fast-1"
-    },
-    "multimodal-looker": {
-      "model": "google/gemini-3.1-pro"
-    },
-    "metis": {},
-    "momus": {},
-    "atlas": {},
-    "sisyphus-junior": {
-      "model": "opencode/gpt-5-nano"
+  "browser_automation_engine": {
+    "provider": "playwright"
+  },
+  "websearch": {
+    "provider": "exa"
+  },
+  "tmux": {
+    "enabled": false,
+    "layout": "main-vertical",
+    "main_pane_size": 60,
+    "main_pane_min_width": 120,
+    "agent_pane_min_width": 40,
+    "isolation": "inline"
+  },
+  "tui": {
+    "sidebar": {
+      "enabled": true
     }
   },
-  "categories": {
-    "quick": {
-      "model": "opencode/gpt-5-nano"
-    },
-    "unspecified-low": {
-      "model": "openai/gpt-5.6-luna",
-      "reasoning": "xhigh"
-    },
-    "unspecified-high": {
-      "model": "anthropic/claude-opus-5",
-      "reasoning": "max"
-    },
-    "writing": {
-      "model": "kimi-for-coding/kimi-k3",
-      "reasoning": "low"
-    },
-    "visual-engineering": {
-      "model": "anthropic/claude-opus-5",
-      "reasoning": "max"
-    },
-    "deep": {
-      "model": "openai/gpt-5.6-sol",
-      "reasoning": "medium"
-    },
-    "ultrabrain": {
-      "model": "openai/gpt-5.6-sol",
-      "reasoning": "xhigh"
+  "sisyphus": {
+    "tasks": {
+      "claude_code_compat": false
     }
   },
-  "background_task": {
-    "providerConcurrency": {
-      "anthropic": 3,
-      "openai": 3,
-      "google": 5,
-      "opencode": 10
-    }
+  "start_work": {
+    "auto_commit": true
   },
-  "experimental": {
-    "aggressive_truncation": true
+  "default_mode": {
+    "ultrawork": false,
+    "goal": false
   }
 }

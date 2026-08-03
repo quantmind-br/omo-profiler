@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"io"
+	"strings"
 	"testing"
+
+	"github.com/diogenes/omo-profiler/internal/schema"
 )
 
 func TestSchemaCheckCmd_RequiresOutputFlag(t *testing.T) {
@@ -29,5 +32,14 @@ func TestSchemaCheckCmd_Registration(t *testing.T) {
 
 	if !SchemaCheckCmd.Flags().Changed("output") && flag.DefValue != "" {
 		t.Errorf("Expected default value of 'output' to be empty, got %q", flag.DefValue)
+	}
+}
+
+func TestSchemaCheckCmd_UpstreamSchemaURL(t *testing.T) {
+	if !strings.HasSuffix(schema.UpstreamSchemaURL, "/omo.schema.json") {
+		t.Errorf("UpstreamSchemaURL = %q, want suffix /omo.schema.json", schema.UpstreamSchemaURL)
+	}
+	if strings.Contains(schema.UpstreamSchemaURL, "oh-my-opencode.schema.json") {
+		t.Errorf("UpstreamSchemaURL still references legacy oh-my-opencode.schema.json: %q", schema.UpstreamSchemaURL)
 	}
 }

@@ -4,16 +4,17 @@ description: >
   Sincroniza o repositório omo-profiler com o upstream oh-my-openagent usando
   o clone local canônico em ~/dev/oh-my-openagent (branch dev). Compara o
   schema JSON embarcado (internal/schema/schema.json) contra o artefato
-  upstream, propaga mudanças de schema para internal/config/types.go, os
-  wizard steps, testes e AGENTS.md, detecta drift de código desde o último
-  anchor (internal/schema/.upstream-sha) mesmo quando o schema não mudou,
-  valida com build/test/lint e paridade de hash entre os 3 arquivos de
-  schema, e só então persiste o novo anchor. Use sempre que o usuário pedir
-  para atualizar/sincronizar o omo-profiler com o upstream, verificar se o
-  schema ou os tipos Go estão desatualizados/com drift, checar novidades do
+  upstream assets/omo.schema.json, propaga mudanças de schema para
+  internal/config/types.go, o document layer, os wizard steps, testes e
+  AGENTS.md, detecta drift de código desde o último anchor
+  (internal/schema/.upstream-sha) mesmo quando o schema não mudou, valida com
+  build/test/lint e paridade de hash entre os 3 arquivos de schema, e só então
+  persiste o novo anchor. Use sempre que o usuário pedir para
+  atualizar/sincronizar o omo-profiler com o upstream, verificar se o schema ou
+  os tipos Go estão desatualizados/com drift, checar novidades do
   oh-my-openagent, revisar campos de config novos/removidos, ou invocar
   /update-omo-profiler. Keywords: sync schema, upstream sync, schema drift,
-  oh-my-openagent, oh-my-opencode.schema.json, .upstream-sha, wizard fields.
+  oh-my-openagent, omo.schema.json, omo.json, .upstream-sha, wizard fields.
 allowed-tools:
   - Bash
   - Read
@@ -26,20 +27,41 @@ allowed-tools:
 
 # Sincronização omo-profiler ↔ upstream oh-my-openagent
 
-omo-profiler gera profiles do arquivo `oh-my-openagent.json`, consumido pelo
-plugin `oh-my-opencode`. Esta skill alinha schema, tipos Go, wizard e
-semântica com o upstream usando o **clone local canônico** — nunca a API do
-GitHub, sempre o git local.
+omo-profiler gerencia profiles dentro do documento `~/.omo/omo.json`, consumido
+pelos harnesses do `oh-my-openagent`. Esta skill alinha schema, tipos Go,
+wizard e semântica com o upstream usando o **clone local canônico** — nunca a
+API do GitHub, sempre o git local.
 
 | Recurso | Caminho |
 |---|---|
 | Clone upstream canônico | `~/dev/oh-my-openagent` |
 | Branch obrigatório | `dev` |
 | Anchor de sincronização | `internal/schema/.upstream-sha` |
-| Schema upstream (artefato) | `<clone>/assets/oh-my-opencode.schema.json` |
-| Schema upstream (fonte) | `<clone>/src/config/schema/oh-my-opencode-config.ts` |
+| Schema upstream (artefato) | `<clone>/assets/omo.schema.json` |
+| Schema upstream (fonte Zod) | `<clone>/packages/omo-config-core/src/schema/` |
 | Schema embarcado | `internal/schema/schema.json` |
-| Schema raiz (cópia) | `oh-my-opencode.schema.json` |
+| Schema raiz (cópia) | `omo.schema.json` |
+| Scripts desta skill | `.agents/skills/update-omo-profiler/scripts/` |
+
+## Modelo de config (contexto obrigatório)
+
+Desde a unificação de config (v4.19.x) o upstream lê **um** documento em
+camadas. Entender isso é pré-requisito para classificar impacto:
+
+- Arquivo canônico: `~/.omo/omo.json[c]` (usuário) + camadas de projeto
+  `<dir>/.omo/omo.json[c]` de `cwd` até `$HOME` (exclusive).
+- Chaves do documento: `$schema`, chaves tipadas compartilhadas (`categories`,
+  `agents`, `codegraph`, `task`, `teams`, `models`), blocos de harness
+  `[opencode]` / `[senpi]` / `[codex]`, mais `profiles` e bookkeeping de migração.
+- **O bloco `[opencode]` é exatamente a antiga config plana de 46 campos** —
+  é o que `internal/config/types.go` (`config.Config`) modela.
+- Um profile é `profiles.<nome>`; o payload editável é
+  `profiles.<nome>.[opencode]`.
+- Ativação é **no documento**: `Apply` substitui cada chave do profile na raiz
+  do documento — substituição verbatim, sem merge. O profile ativo é detectado
+  por comparação (`ActiveName`) da raiz contra os profiles armazenados.
+- `oh-my-openagent.json[c]` / `oh-my-opencode.json[c]` são lidos só pelo motor
+  de migração do upstream — legado, não são alvo de escrita.
 
 ## Quando usar
 
@@ -67,7 +89,7 @@ guia. Não pule etapas nem tente scriptar as fases de julgamento.
 ### Fase 0-2 — Pré-flight, pull, diff de schema
 
 ```bash
-~/dev/skills/update-omo-profiler/scripts/preflight.sh
+.agents/skills/update-omo-profiler/scripts/preflight.sh
 ```
 
 Variáveis de ambiente opcionais: `UPSTREAM_CLONE` (default
@@ -78,29 +100,37 @@ O script:
    `code-yeongyu/oh-my-openagent.git`, branch é `dev`, árvore tracked limpa.
    Qualquer falha **aborta** com a causa e o comando corretivo — nunca
    tenta consertar sozinho (ex.: HEAD detached → `git checkout dev`; árvore
-   suja → peça ao usuário para stash/commit).
+   suja → peça ao usuário para stash/commit). Ponteiros de submódulo
+   dessincronizados (`packages/shared-skills/upstreams/*`) são ruído normal
+   deste clone e são ignorados; arquivo tracked modificado ainda aborta.
 2. Lê o anchor anterior de `.upstream-sha`; se ausente, marca
    `BOOTSTRAP=1` (usa o HEAD atual como anchor "antigo" e sinaliza que a
    Fase 4 deve ser pulada nesta execução — não há baseline para diff).
 3. `git fetch origin dev && git pull --ff-only origin dev`.
-4. Compara `assets/oh-my-opencode.schema.json` (upstream) byte-a-byte contra
+4. Compara `assets/omo.schema.json` (upstream) byte-a-byte contra
    `internal/schema/schema.json` (embarcado) e imprime os 3 sha256sum.
 5. Se `ANCHOR_OLD == ANCHOR_NEW` e o schema já bate: imprime `NO_CHANGES` e
    sai — não há nada a fazer, encerre aqui e reporte ao usuário.
 6. Caso contrário imprime `SCHEMA_CHANGED=0|1`, que decide se a Fase 3 é
    necessária, e segue para as fases manuais abaixo.
 
+> Schema idêntico **não** significa "nada mudou". O artefato só cobre o
+> contrato de dados; caminhos, precedência de camadas, semântica de ativação e
+> defaults vivem no código. A Fase 4 é obrigatória mesmo com
+> `SCHEMA_UNCHANGED`.
+
 ### Fase 3 — Análise de impacto do schema (só se `SCHEMA_CHANGED=1`)
 
-Diff `<clone>/assets/oh-my-opencode.schema.json` contra
-`internal/schema/schema.json` e mapeie cada campo +/-/modificado nestes
-componentes:
+Diff `<clone>/assets/omo.schema.json` contra `internal/schema/schema.json` e
+mapeie cada campo +/-/modificado nestes componentes:
 
 | Componente | Arquivo | O que verificar |
 |---|---|---|
-| Tipos Go | `internal/config/types.go` | Structs, campos, JSON tags com `omitempty`, ponteiros `*bool`/`*float64`/`*int` |
-| Schema embarcado | `internal/schema/schema.json` | Substituir pelo `assets/oh-my-opencode.schema.json` upstream (byte-exato) |
-| Schema raiz | `oh-my-opencode.schema.json` | Cópia byte-exata do embarcado |
+| Tipos Go do bloco `[opencode]` | `internal/config/types.go` | Structs, campos, JSON tags com `omitempty`, ponteiros `*bool`/`*float64`/`*int` |
+| Document layer | `internal/config/document.go` | Chaves de topo novas precisam sobreviver ao round-trip; `profiles`/harness blocks |
+| Schema embarcado | `internal/schema/schema.json` | Substituir pelo `assets/omo.schema.json` upstream (byte-exato) |
+| Schema raiz | `omo.schema.json` | Cópia byte-exata do embarcado |
+| Validator | `internal/schema/validator.go` | `GetOpenCodeSchema()` extrai `properties["[opencode]"]`; quebra se o upstream renomear o bloco |
 | Wizard steps | `internal/tui/views/wizard_*.go` | Campos novos editáveis precisam de UI |
 | Testes | `internal/config/types_test.go` | Round-trip de serialização dos campos novos |
 | AGENTS.md | `internal/config/AGENTS.md` | Atualizar contagem de tipos/campos |
@@ -117,16 +147,21 @@ antes de editar — isso vira a base da Fase 5.
 ### Fase 4 — Drift de código desde o último anchor (sempre, exceto bootstrap)
 
 Mesmo com schema idêntico, o upstream pode ter mudado defaults zod, TSDoc,
-enums, renames ou docs — coisas que o diff de schema sozinho não pega:
+enums, renames, caminhos de config ou docs — coisas que o diff de schema
+sozinho não pega. O upstream é um **monorepo**; os caminhos relevantes:
 
 ```bash
 git -C ~/dev/oh-my-openagent log ${ANCHOR_OLD}..${ANCHOR_NEW} --oneline -- \
-  src/config/schema/ \
-  src/plugin-config.ts \
-  src/plugin-handlers/category-config-resolver.ts \
-  src/plugin-handlers/agent-config-handler.ts \
-  src/tools/delegate-task/constants.ts \
+  packages/omo-config-core/src/schema/ \
+  packages/omo-config-core/src/loader/ \
+  packages/omo-opencode/src/config-migration/ \
+  packages/omo-opencode/src/plugin-config.ts \
+  packages/omo-opencode/src/plugin-handlers/category-config-resolver.ts \
+  packages/omo-opencode/src/plugin-handlers/agent-config-handler.ts \
+  packages/omo-opencode/src/tools/delegate-task/constants.ts \
+  assets/omo.schema.json \
   docs/reference/configuration.md \
+  docs/reference/omo-json.md \
   docs/guide/ \
   package.json \
   CHANGELOG.md
@@ -136,14 +171,18 @@ Para cada commit relevante, `git show --stat <sha>` e classifique:
 
 | Sinal upstream | Implicação omo-profiler |
 |---|---|
-| Novo campo em `src/config/schema/oh-my-opencode-config.ts` | Adicionar a `types.go` + wizard se o schema o expôs |
+| Novo campo em `packages/omo-config-core/src/schema/` | Adicionar a `types.go` + wizard se o schema o expôs |
+| Mudança em `loader/paths.ts` | Revisar `internal/config/paths.go` (nome/precedência de arquivo, `.jsonc`) |
+| Mudança em `loader/resolution.ts` | Revisar precedência de ativação em `internal/profile/active.go` |
+| Mudança em `loader/merge.ts` | (removido) `Apply` substitui verbatim; merge não é mais usado — revisar se upstream mudar |
+| Novo harness block (`[...]`) | Document layer precisa preservá-lo; avaliar suporte no editor |
+| Mudança em `config-migration/` | Revisar detecção de legado e o caminho de importação |
 | Mudança em zod `.default(...)` | Atualizar wizard placeholder/hint |
 | Novo TSDoc em campo | Atualizar tooltip/label do wizard |
 | Novo enum value | Atualizar picker do wizard |
 | Rename de campo no schema | BREAKING — avaliar migração de profiles existentes |
 | Bump em `package.json` | Registrar para a mensagem de commit |
-| Mudança em `docs/reference/configuration.md` | Revisar texto do wizard |
-| Novos defaults em `category-config-resolver.ts` | Sincronizar `wizard_categories_defaults.go` |
+| Mudança em `docs/reference/` | Revisar texto do wizard e AGENTS.md |
 
 Sem commits relevantes → reporte "sem drift de código" e siga. Em bootstrap
 (`BOOTSTRAP=1`), pule esta fase — não há baseline para o `log` range.
@@ -153,14 +192,14 @@ Sem commits relevantes → reporte "sem drift de código" e siga. Em bootstrap
 Aplique todas as mudanças identificadas nas Fases 3 e 4:
 - Sincronize schema embarcado e raiz (cópia byte-exata do upstream).
 - Atualize os tipos Go conforme a Fase 3.
-- Atualize wizard, defaults e tooltips conforme Fases 3 e 4.
+- Atualize document layer, wizard, defaults e tooltips conforme Fases 3 e 4.
 - Atualize testes (round-trip dos campos novos).
 - Atualize `internal/config/AGENTS.md` (contagem de tipos).
 
 ### Fase 6-7 — Validação e persistência do anchor
 
 ```bash
-~/dev/skills/update-omo-profiler/scripts/finalize.sh
+.agents/skills/update-omo-profiler/scripts/finalize.sh
 ```
 
 Roda `make build`, `make test`, `make lint` e confere que os sha256 dos 3
@@ -170,6 +209,10 @@ mensagem de commit sugerida (`chore(schema): sync to oh-my-openagent
 v<versão> (<sha curto>)`) para você incluir no mesmo commit das mudanças.
 Qualquer falha aborta sem persistir o anchor e sem sugerir commit — nunca
 commite mudanças parciais.
+
+**Nunca** avance o anchor antes de terminar as Fases 3-5. Um anchor
+prematuro faz o próximo `preflight.sh` reportar `NO_CHANGES` e esconder do
+range justamente os commits que você ainda não implementou.
 
 ## Comportamento de bootstrap
 

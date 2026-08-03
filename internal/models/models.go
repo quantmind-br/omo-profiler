@@ -2,10 +2,12 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/diogenes/omo-profiler/internal/config"
 )
@@ -14,6 +16,16 @@ type RegisteredModel struct {
 	DisplayName string `json:"displayName"`
 	ModelID     string `json:"modelId"`
 	Provider    string `json:"provider"`
+}
+
+// ModelNotFoundError is returned when no model matches (Provider, ModelID).
+type ModelNotFoundError struct {
+	Provider string
+	ModelID  string
+}
+
+func (e *ModelNotFoundError) Error() string {
+	return fmt.Sprintf("model with provider '%s' and ID '%s' not found", e.Provider, e.ModelID)
 }
 
 // ModelExistsError is returned when a model with the same (Provider, ModelID) already exists.
@@ -89,22 +101,24 @@ func (r *ModelsRegistry) Save() error {
 		return err
 	}
 
-	return os.WriteFile(config.ModelsFile(), data, 0644)
+	return config.WriteFileAtomic(config.ModelsFile(), data, 0644)
 }
 
-// Add adds a new model to the registry. Errors if the (Provider, ModelID) pair already exists.
-func (r *ModelsRegistry) Add(m RegisteredModel) error {
+// add inserts m in memory. Errors if the (Provider, ModelID) pair already
+// exists. Persisting is the caller's job — use the package-level Add.
+func (r *ModelsRegistry) add(m RegisteredModel) error {
 	for _, existing := range r.Models {
 		if existing.ModelID == m.ModelID && existing.Provider == m.Provider {
 			return &ModelExistsError{Provider: m.Provider, ModelID: m.ModelID}
 		}
 	}
 	r.Models = append(r.Models, m)
-	return r.Save()
+	return nil
 }
 
-// Update updates an existing model identified by (provider, modelId). Supports renaming ModelID.
-func (r *ModelsRegistry) Update(provider, modelId string, m RegisteredModel) error {
+// update replaces an existing model in memory, identified by (provider,
+// modelId). Supports renaming ModelID. Use the package-level Update to persist.
+func (r *ModelsRegistry) update(provider, modelId string, m RegisteredModel) error {
 	idx := -1
 	for i, existing := range r.Models {
 		if existing.ModelID == modelId && existing.Provider == provider {
@@ -114,7 +128,7 @@ func (r *ModelsRegistry) Update(provider, modelId string, m RegisteredModel) err
 	}
 
 	if idx == -1 {
-		return fmt.Errorf("model with provider '%s' and ID '%s' not found", provider, modelId)
+		return &ModelNotFoundError{Provider: provider, ModelID: modelId}
 	}
 
 	// Check for conflict if renaming
@@ -127,11 +141,12 @@ func (r *ModelsRegistry) Update(provider, modelId string, m RegisteredModel) err
 	}
 
 	r.Models[idx] = m
-	return r.Save()
+	return nil
 }
 
-// Delete removes a model identified by (provider, modelId).
-func (r *ModelsRegistry) Delete(provider, modelId string) error {
+// remove drops a model in memory, identified by (provider, modelId). Use the
+// package-level Delete to persist.
+func (r *ModelsRegistry) remove(provider, modelId string) error {
 	idx := -1
 	for i, existing := range r.Models {
 		if existing.ModelID == modelId && existing.Provider == provider {
@@ -141,11 +156,81 @@ func (r *ModelsRegistry) Delete(provider, modelId string) error {
 	}
 
 	if idx == -1 {
-		return fmt.Errorf("model with provider '%s' and ID '%s' not found", provider, modelId)
+		return &ModelNotFoundError{Provider: provider, ModelID: modelId}
 	}
 
 	r.Models = append(r.Models[:idx], r.Models[idx+1:]...)
-	return r.Save()
+	return nil
+}
+
+// regMutex serializes read-modify-write cycles on models.json.
+//
+// The registry is one file rewritten in full, so two concurrent mutations that
+// each load, edit and save would silently drop one of the changes. The web
+// server handles requests on separate goroutines, which is where this bites.
+//
+// Scope: this guards one process, like the config document's lock.
+var regMutex sync.Mutex
+
+// Mutate runs fn against the registry as a serialized transaction: load, apply
+// fn, save. Returning an error aborts before any write.
+//
+// fn must not call Mutate (the lock is not reentrant) and must not call Save.
+func Mutate(fn func(*ModelsRegistry) error) error {
+	regMutex.Lock()
+	defer regMutex.Unlock()
+
+	reg, err := Load()
+	if err != nil {
+		return err
+	}
+	if err := fn(reg); err != nil {
+		return err
+	}
+	return reg.Save()
+}
+
+// Add registers a new model, failing with *ModelExistsError when the
+// (Provider, ModelID) pair is taken. The check and the write share one
+// transaction.
+func Add(m RegisteredModel) error {
+	return Mutate(func(r *ModelsRegistry) error { return r.add(m) })
+}
+
+// AddMany registers every model that is not already present, in one
+// transaction, and reports how many were added and how many were skipped as
+// duplicates. A bulk import is a single file write, not one per model.
+func AddMany(list []RegisteredModel) (added, skipped int, err error) {
+	err = Mutate(func(r *ModelsRegistry) error {
+		added, skipped = 0, 0
+		for _, m := range list {
+			switch addErr := r.add(m); {
+			case addErr == nil:
+				added++
+			case errors.As(addErr, new(*ModelExistsError)):
+				skipped++
+			default:
+				return addErr
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	return added, skipped, nil
+}
+
+// Update replaces the model identified by (provider, modelId), optionally
+// renaming it. Lookup and write share one transaction.
+func Update(provider, modelId string, m RegisteredModel) error {
+	return Mutate(func(r *ModelsRegistry) error { return r.update(provider, modelId, m) })
+}
+
+// Delete removes the model identified by (provider, modelId). Lookup and write
+// share one transaction.
+func Delete(provider, modelId string) error {
+	return Mutate(func(r *ModelsRegistry) error { return r.remove(provider, modelId) })
 }
 
 // Get retrieves a model by (provider, modelId).

@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -406,6 +407,54 @@ func TestDoSwitchProfile(t *testing.T) {
 	if result.name != "test-profile" {
 		t.Errorf("expected name 'test-profile', got '%s'", result.name)
 	}
+
+	// No profile is seeded, so Apply fails with NotFoundError.
+	if result.err == nil {
+		t.Fatal("expected error for non-existent profile")
+	}
+	if result.snapshot != "" {
+		t.Fatalf("expected empty snapshot on error, got %q", result.snapshot)
+	}
+}
+
+func TestSwitchProfileDoneMsgSurfacesToast(t *testing.T) {
+	app := NewApp()
+	app.width = 80
+	app.height = 24
+	app.ready = true
+	app.loading = true
+
+	updated, _ := app.Update(switchProfileDoneMsg{
+		name:    "demo",
+		snapshot: "base",
+	})
+	a := updated.(App)
+
+	if a.loading {
+		t.Error("expected loading to be cleared")
+	}
+	if a.state != stateDashboard {
+		t.Fatalf("expected stateDashboard, got %v", a.state)
+	}
+
+	// The handler returns a toast command; process it to set the toast state.
+	updated, _ = a.Update(toastMsg{
+		text:     "Applied demo (previous config saved as base)",
+		typ:      toastSuccess,
+		duration: 3 * time.Second,
+	})
+	a = updated.(App)
+
+	view := a.View()
+	if !contains(view, "Applied demo") {
+		t.Error("expected 'Applied demo' toast in view")
+	}
+	if !contains(view, "previous config saved as base") {
+		t.Error("expected snapshot message in view")
+	}
+	if contains(view, "Run this in your shell") {
+		t.Error("view must not contain shell command banner")
+	}
 }
 
 func TestDoDeleteProfile(t *testing.T) {
@@ -426,4 +475,8 @@ func TestDoDeleteProfile(t *testing.T) {
 	if result.name != "test-profile" {
 		t.Errorf("expected name 'test-profile', got '%s'", result.name)
 	}
+}
+
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }

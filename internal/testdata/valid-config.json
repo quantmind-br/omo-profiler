@@ -178,11 +178,10 @@
     "git-master",
     "playwright"
   ],
-  "ralph_loop": {
+  "goal": {
     "enabled": true,
-    "default_max_iterations": 50,
-    "state_dir": "/tmp/ralph",
-    "default_strategy": "continue"
+    "auto_start": false,
+    "default_max_iterations": 50
   },
   "runtime_fallback": {
     "enabled": true,

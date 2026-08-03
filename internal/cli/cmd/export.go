@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -14,7 +13,7 @@ var exportForce bool
 var ExportCmd = &cobra.Command{
 	Use:   "export <name> <path>",
 	Short: "Export a profile to a file",
-	Long:  `Exports the specified profile to a JSON file at the given path.`,
+	Long:  `Exports the specified profile block from ~/.omo/omo.json to a flat JSON file at the given path.`,
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -32,15 +31,11 @@ var ExportCmd = &cobra.Command{
 			}
 		}
 
-		p, err := profile.Load(name)
+		// Export the stored block verbatim so an export/import round-trip is
+		// lossless; marshalling the typed Config drops explicit zero values.
+		data, err := profile.ExportOpenCode(name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to load profile: %v\n", err)
-			os.Exit(1)
-		}
-
-		data, err := json.MarshalIndent(p.Config, "", "  ")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to marshal profile: %v\n", err)
 			os.Exit(1)
 		}
 

@@ -68,7 +68,6 @@ func TestDashboardUpdateProfileLoadedMsg(t *testing.T) {
 
 	active := &profile.ActiveConfig{
 		Exists:      true,
-		IsOrphan:    false,
 		ProfileName: "test-profile",
 	}
 
@@ -331,7 +330,6 @@ func TestDashboardViewWithActiveProfile(t *testing.T) {
 
 	d.activeProfile = &profile.ActiveConfig{
 		Exists:      true,
-		IsOrphan:    false,
 		ProfileName: "test-profile",
 	}
 	d.profileCount = 5
@@ -358,7 +356,7 @@ func TestDashboardViewWithNoActiveProfile(t *testing.T) {
 	d.SetSize(80, 24)
 
 	d.activeProfile = &profile.ActiveConfig{
-		Exists: false,
+		Exists: true,
 	}
 	d.profileCount = 0
 
@@ -504,5 +502,28 @@ func TestDashboardKeyMap(t *testing.T) {
 			// Just verify the help is set
 			t.Logf("%s key binding help: %s", tt.name, help.Key)
 		})
+	}
+}
+
+func TestDashboardViewWithModifiedRoot(t *testing.T) {
+	d := NewDashboard()
+	d.SetSize(80, 24)
+
+	d.activeProfile = &profile.ActiveConfig{
+		Exists:   true,
+		Modified: true,
+	}
+	d.profileCount = 2
+
+	view := d.View()
+
+	if !contains(view, "custom") {
+		t.Error("expected 'custom' in view for modified root")
+	}
+	if !contains(view, "matches no profile") {
+		t.Error("expected 'matches no profile' in view for modified root")
+	}
+	if contains(view, "(None)") {
+		t.Error("did not expect '(None)' for Modified root")
 	}
 }

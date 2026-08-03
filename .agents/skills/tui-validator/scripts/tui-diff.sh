@@ -45,8 +45,11 @@ prep() {
   fi
 }
 
-added=$(diff <(prep "$fa") <(prep "$fb") | grep -c '^>') || true
-removed=$(diff <(prep "$fa") <(prep "$fb") | grep -c '^<') || true
+# Single diff pass; count added/removed lines with one awk sweep.
+read -r added removed < <(
+  diff <(prep "$fa") <(prep "$fb") \
+    | awk '/^>/ { a++ } /^</ { r++ } END { printf "%d %d\n", a+0, r+0 }'
+)
 identical=0
 if [[ "$added" == "0" && "$removed" == "0" ]]; then identical=1; fi
 

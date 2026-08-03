@@ -1,0 +1,32 @@
+--- sbx (modo da caça):
+SB-GRAVAVEL
+PRESENTE-NO-SANDBOX: /home/diogo
+ESCRITA-FORA-DE-SB: /home/diogo
+AUSENTE-NO-SANDBOX: /home/diogo/dev/omo-profiler
+sh: linha 5: /home/diogo/dev/omo-profiler/bughunt-canario-398595-9478: Arquivo ou diretório inexistente
+ESCRITA-NEGADA:      /home/diogo/dev/omo-profiler
+HOME-DENTRO=/tmp/tmp.arEwbyb9d0/home
+VISIVEL-NO-HOME-REAL=[bughunt-canario-398595-9478 .rustup .rustup/settings.toml .rustup/toolchains ]
+GIT-CONFIG: user.email=bughunt@sandbox.invalid
+GIT-CONFIG: user.name=Bughunt Bot
+REDE-BLOQUEADA
+--- sbx_net (pré-aquecimento):
+SB-GRAVAVEL
+PRESENTE-NO-SANDBOX: /home/diogo
+ESCRITA-FORA-DE-SB: /home/diogo
+AUSENTE-NO-SANDBOX: /home/diogo/dev/omo-profiler
+sh: linha 5: /home/diogo/dev/omo-profiler/bughunt-canario-398595-9478: Arquivo ou diretório inexistente
+ESCRITA-NEGADA:      /home/diogo/dev/omo-profiler
+HOME-DENTRO=/tmp/tmp.arEwbyb9d0/home
+VISIVEL-NO-HOME-REAL=[bughunt-canario-398595-9478 .rustup .rustup/settings.toml .rustup/toolchains ]
+GIT-CONFIG: user.email=bughunt@sandbox.invalid
+GIT-CONFIG: user.name=Bughunt Bot
+REDE-ATIVA
+HOST-LIMPO: /home/diogo/bughunt-canario-398595-9478
+HOST-LIMPO: /home/diogo/dev/omo-profiler/bughunt-canario-398595-9478
+CONFIG-GIT-OK
+CONFIG-GIT-OK
+RECUSADO: bughunt-probe-398595-7707 -> /home/diogo/bin/bughunt-probe-398595-7707 : fora dos prefixos aprovados
+RECUSA-OK
+SANDBOX-VERIFICADO
+VERIFY_RC=0

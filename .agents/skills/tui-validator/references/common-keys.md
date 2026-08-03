@@ -58,14 +58,19 @@ passed `--allow-destructive` (or equivalent verbal go-ahead).
 `d` `D` `x` `X` `Delete` `Backspace` (in non-input mode) `C-k` `C-w` `C-u`
 `!` (shell escape in some pagers) `:q!` (force-quit prompts)
 
-When skipping a danger key, write a finding with severity `info`:
+When skipping a danger key, write a finding with severity `info` (use the
+canonical `{"findings": [...]}` wrapper — see `pitfalls.md`):
 
 ```json
 {
-  "severity": "info",
-  "title": "Skipped destructive key: d",
-  "phase": "probe",
-  "description": "Key was on the danger list. Re-run with --allow-destructive to test."
+  "findings": [
+    {
+      "severity": "info",
+      "title": "Skipped destructive key: d",
+      "phase": "probe",
+      "description": "Key was on the danger list. Re-run with --allow-destructive to test."
+    }
+  ]
 }
 ```
 

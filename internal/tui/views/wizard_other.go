@@ -61,9 +61,7 @@ var disableableSkills = []string{
 
 // Disableable commands - matches schema disabled_commands enum
 var disableableCommands = []string{
-	"ralph-loop",
-	"ulw-loop",
-	"cancel-ralph",
+	"goal",
 	"refactor",
 	"start-work",
 	"stop-continuation",
@@ -84,7 +82,6 @@ var browserProviders = []string{"", "playwright", "playwright-cli", "agent-brows
 var tmuxLayouts = []string{"", "main-horizontal", "main-vertical", "tiled", "even-horizontal", "even-vertical"}
 var tmuxIsolations = []string{"", "inline", "window", "session"}
 var websearchProviders = []string{"", "exa", "tavily"}
-var ralphLoopStrategies = []string{"", "reset", "continue"}
 
 // Sections in the other settings
 type otherSection int
@@ -99,7 +96,7 @@ const (
 	sectionExperimental
 	sectionClaudeCode
 	sectionSisyphusAgent
-	sectionRalphLoop
+	sectionGoal
 	sectionBackgroundTask
 	sectionNotification
 	sectionGitMaster
@@ -138,7 +135,7 @@ var otherSectionNames = []string{
 	"Experimental",
 	"Claude Code",
 	"Sisyphus Agent",
-	"Ralph Loop",
+	"Goal",
 	"Background Task",
 	"Notification",
 	"Git Master",
@@ -197,7 +194,7 @@ var categorySections = [][]otherSection{
 	// categoryClaudeCode
 	{sectionClaudeCode, sectionModelCapabilities},
 	// categoryAgentsLoops
-	{sectionDefaultRunAgent, sectionAgentOrder, sectionSisyphusAgent, sectionSisyphus, sectionRalphLoop, sectionBabysitting, sectionCommentChecker, sectionTeamMode},
+	{sectionDefaultRunAgent, sectionAgentOrder, sectionSisyphusAgent, sectionSisyphus, sectionGoal, sectionBabysitting, sectionCommentChecker, sectionTeamMode},
 	// categoryInfrastructure
 	{sectionBackgroundTask, sectionTmux, sectionBrowserAutomationEngine, sectionWebsearch, sectionNotification, sectionGitMaster, sectionMonitor, sectionCodegraph},
 	// categoryAdvanced
@@ -311,11 +308,10 @@ type WizardOther struct {
 	saReplacePlan           bool
 	saTDD                   bool
 
-	// Ralph Loop
-	rlEnabled              bool
-	rlDefaultMaxIterations textinput.Model
-	rlStateDir             textinput.Model
-	rlDefaultStrategyIdx   int
+	// Goal
+	goalEnabled              bool
+	goalAutoStart            bool
+	goalDefaultMaxIterations textinput.Model
 
 	// Background Task
 	btDefaultConcurrency        textinput.Model
@@ -348,7 +344,8 @@ type WizardOther struct {
 	babysittingTimeoutMs textinput.Model
 
 	// Browser Automation Engine
-	browserProviderIdx int
+	browserProviderIdx   int
+	baePlaywrightMCPArgs textinput.Model
 
 	// Tmux
 	tmuxEnabled           bool
@@ -419,6 +416,8 @@ type WizardOther struct {
 	cgAutoInit        bool
 	cgAutoProvision   bool
 	cgEnabled         bool
+	cgDaemon          bool
+	cgExcludedRoots   textinput.Model
 	cgInstallDir      textinput.Model
 	cgTelemetry       bool
 	cgWatchDebounceMs textinput.Model
@@ -461,13 +460,9 @@ func NewWizardOther() WizardOther {
 	mcpEnvAllowlist.Placeholder = "ENV_VAR1, ENV_VAR2, ..."
 	mcpEnvAllowlist.Width = 50
 
-	rlMaxIter := textinput.New()
-	rlMaxIter.Placeholder = "10"
-	rlMaxIter.Width = 10
-
-	rlStateDir := textinput.New()
-	rlStateDir.Placeholder = "/path/to/state"
-	rlStateDir.Width = 40
+	goalMaxIter := textinput.New()
+	goalMaxIter.Placeholder = "100"
+	goalMaxIter.Width = 10
 
 	btConcurrency := textinput.New()
 	btConcurrency.Placeholder = "4"
@@ -712,6 +707,14 @@ func NewWizardOther() WizardOther {
 	cgInstallDir.Placeholder = "/path/to/codegraph"
 	cgInstallDir.Width = 40
 
+	cgExcludedRoots := textinput.New()
+	cgExcludedRoots.Placeholder = "/path/one, /path/two"
+	cgExcludedRoots.Width = 40
+
+	baePlaywrightMCPArgs := textinput.New()
+	baePlaywrightMCPArgs.Placeholder = "--headless, --no-sandbox"
+	baePlaywrightMCPArgs.Width = 40
+
 	cgWatchDebounceMs := textinput.New()
 	cgWatchDebounceMs.Placeholder = "300"
 	cgWatchDebounceMs.Width = 10
@@ -725,8 +728,7 @@ func NewWizardOther() WizardOther {
 		mcpEnvAllowlist:             mcpEnvAllowlist,
 		expPluginLoadTimeoutMs:      expPluginLoadTimeoutMs,
 		expMaxTools:                 expMaxTools,
-		rlDefaultMaxIterations:      rlMaxIter,
-		rlStateDir:                  rlStateDir,
+		goalDefaultMaxIterations:    goalMaxIter,
 		btDefaultConcurrency:        btConcurrency,
 		btProviderConcurrency:       btProviderConcurrency,
 		btModelConcurrency:          btModelConcurrency,
@@ -779,7 +781,9 @@ func NewWizardOther() WizardOther {
 		monRingMaxLines:             monRingMaxLines,
 		monLineMaxBytes:             monLineMaxBytes,
 		monPatternMaxLength:         monPatternMaxLength,
+		cgExcludedRoots:             cgExcludedRoots,
 		cgInstallDir:                cgInstallDir,
+		baePlaywrightMCPArgs:        baePlaywrightMCPArgs,
 		cgWatchDebounceMs:           cgWatchDebounceMs,
 		tmuxLayoutIdx:               2,
 		tmuxIsolationIdx:            3,
@@ -816,8 +820,7 @@ func (w *WizardOther) SetSize(width, height int) {
 	wide := layout.WideFieldWidth(width, 10)
 	w.disabledMcps.Width = wide
 	w.disabledTools.Width = wide
-	w.rlDefaultMaxIterations.Width = layout.FixedSmallWidth()
-	w.rlStateDir.Width = wide
+	w.goalDefaultMaxIterations.Width = layout.FixedSmallWidth()
 	w.btDefaultConcurrency.Width = layout.FixedSmallWidth()
 	w.btProviderConcurrency.Width = wide
 	w.btModelConcurrency.Width = wide
@@ -871,7 +874,9 @@ func (w *WizardOther) SetSize(width, height int) {
 	w.monRingMaxLines.Width = layout.FixedSmallWidth()
 	w.monLineMaxBytes.Width = layout.FixedSmallWidth()
 	w.monPatternMaxLength.Width = layout.FixedSmallWidth()
+	w.cgExcludedRoots.Width = wide
 	w.cgInstallDir.Width = wide
+	w.baePlaywrightMCPArgs.Width = wide
 	w.cgWatchDebounceMs.Width = layout.FixedSmallWidth()
 	w.refreshView()
 }

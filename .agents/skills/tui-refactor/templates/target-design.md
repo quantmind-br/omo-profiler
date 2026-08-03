@@ -25,6 +25,15 @@
 
 <which of the 14 principles drive the biggest changes here, and how>
 
+## Accessibility summary
+
+> Required when the ambition is a bold redesign; `n/a — <reason>` for a
+> conservative cleanup. Full detail lives in `09-accessibility.md`.
+
+- **No color-only signals:** <how state is shown besides color (glyph/label)>
+- **Color-tier fallback:** <truecolor → 16-color → monochrome behavior>
+- **Keyboard-only path:** <every action reachable without a mouse>
+
 ## Open design questions
 
 - <decisions still owed by the user>

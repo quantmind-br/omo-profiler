@@ -4,8 +4,8 @@ package views
 // Includes only description and prompt_append (model/variant are upstream defaults).
 
 type defaultCategory struct {
-	Name        string
-	Description string
+	Name         string
+	Description  string
 	PromptAppend string
 }
 

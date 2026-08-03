@@ -56,7 +56,7 @@ case views.NavToWizardMsg:
 | ModelSelector | `ModelSelectedMsg`, `ModelSelectorCancelMsg`, `PromptSaveCustomMsg` |
 
 ### Async Operations (tea.Cmd factories on App)
-- `doSwitchProfile` → `switchProfileDoneMsg{name, err}`
+- `doSwitchProfile` → `switchProfileDoneMsg{name, err}` (emits export command; no document mutation)
 - `doDeleteProfile` → `deleteProfileDoneMsg{name, err}`
 - `doImportProfile` → `importProfileDoneMsg{profileName, hadCollision, err}`
 - `doExportProfile` → `exportProfileDoneMsg{path, err}`
@@ -98,17 +98,19 @@ type WizardStep interface {
 6. `StepReview` → `wizard_review.go` (Final JSON validation & save confirmation)
 
 ## Config Schema Safety
-`internal/config/types.go` is the schema authority:
-- JSON tags must match upstream schema exactly
+`internal/config/types.go` models the flat `[opencode]` block (`config.Config`):
+- JSON tags must match the `[opencode]` sub-schema exactly
 - Use pointers (`*bool`) to distinguish false from missing
 - Keep structs pure — no methods, only data
 - Use `json.RawMessage` for flexible fields like `skills`
 - All JSON tags require `omitempty` to avoid dirty config files
+- The whole omo file is `config.Document`; forms use `schema.GetOpenCodeSchema()`
 
 ## Testing Patterns
 - Tests co-located with source (`*_test.go`)
 - **MANDATORY**: Use `config.SetBaseDir(t.TempDir())` for filesystem isolation
 - Always call `defer config.ResetBaseDir()` or use cleanup helper
+- Seed profiles into the omo document (`SetProfileBlock` + `Save`), not as separate files
 - Example:
 ```go
 func setupTestEnv(t *testing.T) func() {
@@ -120,23 +122,29 @@ func setupTestEnv(t *testing.T) func() {
 - Assertions via `github.com/stretchr/testify`
 
 ## Profile Persistence
-- Storage: `~/.config/opencode/profiles/<name>.json`
-- Active config: `~/.config/opencode/oh-my-opencode.json`
-- Switching: **COPY** content, don't symlink (for fsnotify compatibility)
-- State tracking: Hidden `.active-profile` JSON sidecar → O(1) lookup, with O(N) content-scan fallback
-- Comparison: `MatchesConfig` normalizes data (strips `$schema`) before byte-for-byte comparison
+- Storage: `profiles.<name>` inside `~/.omo/omo.json` (or `omo.jsonc` when present)
+- Editable payload: `profiles.<name>.[opencode]` (`config.Config`)
+- Activation: env-driven (`Apply` + `ActiveName` root comparison)
+- `Apply` substitutes profile keys into the document root (snapshotting the previous root if unmatched) (UI hint only — not authoritative)
+- Comparison: `ActiveName` detects the applied profile via `canonicalJSON` comparison
 
 ## Backup System (`internal/backup/`)
-- `Create(configPath)` → timestamped backup (`oh-my-opencode.json.bak.YYYY-MM-DD-HHMMSS`)
+- `Create(config.OmoFile())` → timestamped backup (`omo.json.bak.YYYY-MM-DD-HHMMSS`) before mutating writes
+- Switch does not mutate the document and needs no backup
 - `List()` → all backups sorted most recent first
-- `Restore(backupPath)` → overwrites active config with backup
+- `Restore(backupPath)` → overwrites current omo file with backup
 - `Clean(keepLast)` → rotation, removes old backups beyond threshold
 
 ## Anti-Patterns (NEVER DO)
 - Direct state mutation in views (always use messages)
 - Blocking I/O in Update() (use tea.Cmd)
-- Hardcoded paths (use `config.ConfigDir()` / `config.ProfilesDir()`)
+- Hardcoded paths (use `config.OmoDir()` / `config.OmoFile()` / `config.ModelsFile()`)
 - Raw hex colors in views (use `internal/tui/styles.go`)
 - Modifying config.Config directly in wizard steps (use Apply())
-- Symlinking for profile switching (always copy)
+- Copying or symlinking to "activate" a profile (activation is env-driven)
+- Treating `.omo-profiler-selection` / any `.active-profile` as authoritative activation
 - Type suppression (`as any`, `//nolint`, etc.)
+
+## Sparse profile writes
+
+Wizard/editor sparse saves: `profile.MarshalSparse` → `profile.WriteOpenCodeBlockInto` / `SaveOpenCodeBlock` into `profiles.<name>.[opencode]`. Do not use `Profile.Save` for that path (`omitempty` drops explicit zeros). Activation remains env-only via `Apply` → `export profile via `Apply`<name>`.

@@ -18,7 +18,7 @@ var importName string
 var ImportCmd = &cobra.Command{
 	Use:   "import <path>",
 	Short: "Import a profile from a JSON file",
-	Long:  `Imports a profile from a JSON file. The file must conform to the oh-my-openagent config schema.`,
+	Long:  `Imports a flat JSON config as a profile block in ~/.omo/omo.json. The file must conform to the omo config schema ([opencode] / flat-config shape).`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		sourcePath := args[0]
@@ -33,8 +33,9 @@ var ImportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var cfg config.Config
-		if err := json.Unmarshal(data, &cfg); err != nil {
+		// Type-check the payload before storing it verbatim; the file itself
+		// is what gets written, so explicit empty values survive.
+		if err := json.Unmarshal(data, &config.Config{}); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: invalid JSON: %v\n", err)
 			os.Exit(1)
 		}
@@ -75,21 +76,10 @@ var ImportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Name selection and the write share one transaction.
 		baseName := profileName
-		hadCollision := false
-		suffix := 1
-		for profile.Exists(profileName) {
-			hadCollision = true
-			profileName = fmt.Sprintf("%s-%d", baseName, suffix)
-			suffix++
-		}
-
-		p := &profile.Profile{
-			Name:   profileName,
-			Config: cfg,
-		}
-
-		if err := profile.Save(p); err != nil {
+		profileName, hadCollision, err := profile.CreateAvailable(baseName, data)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to save profile: %v\n", err)
 			os.Exit(1)
 		}

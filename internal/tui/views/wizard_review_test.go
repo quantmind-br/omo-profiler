@@ -2,8 +2,6 @@ package views
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -424,14 +422,8 @@ func TestWizardReviewPreviewMatchesSparseSaveOutput(t *testing.T) {
 		t.Fatalf("save failed: %v", msg.err)
 	}
 
-	saved, err := os.ReadFile(filepath.Join(config.ProfilesDir(), "preview-save-match.json"))
-	if err != nil {
-		t.Fatalf("read saved profile: %v", err)
-	}
-
-	if string(saved) != wr.jsonPreview {
-		t.Fatalf("saved output mismatch\npreview:\n%s\n\nsaved:\n%s", wr.jsonPreview, string(saved))
-	}
+	saved := readSavedOpenCode(t, "preview-save-match")
+	assertJSONEqual(t, saved, wr.jsonPreview, "saved output")
 }
 
 func TestWizardReviewBlankProfileSavesAsEmptyObject(t *testing.T) {
@@ -467,17 +459,9 @@ func TestWizardReviewBlankProfileSavesAsEmptyObject(t *testing.T) {
 		t.Fatalf("save failed: %v", msg.err)
 	}
 
-	saved, err := os.ReadFile(filepath.Join(config.ProfilesDir(), "blank-profile.json"))
-	if err != nil {
-		t.Fatalf("read saved profile: %v", err)
-	}
-
-	if string(saved) != "{}" {
-		t.Fatalf("expected saved profile to be {}, got %q", string(saved))
-	}
-	if string(saved) != wr.jsonPreview {
-		t.Fatalf("preview/save mismatch: preview=%q saved=%q", wr.jsonPreview, string(saved))
-	}
+	saved := readSavedOpenCode(t, "blank-profile")
+	assertJSONEqual(t, saved, "{}", "blank profile")
+	assertJSONEqual(t, saved, wr.jsonPreview, "preview/save")
 }
 
 func selectedFields(paths ...string) *profile.FieldSelection {

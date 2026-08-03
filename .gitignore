@@ -39,3 +39,8 @@ Thumbs.db
 
 # Sisyphus planning (project management metadata)
 .sisyphus/
+
+# Web frontend (embedded SPA)
+internal/web/frontend/node_modules/
+internal/web/frontend/dist/*
+!internal/web/frontend/dist/.gitkeep

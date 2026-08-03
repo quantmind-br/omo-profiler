@@ -18,6 +18,10 @@ var (
 	validatorInstance *Validator
 	validatorOnce     sync.Once
 	validatorErr      error
+
+	// openCodeSchemaJSON is the `[opencode]` sub-schema carved out of the omo
+	// document schema. Populated by GetValidator.
+	openCodeSchemaJSON []byte
 )
 
 // ValidationError represents a single validation error
@@ -30,27 +34,67 @@ func (e ValidationError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Path, e.Message)
 }
 
-// Validator validates configs against the embedded schema
+// Validator validates omo documents and the OpenCode harness blocks inside them.
 type Validator struct {
+	// schema validates a flat `[opencode]` config, i.e. a config.Config.
 	schema *gojsonschema.Schema
+	// documentSchema validates a whole omo.json document.
+	documentSchema *gojsonschema.Schema
 }
 
-// GetEmbeddedSchema returns the raw embedded JSON schema bytes.
+// GetEmbeddedSchema returns the raw embedded omo document schema.
 func GetEmbeddedSchema() []byte {
 	return schemaJSON
+}
+
+// GetOpenCodeSchema returns the `[opencode]` sub-schema, which describes the
+// flat configuration omo-profiler edits. It is self-contained (no $ref) and
+// therefore usable standalone, e.g. to drive a schema-rendered form.
+func GetOpenCodeSchema() ([]byte, error) {
+	if _, err := GetValidator(); err != nil {
+		return nil, err
+	}
+	return openCodeSchemaJSON, nil
+}
+
+// extractOpenCodeSchema pulls properties["[opencode]"] out of the document schema.
+func extractOpenCodeSchema(document []byte) ([]byte, error) {
+	var root struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(document, &root); err != nil {
+		return nil, fmt.Errorf("parse embedded schema: %w", err)
+	}
+	sub, ok := root.Properties[config.OpenCodeKey]
+	if !ok {
+		return nil, fmt.Errorf("embedded schema has no %q property", config.OpenCodeKey)
+	}
+	return sub, nil
 }
 
 // GetValidator returns the singleton validator instance.
 // The schema is parsed only once on first call.
 func GetValidator() (*Validator, error) {
 	validatorOnce.Do(func() {
-		loader := gojsonschema.NewBytesLoader(schemaJSON)
-		schema, err := gojsonschema.NewSchema(loader)
+		documentSchema, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaJSON))
 		if err != nil {
 			validatorErr = err
 			return
 		}
-		validatorInstance = &Validator{schema: schema}
+
+		openCodeSchemaJSON, err = extractOpenCodeSchema(schemaJSON)
+		if err != nil {
+			validatorErr = err
+			return
+		}
+
+		openCodeSchema, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(openCodeSchemaJSON))
+		if err != nil {
+			validatorErr = err
+			return
+		}
+
+		validatorInstance = &Validator{schema: openCodeSchema, documentSchema: documentSchema}
 	})
 	return validatorInstance, validatorErr
 }
@@ -102,14 +146,33 @@ func (v *Validator) ValidateForSave(cfg *config.Config) ([]ValidationError, erro
 	return v.ValidateJSONForSave(data)
 }
 
-// ValidateJSON validates raw JSON bytes against the schema
+// ValidateJSON validates raw `[opencode]` config bytes against the schema.
 func (v *Validator) ValidateJSON(data []byte) ([]ValidationError, error) {
-	loader := gojsonschema.NewBytesLoader(data)
-	result, err := v.schema.Validate(loader)
+	return validateBytes(v.schema, data)
+}
+
+// ValidateJSONForSave validates raw `[opencode]` config bytes for the save
+// path while ignoring missing required-field errors.
+func (v *Validator) ValidateJSONForSave(data []byte) ([]ValidationError, error) {
+	return validateBytesForSave(v.schema, data)
+}
+
+// ValidateDocument validates a whole omo.json document.
+func (v *Validator) ValidateDocument(data []byte) ([]ValidationError, error) {
+	return validateBytes(v.documentSchema, data)
+}
+
+// ValidateDocumentForSave validates a whole omo.json document for the save
+// path, tolerating sparse layers that rely on consumer defaults.
+func (v *Validator) ValidateDocumentForSave(data []byte) ([]ValidationError, error) {
+	return validateBytesForSave(v.documentSchema, data)
+}
+
+func validateBytes(s *gojsonschema.Schema, data []byte) ([]ValidationError, error) {
+	result, err := s.Validate(gojsonschema.NewBytesLoader(data))
 	if err != nil {
 		return nil, err
 	}
-
 	if result.Valid() {
 		return nil, nil
 	}
@@ -124,18 +187,14 @@ func (v *Validator) ValidateJSON(data []byte) ([]ValidationError, error) {
 	return errors, nil
 }
 
-// ValidateJSONForSave validates raw JSON bytes for the save path while
-// ignoring missing required-field errors.
-func (v *Validator) ValidateJSONForSave(data []byte) ([]ValidationError, error) {
+func validateBytesForSave(s *gojsonschema.Schema, data []byte) ([]ValidationError, error) {
 	var parsed any
 	_ = json.Unmarshal(data, &parsed)
 
-	loader := gojsonschema.NewBytesLoader(data)
-	result, err := v.schema.Validate(loader)
+	result, err := s.Validate(gojsonschema.NewBytesLoader(data))
 	if err != nil {
 		return nil, err
 	}
-
 	if result.Valid() {
 		return nil, nil
 	}

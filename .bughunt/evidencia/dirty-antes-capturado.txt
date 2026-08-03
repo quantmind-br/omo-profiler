@@ -1,0 +1,122 @@
+ M .agents/skills/tui-refactor/SKILL.md
+ M .agents/skills/tui-refactor/references/design-principles.md
+ M .agents/skills/tui-refactor/references/keybinding-conventions.md
+ M .agents/skills/tui-refactor/references/refactor-planning.md
+ M .agents/skills/tui-refactor/scripts/tui-refactor-assemble-report.sh
+ M .agents/skills/tui-refactor/scripts/tui-refactor-detect.sh
+ M .agents/skills/tui-refactor/scripts/tui-refactor-init.sh
+ M .agents/skills/tui-refactor/templates/target-design.md
+ M .agents/skills/tui-validator/SKILL.md
+ M .agents/skills/tui-validator/references/common-keys.md
+ M .agents/skills/tui-validator/references/pitfalls.md
+ M .agents/skills/tui-validator/scripts/tui-cleanup.sh
+ M .agents/skills/tui-validator/scripts/tui-diff.sh
+ M .agents/skills/tui-validator/scripts/tui-report.sh
+ M .agents/skills/tui-validator/scripts/tui-screenshot.sh
+ M .agents/skills/update-omo-profiler/SKILL.md
+ M .agents/skills/update-omo-profiler/scripts/finalize.sh
+ M .agents/skills/update-omo-profiler/scripts/preflight.sh
+ D .claude/skills/gitnexus/gitnexus-cli/SKILL.md
+ D .claude/skills/gitnexus/gitnexus-debugging/SKILL.md
+ D .claude/skills/gitnexus/gitnexus-exploring/SKILL.md
+ D .claude/skills/gitnexus/gitnexus-guide/SKILL.md
+ D .claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md
+ D .claude/skills/gitnexus/gitnexus-refactoring/SKILL.md
+ D .claude/skills/tui-refactor
+ D .claude/skills/tui-validator
+ M .gitignore
+ M .opencode/command/update-omo-profiler.md
+ M .serena/memories/architecture_patterns.md
+ M .serena/memories/common_tasks.md
+ M .serena/memories/development_workflow.md
+ M .serena/memories/project_overview.md
+ M .serena/memories/schema_management.md
+ M AGENTS.md
+ M ARCHITECTURE.md
+ T CLAUDE.md
+ M Makefile
+ M README.md
+ M TUI_AUDIT.md
+ M internal/backup/backup.go
+ M internal/backup/backup_test.go
+ M internal/cli/cmd/AGENTS.md
+ M internal/cli/cmd/create.go
+ M internal/cli/cmd/create_test.go
+ M internal/cli/cmd/current.go
+ M internal/cli/cmd/export.go
+ M internal/cli/cmd/import.go
+ M internal/cli/cmd/list.go
+ M internal/cli/cmd/models.go
+ M internal/cli/cmd/schema_check_test.go
+ M internal/cli/cmd/switch.go
+ M internal/cli/root.go
+ M internal/config/AGENTS.md
+ M internal/config/paths.go
+ M internal/config/paths_test.go
+ M internal/config/types.go
+ M internal/config/types_test.go
+ M internal/models/AGENTS.md
+ M internal/models/models.go
+ M internal/models/models_test.go
+ M internal/profile/AGENTS.md
+ M internal/profile/active.go
+ M internal/profile/active_test.go
+ M internal/profile/profile.go
+ M internal/profile/profile_test.go
+ M internal/profile/selection.go
+ M internal/schema/.upstream-sha
+ M internal/schema/AGENTS.md
+ M internal/schema/compare.go
+ M internal/schema/schema.json
+ M internal/schema/validator.go
+ M internal/testdata/valid-config.json
+ M internal/tui/app.go
+ M internal/tui/app_test.go
+ M internal/tui/views/dashboard.go
+ M internal/tui/views/dashboard_test.go
+ M internal/tui/views/list.go
+ M internal/tui/views/list_test.go
+ M internal/tui/views/model_import.go
+ M internal/tui/views/model_registry.go
+ M internal/tui/views/model_registry_test.go
+ M internal/tui/views/template_select.go
+ M internal/tui/views/wizard.go
+ M internal/tui/views/wizard_agents.go
+ M internal/tui/views/wizard_agents_test.go
+ M internal/tui/views/wizard_categories.go
+ M internal/tui/views/wizard_categories_defaults.go
+ M internal/tui/views/wizard_categories_test.go
+ M internal/tui/views/wizard_hooks.go
+ M internal/tui/views/wizard_hooks_test.go
+ M internal/tui/views/wizard_other.go
+ M internal/tui/views/wizard_other_config.go
+ M internal/tui/views/wizard_other_fields.go
+ M internal/tui/views/wizard_other_render.go
+ M internal/tui/views/wizard_other_test.go
+ M internal/tui/views/wizard_other_update.go
+ M internal/tui/views/wizard_review_test.go
+ M internal/tui/views/wizard_sparse_flow_test.go
+D  oh-my-opencode.schema.json
+ M skills-lock.json
+R  template/oh-my-openagent.json -> template/opencode-profile.json
+?? .agents/skills/tui-validator/templates/
+?? .agents/skills/update-omo-profiler/README.md
+?? .claude/skills
+?? .omo/run-continuation/ses_057149b9dffe76E1hjdYIEp49O.json
+?? internal/cli/cmd/web.go
+?? internal/config/document.go
+?? internal/config/document_atomic_test.go
+?? internal/config/document_test.go
+?? internal/config/jsonc.go
+?? internal/config/jsonc_test.go
+?? internal/models/concurrent_test.go
+?? internal/profile/concurrent_test.go
+?? internal/tui/backup_test.go
+?? internal/tui/views/fallback_editor.go
+?? internal/tui/views/fallback_editor_test.go
+?? internal/tui/views/wizard_race_test.go
+?? internal/web/
+?? omo.schema.json
+?? openwiki/
+?? prompt-web-dropdown-valores-predefinidos.md
+?? prompt-web-submenus-colapsaveis.md

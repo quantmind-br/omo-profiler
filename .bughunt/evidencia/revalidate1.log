@@ -1,0 +1,13 @@
+?   	github.com/diogenes/omo-profiler/cmd/omo-profiler	[no test files]
+ok  	github.com/diogenes/omo-profiler/internal/backup	1.017s
+?   	github.com/diogenes/omo-profiler/internal/cli	[no test files]
+ok  	github.com/diogenes/omo-profiler/internal/cli/cmd	1.015s
+ok  	github.com/diogenes/omo-profiler/internal/config	1.024s
+ok  	github.com/diogenes/omo-profiler/internal/diff	1.009s
+ok  	github.com/diogenes/omo-profiler/internal/models	1.022s
+ok  	github.com/diogenes/omo-profiler/internal/profile	1.060s
+ok  	github.com/diogenes/omo-profiler/internal/schema	3.227s
+ok  	github.com/diogenes/omo-profiler/internal/tui	1.155s
+ok  	github.com/diogenes/omo-profiler/internal/tui/layout	1.007s
+ok  	github.com/diogenes/omo-profiler/internal/tui/views	2.475s
+ok  	github.com/diogenes/omo-profiler/internal/web	1.143s

@@ -146,7 +146,7 @@ func (l *List) LoadProfiles() error {
 
 	items := make([]list.Item, len(names))
 	for i, name := range names {
-		isActive := active != nil && !active.IsOrphan && active.ProfileName == name
+		isActive := active != nil && active.ProfileName == name
 		items[i] = profileItem{
 			name:     name,
 			isActive: isActive,

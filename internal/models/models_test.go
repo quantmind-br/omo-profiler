@@ -108,7 +108,7 @@ func TestAdd(t *testing.T) {
 	m1 := RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"}
 
 	// Success
-	if err := reg.Add(m1); err != nil {
+	if err := reg.add(m1); err != nil {
 		t.Errorf("Add failed: %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	// Duplicate error (same provider + modelID)
-	if err := reg.Add(m1); err == nil {
+	if err := reg.add(m1); err == nil {
 		t.Error("Expected error for duplicate add, got nil")
 	} else {
 		var existsErr *ModelExistsError
@@ -128,7 +128,7 @@ func TestAdd(t *testing.T) {
 
 	// Same modelID, different provider — should succeed
 	m1DifferentProvider := RegisteredModel{DisplayName: "M1 Alt", ModelID: "m1", Provider: "p2"}
-	if err := reg.Add(m1DifferentProvider); err != nil {
+	if err := reg.add(m1DifferentProvider); err != nil {
 		t.Errorf("Add with different provider should succeed: %v", err)
 	}
 
@@ -143,12 +143,12 @@ func TestUpdate(t *testing.T) {
 
 	reg, _ := Load()
 	m1 := RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"}
-	_ = reg.Add(m1)
+	_ = reg.add(m1)
 
 	// Success update
 	updated := m1
 	updated.DisplayName = "M1 Updated"
-	if err := reg.Update("p1", "m1", updated); err != nil {
+	if err := reg.update("p1", "m1", updated); err != nil {
 		t.Errorf("Update failed: %v", err)
 	}
 	if reg.Get("p1", "m1").DisplayName != "M1 Updated" {
@@ -156,14 +156,14 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Not found
-	if err := reg.Update("p1", "missing", m1); err == nil {
+	if err := reg.update("p1", "missing", m1); err == nil {
 		t.Error("Expected error for missing update")
 	}
 
 	// Rename success
 	renamed := m1
 	renamed.ModelID = "m1-renamed"
-	if err := reg.Update("p1", "m1", renamed); err != nil {
+	if err := reg.update("p1", "m1", renamed); err != nil {
 		t.Errorf("Rename failed: %v", err)
 	}
 	if reg.Get("p1", "m1") != nil {
@@ -174,9 +174,9 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Conflict
-	_ = reg.Add(RegisteredModel{ModelID: "m2", Provider: "p1"})
+	_ = reg.add(RegisteredModel{ModelID: "m2", Provider: "p1"})
 	conflict := RegisteredModel{ModelID: "m2", Provider: "p1"}
-	if err := reg.Update("p1", "m1-renamed", conflict); err == nil {
+	if err := reg.update("p1", "m1-renamed", conflict); err == nil {
 		t.Error("Expected error for conflict update")
 	} else {
 		var existsErr *ModelExistsError
@@ -191,10 +191,10 @@ func TestDelete(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
+	_ = reg.add(RegisteredModel{ModelID: "m1", Provider: "p1"})
 
 	// Success
-	if err := reg.Delete("p1", "m1"); err != nil {
+	if err := reg.remove("p1", "m1"); err != nil {
 		t.Errorf("Delete failed: %v", err)
 	}
 	if len(reg.Models) != 0 {
@@ -202,7 +202,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// Not found
-	if err := reg.Delete("p1", "m1"); err == nil {
+	if err := reg.remove("p1", "m1"); err == nil {
 		t.Error("Expected error for deleting missing model")
 	}
 }
@@ -212,7 +212,7 @@ func TestGet(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
+	_ = reg.add(RegisteredModel{ModelID: "m1", Provider: "p1"})
 
 	if reg.Get("p1", "m1") == nil {
 		t.Error("Get should return model")
@@ -222,7 +222,7 @@ func TestGet(t *testing.T) {
 	}
 
 	// Same modelID, different provider
-	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p2"})
+	_ = reg.add(RegisteredModel{ModelID: "m1", Provider: "p2"})
 	if reg.Get("p2", "m1") == nil {
 		t.Error("Get should return model with different provider")
 	}
@@ -244,9 +244,9 @@ func TestList(t *testing.T) {
 	}
 
 	// Add some models
-	_ = reg.Add(RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"})
-	_ = reg.Add(RegisteredModel{DisplayName: "M2", ModelID: "m2", Provider: "p2"})
-	_ = reg.Add(RegisteredModel{DisplayName: "M3", ModelID: "m3", Provider: "p3"})
+	_ = reg.add(RegisteredModel{DisplayName: "M1", ModelID: "m1", Provider: "p1"})
+	_ = reg.add(RegisteredModel{DisplayName: "M2", ModelID: "m2", Provider: "p2"})
+	_ = reg.add(RegisteredModel{DisplayName: "M3", ModelID: "m3", Provider: "p3"})
 
 	list = reg.List()
 	if len(list) != 3 {
@@ -265,10 +265,10 @@ func TestListByProvider(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{DisplayName: "B", ModelID: "1", Provider: "openai"})
-	_ = reg.Add(RegisteredModel{DisplayName: "A", ModelID: "2", Provider: "openai"})
-	_ = reg.Add(RegisteredModel{DisplayName: "C", ModelID: "3", Provider: "anthropic"})
-	_ = reg.Add(RegisteredModel{DisplayName: "D", ModelID: "4", Provider: ""}) // Empty provider
+	_ = reg.add(RegisteredModel{DisplayName: "B", ModelID: "1", Provider: "openai"})
+	_ = reg.add(RegisteredModel{DisplayName: "A", ModelID: "2", Provider: "openai"})
+	_ = reg.add(RegisteredModel{DisplayName: "C", ModelID: "3", Provider: "anthropic"})
+	_ = reg.add(RegisteredModel{DisplayName: "D", ModelID: "4", Provider: ""}) // Empty provider
 
 	groups := reg.ListByProvider()
 
@@ -298,8 +298,10 @@ func TestExists(t *testing.T) {
 	cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{ModelID: "m1", Provider: "p1"})
+	// Exists reads from disk, so this must go through the persisting API.
+	if err := Add(RegisteredModel{ModelID: "m1", Provider: "p1"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	if !Exists("p1", "m1") {
 		t.Error("Exists returned false for existing model")
@@ -321,9 +323,9 @@ func TestAdd_SameModelIDDifferentProvider(t *testing.T) {
 	reg, _ := Load()
 
 	// Add same modelID with different providers
-	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
-	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
-	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 No Provider", ModelID: "gpt-4", Provider: ""})
+	_ = reg.add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
+	_ = reg.add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
+	_ = reg.add(RegisteredModel{DisplayName: "GPT-4 No Provider", ModelID: "gpt-4", Provider: ""})
 
 	if len(reg.Models) != 3 {
 		t.Errorf("Expected 3 models (same ID, different providers), got %d", len(reg.Models))
@@ -362,11 +364,11 @@ func TestDelete_CorrectProviderOnly(t *testing.T) {
 	defer cleanup()
 
 	reg, _ := Load()
-	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
-	_ = reg.Add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
+	_ = reg.add(RegisteredModel{DisplayName: "GPT-4 OpenAI", ModelID: "gpt-4", Provider: "openai"})
+	_ = reg.add(RegisteredModel{DisplayName: "GPT-4 Azure", ModelID: "gpt-4", Provider: "azure"})
 
 	// Delete only openai version
-	if err := reg.Delete("openai", "gpt-4"); err != nil {
+	if err := reg.remove("openai", "gpt-4"); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 

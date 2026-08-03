@@ -201,24 +201,16 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		}
 	}
 
-	// Ralph Loop
-	if cfg.RalphLoop != nil {
-		if cfg.RalphLoop.Enabled != nil {
-			w.rlEnabled = *cfg.RalphLoop.Enabled
+	// Goal
+	if cfg.Goal != nil {
+		if cfg.Goal.Enabled != nil {
+			w.goalEnabled = *cfg.Goal.Enabled
 		}
-		if cfg.RalphLoop.DefaultMaxIterations != nil {
-			w.rlDefaultMaxIterations.SetValue(fmt.Sprintf("%d", *cfg.RalphLoop.DefaultMaxIterations))
+		if cfg.Goal.AutoStart != nil {
+			w.goalAutoStart = *cfg.Goal.AutoStart
 		}
-		if cfg.RalphLoop.StateDir != "" {
-			w.rlStateDir.SetValue(cfg.RalphLoop.StateDir)
-		}
-		if cfg.RalphLoop.DefaultStrategy != "" {
-			for i, s := range ralphLoopStrategies {
-				if s == cfg.RalphLoop.DefaultStrategy {
-					w.rlDefaultStrategyIdx = i
-					break
-				}
-			}
+		if cfg.Goal.DefaultMaxIterations != nil {
+			w.goalDefaultMaxIterations.SetValue(fmt.Sprintf("%d", *cfg.Goal.DefaultMaxIterations))
 		}
 	}
 
@@ -311,6 +303,9 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 				w.browserProviderIdx = i
 				break
 			}
+		}
+		if len(cfg.BrowserAutomationEngine.PlaywrightMCPArgs) > 0 {
+			w.baePlaywrightMCPArgs.SetValue(strings.Join(cfg.BrowserAutomationEngine.PlaywrightMCPArgs, ", "))
 		}
 	}
 
@@ -521,8 +516,14 @@ func (w *WizardOther) SetConfig(cfg *config.Config, selection *profile.FieldSele
 		if cg.AutoProvision != nil {
 			w.cgAutoProvision = *cg.AutoProvision
 		}
+		if cg.Daemon != nil {
+			w.cgDaemon = *cg.Daemon
+		}
 		if cg.InstallDir != "" {
 			w.cgInstallDir.SetValue(cg.InstallDir)
+		}
+		if len(cg.ExcludedRoots) > 0 {
+			w.cgExcludedRoots.SetValue(strings.Join(cg.ExcludedRoots, ", "))
 		}
 		if cg.Telemetry != nil {
 			w.cgTelemetry = *cg.Telemetry
@@ -783,24 +784,21 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 		cfg.SisyphusAgent = sa
 	}
 
-	cfg.RalphLoop = nil
-	if w.rlHasData() {
-		rl := &config.RalphLoopConfig{}
-		if w.fieldSelected("ralph_loop.enabled") {
-			rl.Enabled = wizardOtherBoolPtr(w.rlEnabled)
+	cfg.Goal = nil
+	if w.goalHasData() {
+		goalCfg := &config.GoalConfig{}
+		if w.fieldSelected("goal.enabled") {
+			goalCfg.Enabled = wizardOtherBoolPtr(w.goalEnabled)
 		}
-		if w.fieldSelected("ralph_loop.default_max_iterations") {
-			if i, err := strconv.Atoi(strings.TrimSpace(w.rlDefaultMaxIterations.Value())); err == nil && i > 0 {
-				rl.DefaultMaxIterations = intPtr(i)
+		if w.fieldSelected("goal.auto_start") {
+			goalCfg.AutoStart = wizardOtherBoolPtr(w.goalAutoStart)
+		}
+		if w.fieldSelected("goal.default_max_iterations") {
+			if i, err := strconv.Atoi(strings.TrimSpace(w.goalDefaultMaxIterations.Value())); err == nil && i > 0 {
+				goalCfg.DefaultMaxIterations = intPtr(i)
 			}
 		}
-		if w.fieldSelected("ralph_loop.state_dir") {
-			rl.StateDir = strings.TrimSpace(w.rlStateDir.Value())
-		}
-		if w.fieldSelected("ralph_loop.default_strategy") {
-			rl.DefaultStrategy = ralphLoopStrategies[w.rlDefaultStrategyIdx]
-		}
-		cfg.RalphLoop = rl
+		cfg.Goal = goalCfg
 	}
 
 	cfg.BackgroundTask = nil
@@ -899,8 +897,15 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 	}
 
 	cfg.BrowserAutomationEngine = nil
-	if w.fieldSelected(browserProviderFieldPath) {
-		cfg.BrowserAutomationEngine = &config.BrowserAutomationEngineConfig{Provider: browserProviders[w.browserProviderIdx]}
+	if w.fieldSelected(browserProviderFieldPath) || w.fieldSelected(browserPlaywrightMCPArgsFieldPath) {
+		bae := &config.BrowserAutomationEngineConfig{}
+		if w.fieldSelected(browserProviderFieldPath) {
+			bae.Provider = browserProviders[w.browserProviderIdx]
+		}
+		if w.fieldSelected(browserPlaywrightMCPArgsFieldPath) {
+			bae.PlaywrightMCPArgs = emptySliceIfSelected(true, splitTrimmedList(w.baePlaywrightMCPArgs.Value()))
+		}
+		cfg.BrowserAutomationEngine = bae
 	}
 
 	cfg.Tmux = nil
@@ -1114,8 +1119,14 @@ func (w *WizardOther) Apply(cfg *config.Config, selection *profile.FieldSelectio
 			AutoInit:      wizardOtherBoolPtr(w.cgAutoInit),
 			AutoProvision: wizardOtherBoolPtr(w.cgAutoProvision),
 		}
+		if w.fieldSelected("codegraph.daemon") {
+			cg.Daemon = wizardOtherBoolPtr(w.cgDaemon)
+		}
 		if w.fieldSelected("codegraph.install_dir") {
 			cg.InstallDir = strings.TrimSpace(w.cgInstallDir.Value())
+		}
+		if w.fieldSelected("codegraph.excluded_roots") {
+			cg.ExcludedRoots = emptySliceIfSelected(true, splitTrimmedList(w.cgExcludedRoots.Value()))
 		}
 		if w.fieldSelected("codegraph.telemetry") {
 			cg.Telemetry = wizardOtherBoolPtr(w.cgTelemetry)

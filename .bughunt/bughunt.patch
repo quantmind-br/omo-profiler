@@ -1,0 +1,159 @@
+--- a/internal/backup/backup.go
++++ b/internal/backup/backup.go
+@@ -158,17 +158,19 @@
+ 	return backups, nil
+ }
+ 
+-// Restore restores a backup to the config file
++// Restore restores a backup to the config file.
++//
++// It goes through WriteFileAtomic for the same two reasons every other writer
++// does: the document can hold API tokens, so an existing mode is kept and a new
++// file starts at 0600 rather than 0644; and a restore that failed halfway
++// through a truncating write would destroy the document it was recovering.
+ func Restore(backupPath string) error {
+-	// Read backup
+ 	data, err := os.ReadFile(backupPath)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to read backup: %w", err)
+ 	}
+ 
+-	// Write to config
+-	configPath := config.OmoFile()
+-	if err := os.WriteFile(configPath, data, 0644); err != nil {
++	if err := config.WriteFileAtomic(config.OmoFile(), data, 0o600); err != nil {
+ 		return fmt.Errorf("failed to restore config: %w", err)
+ 	}
+ 
+@@ -182,8 +184,11 @@
+ 		strings.HasPrefix(name, config.LegacyOpencodeBasename+".bak.")
+ }
+ 
+-// Clean removes old backups, keeping only the N most recent
++// Clean removes old backups, keeping only the N most recent. A negative
++// keepLast means "keep none" — it must not become a negative slice index.
+ func Clean(keepLast int) error {
++	keepLast = max(keepLast, 0)
++
+ 	backups, err := List()
+ 	if err != nil {
+ 		return err
+@@ -193,7 +198,6 @@
+ 		return nil
+ 	}
+ 
+-	// Remove backups beyond keepLast
+ 	for i := keepLast; i < len(backups); i++ {
+ 		if err := os.Remove(backups[i].Path); err != nil {
+ 			return fmt.Errorf("failed to remove backup %s: %w", backups[i].Name, err)
+@@ -203,11 +207,17 @@
+ 	return nil
+ }
+ 
+-// CreateOmoIfPresent snapshots ~/.omo/omo.json(c) before a mutating write.
+-// A missing document is fine — there is nothing to back up yet.
++// KeepLast is how many snapshots survive rotation. Every mutating write makes
++// one, so without a bound ~/.omo accumulates a full copy of a token-bearing
++// document per edit, forever.
++const KeepLast = 10
++
++// CreateOmoIfPresent snapshots ~/.omo/omo.json(c) before a mutating write, then
++// rotates. A missing document is fine — there is nothing to back up yet.
+ //
+ // Every mutating entry point (CLI, TUI, web) goes through this, so "back up
+-// before you write" is one rule with one implementation.
++// before you write" is one rule with one implementation — and rotation belongs
++// at the same choke point, or it never runs at all.
+ func CreateOmoIfPresent() error {
+ 	path := config.OmoFile()
+ 	if _, err := os.Stat(path); os.IsNotExist(err) {
+@@ -215,6 +225,12 @@
+ 	} else if err != nil {
+ 		return err
+ 	}
+-	_, err := Create(path)
+-	return err
++	if _, err := Create(path); err != nil {
++		return err
++	}
++	// The snapshot is what the caller depends on and it already succeeded;
++	// failing the write because stale copies could not be pruned would trade a
++	// real capability for a housekeeping detail.
++	_ = Clean(KeepLast)
++	return nil
+ }
+--- a/internal/web/server.go
++++ b/internal/web/server.go
+@@ -5,6 +5,7 @@
+ 	"io/fs"
+ 	"net"
+ 	"net/http"
++	"net/url"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -17,9 +18,48 @@
+ 	Open bool
+ }
+ 
+-// newMux builds the HTTP router with every API route plus the SPA handler.
+-// Extracted from Serve so tests can exercise handlers without a socket.
+-func newMux() *http.ServeMux {
++// newMux builds the HTTP router with every API route plus the SPA handler,
++// wrapped in the same-origin guard. Extracted from Serve so tests can exercise
++// handlers — guard included — without a socket.
++func newMux() http.Handler {
++	return sameOriginOnly(newRoutes())
++}
++
++// sameOriginOnly rejects state-changing requests that carry a cross-origin
++// Origin header.
++//
++// This server binds localhost with no authentication, so the browser is the
++// threat model: any page the user visits can POST to 127.0.0.1:4747, and a
++// "simple" request (text/plain body) is delivered with no CORS preflight to
++// stop it. The response stays unreadable cross-origin, but the write already
++// landed in the user's omo.json — profiles created, overwritten or activated.
++//
++// Origin is absent for curl and for same-origin GET, and browsers always send
++// it on cross-origin requests and on same-origin non-GET requests, so matching
++// it against Host separates the SPA from a hostile page without a token.
++func sameOriginOnly(next http.Handler) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		switch r.Method {
++		case http.MethodGet, http.MethodHead, http.MethodOptions:
++		default:
++			if origin := r.Header.Get("Origin"); origin != "" && !originMatchesHost(origin, r.Host) {
++				writeErr(w, http.StatusForbidden, "cross-origin request rejected")
++				return
++			}
++		}
++		next.ServeHTTP(w, r)
++	})
++}
++
++func originMatchesHost(origin, host string) bool {
++	parsed, err := url.Parse(origin)
++	if err != nil || parsed.Host == "" {
++		return false
++	}
++	return parsed.Host == host
++}
++
++func newRoutes() *http.ServeMux {
+ 	mux := http.NewServeMux()
+ 
+ 	// Profiles
+--- a/internal/cli/root.go
++++ b/internal/cli/root.go
+@@ -18,6 +18,10 @@
+ 	Short:   "TUI profile manager for ~/.omo/omo.json",
+ 	Long:    `omo-profiler is a TUI application for managing configuration profiles stored in ~/.omo/omo.json.`,
+ 	Version: version,
++	// A command that parsed fine and then failed at runtime — port already
++	// bound, config file corrupt — has nothing to teach the user about its own
++	// flags. Printing the usage block there buries the real error under it.
++	SilenceUsage: true,
+ 	Run: func(cmd *cobra.Command, args []string) {
+ 		if err := tui.Run(); err != nil {
+ 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

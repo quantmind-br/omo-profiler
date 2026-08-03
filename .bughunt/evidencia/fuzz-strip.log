@@ -1,0 +1,18 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/18 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 18/18 completed, now fuzzing with 32 workers
+fuzz: minimizing 2883-byte failing input file
+fuzz: elapsed: 0s, minimizing
+--- FAIL: FuzzStripJSONCInvariants (0.49s)
+    --- FAIL: FuzzStripJSONCInvariants (0.00s)
+        hunt_fuzz_test.go:54: not idempotent:
+            in=",,}"
+            1st=", }"
+            2nd="  }"
+    
+    Failing input written to testdata/fuzz/FuzzStripJSONCInvariants/36579a76c7cf530c
+    To re-run:
+    go test -run=FuzzStripJSONCInvariants/36579a76c7cf530c
+FAIL
+exit status 1
+FAIL	github.com/diogenes/omo-profiler/internal/config	0.492s
+RC=0

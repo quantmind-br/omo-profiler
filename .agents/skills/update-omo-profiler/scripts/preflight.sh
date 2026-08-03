@@ -25,9 +25,13 @@ BRANCH=$(git -C "$UPSTREAM_CLONE" symbolic-ref --short HEAD 2>/dev/null || echo 
 [ "$BRANCH" = "dev" ] \
   || abort "branch atual é '$BRANCH', esperado 'dev'. Corrija: cd $UPSTREAM_CLONE && git checkout dev"
 
-git -C "$UPSTREAM_CLONE" diff --quiet \
+# A árvore precisa estar limpa para o pull --ff-only, mas ponteiros de
+# submódulo dessincronizados são ruído normal deste clone (packages/shared-skills/
+# upstreams/*) e não afetam schema nem código. Ignoramos só esse ruído;
+# qualquer arquivo tracked modificado ainda aborta.
+git -C "$UPSTREAM_CLONE" diff --quiet --ignore-submodules \
   || abort "árvore tracked suja (unstaged) em $UPSTREAM_CLONE. Stash/commit antes de continuar."
-git -C "$UPSTREAM_CLONE" diff --cached --quiet \
+git -C "$UPSTREAM_CLONE" diff --cached --quiet --ignore-submodules \
   || abort "árvore tracked suja (staged) em $UPSTREAM_CLONE. Stash/commit antes de continuar."
 
 # --- Fase 1: anchor + pull ---------------------------------------------------
@@ -45,9 +49,14 @@ ANCHOR_NEW=$(git -C "$UPSTREAM_CLONE" rev-parse HEAD)
 UPSTREAM_VERSION=$(jq -r .version "$UPSTREAM_CLONE/package.json")
 
 # --- Fase 2: diff de schema (contrato canônico) -----------------------------
-UPSTREAM_SCHEMA="$UPSTREAM_CLONE/assets/oh-my-opencode.schema.json"
+# omo.schema.json é o schema canônico desde a unificação de config (v4.19.x):
+# descreve o documento ~/.omo/omo.json inteiro, com o bloco [opencode] embutido.
+UPSTREAM_SCHEMA="$UPSTREAM_CLONE/assets/omo.schema.json"
 EMBEDDED_SCHEMA="$OMO_PROFILER_DIR/internal/schema/schema.json"
-ROOT_SCHEMA="$OMO_PROFILER_DIR/oh-my-opencode.schema.json"
+ROOT_SCHEMA="$OMO_PROFILER_DIR/omo.schema.json"
+
+[ -f "$UPSTREAM_SCHEMA" ] \
+  || abort "schema canônico ausente em $UPSTREAM_SCHEMA (upstream mudou de layout?)"
 
 SCHEMA_CHANGED=0
 diff -q "$UPSTREAM_SCHEMA" "$EMBEDDED_SCHEMA" >/dev/null 2>&1 || SCHEMA_CHANGED=1

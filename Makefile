@@ -5,7 +5,7 @@ INSTALL_PATH := $(HOME)/.local/bin
 GO := go
 GOFLAGS := -v
 
-.PHONY: all build install uninstall test lint clean help
+.PHONY: all build install uninstall test lint clean help web-deps web-build build-web
 
 all: build
 
@@ -13,8 +13,19 @@ all: build
 build:
 	$(GO) build $(GOFLAGS) -o $(BINARY_NAME) ./cmd/omo-profiler
 
+## Install frontend dependencies (requires Node)
+web-deps:
+	cd internal/web/frontend && npm install
+
+## Build the embedded web UI (requires Node)
+web-build:
+	cd internal/web/frontend && npm run build
+
+## Build the frontend then the binary with the UI embedded
+build-web: web-build build
+
 ## Install binary to ~/.local/bin
-install: build
+install: build-web
 	@mkdir -p $(INSTALL_PATH)
 	@cp $(BINARY_NAME) $(INSTALL_PATH)/$(BINARY_NAME)
 	@echo "Installed $(BINARY_NAME) to $(INSTALL_PATH)"
@@ -42,6 +53,8 @@ clean:
 help:
 	@echo "Available targets:"
 	@echo "  build     - Build the binary"
+	@echo "  web-build - Build the embedded web UI (requires Node)"
+	@echo "  build-web - Build frontend + binary with UI embedded"
 	@echo "  install   - Install binary to $(INSTALL_PATH)"
 	@echo "  uninstall - Remove installed binary"
 	@echo "  test      - Run all tests"

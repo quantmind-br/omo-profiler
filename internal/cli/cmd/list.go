@@ -10,7 +10,7 @@ import (
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all profiles",
-	Long:  `Lists all available profiles. The active profile is marked with an asterisk (*).`,
+	Long:  `Lists all available profiles in ~/.omo/omo.json. The active profile is marked with an asterisk (*).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profiles, err := profile.List()
 		if err != nil {
@@ -28,7 +28,7 @@ var ListCmd = &cobra.Command{
 		}
 
 		activeProfileName := ""
-		if active.Exists && !active.IsOrphan {
+		if active.ProfileName != "" {
 			activeProfileName = active.ProfileName
 		}
 

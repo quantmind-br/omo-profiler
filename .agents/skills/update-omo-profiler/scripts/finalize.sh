@@ -15,9 +15,13 @@ make build || abort "make build falhou"
 make test  || abort "make test falhou"
 make lint  || abort "make lint falhou"
 
-UPSTREAM_SCHEMA="$UPSTREAM_CLONE/assets/oh-my-opencode.schema.json"
+UPSTREAM_SCHEMA="$UPSTREAM_CLONE/assets/omo.schema.json"
 EMBEDDED_SCHEMA="$OMO_PROFILER_DIR/internal/schema/schema.json"
-ROOT_SCHEMA="$OMO_PROFILER_DIR/oh-my-opencode.schema.json"
+ROOT_SCHEMA="$OMO_PROFILER_DIR/omo.schema.json"
+
+for f in "$UPSTREAM_SCHEMA" "$EMBEDDED_SCHEMA" "$ROOT_SCHEMA"; do
+  [ -f "$f" ] || abort "schema ausente: $f"
+done
 
 DISTINCT_HASHES=$(sha256sum "$UPSTREAM_SCHEMA" "$EMBEDDED_SCHEMA" "$ROOT_SCHEMA" | awk '{print $1}' | sort -u | wc -l)
 if [ "$DISTINCT_HASHES" != "1" ]; then

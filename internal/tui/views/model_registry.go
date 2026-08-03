@@ -90,9 +90,9 @@ type ModelRegistry struct {
 
 	searchInput textinput.Model
 
-	formMode  bool
-	editMode  bool
-	editingId  string
+	formMode        bool
+	editMode        bool
+	editingId       string
 	editingProvider string
 
 	displayNameInput textinput.Model
@@ -152,6 +152,19 @@ func NewModelRegistry() ModelRegistry {
 
 func (m ModelRegistry) IsFiltering() bool {
 	return m.searchInput.Focused()
+}
+
+// reload re-reads the registry from disk. Mutations go through the models
+// package transaction, which does not touch this in-memory copy, so the view
+// must refresh or it renders state that is already gone.
+func (m *ModelRegistry) reload() error {
+	registry, err := models.Load()
+	if err != nil {
+		return err
+	}
+	m.registry = registry
+	m.groups = registry.ListByProvider()
+	return nil
 }
 
 func (m *ModelRegistry) rebuildFlatModels() {
@@ -230,12 +243,15 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 					modelID  string
 				}{}
 
-				if err := m.registry.Delete(target.provider, target.modelID); err != nil {
+				if err := models.Delete(target.provider, target.modelID); err != nil {
 					m.errorMsg = fmt.Sprintf("Delete failed: %v", err)
 					return m, nil
 				}
 
-				m.groups = m.registry.ListByProvider()
+				if err := m.reload(); err != nil {
+					m.errorMsg = fmt.Sprintf("Reload failed: %v", err)
+					return m, nil
+				}
 				m.rebuildFlatModels()
 				if m.cursor >= len(m.flatModels) && len(m.flatModels) > 0 {
 					m.cursor = len(m.flatModels) - 1
@@ -270,7 +286,10 @@ func (m ModelRegistry) Update(msg tea.Msg) (ModelRegistry, tea.Cmd) {
 				m.errorMsg = ""
 				m.resetForm()
 
-				m.groups = m.registry.ListByProvider()
+				if err := m.reload(); err != nil {
+					m.errorMsg = fmt.Sprintf("Reload failed: %v", err)
+					return m, nil
+				}
 				m.rebuildFlatModels()
 
 				return m, func() tea.Msg {
@@ -481,7 +500,7 @@ func (m *ModelRegistry) validateAndSave() error {
 	}
 
 	if m.editMode {
-		if err := m.registry.Update(m.editingProvider, m.editingId, newModel); err != nil {
+		if err := models.Update(m.editingProvider, m.editingId, newModel); err != nil {
 			var existsErr *models.ModelExistsError
 			if errors.As(err, &existsErr) {
 				return fmt.Errorf("model with provider '%s' and ID '%s' already exists", existsErr.Provider, existsErr.ModelID)
@@ -489,7 +508,7 @@ func (m *ModelRegistry) validateAndSave() error {
 			return err
 		}
 	} else {
-		if err := m.registry.Add(newModel); err != nil {
+		if err := models.Add(newModel); err != nil {
 			var existsErr *models.ModelExistsError
 			if errors.As(err, &existsErr) {
 				return fmt.Errorf("model with provider '%s' and ID '%s' already exists", existsErr.Provider, existsErr.ModelID)

@@ -32,6 +32,7 @@ go test -race ./...  # With race detector (not in Makefile default)
 - **Error Handling**: Bubble Tea commands return `Msg` with error field; CLI uses Cobra `RunE`
 - **Naming**: Follow Go conventions (CamelCase for exported, camelCase for internal)
 - **JSON Tags**: All fields use `omitempty`; `*bool` for optional booleans
+- **Config model**: `config.Config` = flat `[opencode]` block; `config.Document` = whole `~/.omo/omo.json`
 
 ### Adding New Features
 
@@ -42,11 +43,12 @@ go test -race ./...  # With race detector (not in Makefile default)
 4. Current commands: ListCmd, CurrentCmd, ExportCmd, SwitchCmd, ImportCmd, ModelsCmd, CreateCmd, SchemaCheckCmd
 
 #### Modify Config Schema
-1. Update `internal/config/types.go`
-2. **CRITICAL**: Must match `oh-my-opencode.json` upstream schema
+1. Update `internal/config/types.go` (`Config` = `[opencode]` fields)
+2. **CRITICAL**: Must match the upstream `[opencode]` sub-schema inside `assets/omo.schema.json`
 3. Use `omitempty` tags to avoid dirty config files
 4. Use pointers for optional boolean fields
-5. Run `omo-profiler schema-check` to verify alignment with upstream
+5. Re-sync `internal/schema/schema.json` and root `omo.schema.json`; run `omo-profiler schema-check`
+6. Forms use `schema.GetOpenCodeSchema()`
 
 #### Add TUI View
 1. Create file in `internal/tui/views/<view>.go`
@@ -68,6 +70,7 @@ go test -race ./...  # With race detector (not in Makefile default)
 
 ## Testing Requirements
 - All tests must use `config.SetBaseDir(t.TempDir())`
+- Seed profiles into the omo document — not as files under a profiles directory
 - No global side effects allowed
 - Tests should clean up with `defer config.ResetBaseDir()`
 - Use `t.TempDir()` for automatic cleanup

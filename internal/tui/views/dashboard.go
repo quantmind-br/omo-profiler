@@ -233,12 +233,12 @@ func (d Dashboard) View() string {
 			Render(fmt.Sprintf("Error: %v", d.err))
 	} else if d.activeProfile == nil {
 		profileStatus = grayStyle.Render("Loading...")
-	} else if !d.activeProfile.Exists {
+	} else if d.activeProfile.Modified {
+		profileStatus = warningStyle.Render("Active: (custom — matches no profile)")
+	} else if d.activeProfile.ProfileName == "" {
 		profileStatus = fmt.Sprintf("Active: %s", grayStyle.Render("(None)"))
-	} else if d.activeProfile.IsOrphan {
-		profileStatus = fmt.Sprintf("Active: %s", warningStyle.Render("(Custom)"))
 	} else {
-		name := layout.TruncateWithEllipsis(d.activeProfile.ProfileName, d.width-12)
+		name := layout.TruncateWithEllipsis(d.activeProfile.ProfileName, d.width-24)
 		profileStatus = fmt.Sprintf("Active: %s", successStyle.Render(name))
 	}
 

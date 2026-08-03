@@ -73,18 +73,13 @@ var modelsAddCmd = &cobra.Command{
 		provider, _ := reader.ReadString('\n')
 		provider = strings.TrimSpace(provider)
 
-		registry, err := models.Load()
-		if err != nil {
-			return fmt.Errorf("failed to load models: %w", err)
-		}
-
 		newModel := models.RegisteredModel{
 			DisplayName: displayName,
 			ModelID:     modelId,
 			Provider:    provider,
 		}
 
-		if err := registry.Add(newModel); err != nil {
+		if err := models.Add(newModel); err != nil {
 			return err
 		}
 
@@ -148,7 +143,7 @@ var modelsEditCmd = &cobra.Command{
 			Provider:    provider,
 		}
 
-		if err := registry.Update(existing.Provider, modelId, updatedModel); err != nil {
+		if err := models.Update(existing.Provider, modelId, updatedModel); err != nil {
 			return err
 		}
 
@@ -191,7 +186,7 @@ var modelsDeleteCmd = &cobra.Command{
 			return nil
 		}
 
-		if err := registry.Delete(existing.Provider, modelId); err != nil {
+		if err := models.Delete(existing.Provider, modelId); err != nil {
 			return err
 		}
 

@@ -2,43 +2,135 @@ package profile
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"errors"
+	"io/fs"
 	"reflect"
 	"testing"
 
 	"github.com/diogenes/omo-profiler/internal/config"
 )
 
-func setupTestEnv(t *testing.T) func() {
+func setupTestEnv(t *testing.T) {
 	t.Helper()
-	tmpDir := t.TempDir()
-	config.SetBaseDir(tmpDir)
-	return func() {
-		config.ResetBaseDir()
+	config.SetBaseDir(t.TempDir())
+	t.Cleanup(config.ResetBaseDir)
+}
+
+// seedProfile writes profiles.<name>.[opencode] into the user-layer omo document
+// via the Document persistence contract (replacing the old file-per-profile seed).
+func seedProfile(t *testing.T, name string, openCodeJSON string) {
+	t.Helper()
+	seedProfileBlock(t, name, mustProfileBlock(t, json.RawMessage(openCodeJSON)))
+}
+
+// seedProfileBlock writes an arbitrary profiles.<name> block into the document.
+func seedProfileBlock(t *testing.T, name string, block json.RawMessage) {
+	t.Helper()
+	if err := config.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	if err := doc.SetProfileBlock(name, block); err != nil {
+		t.Fatalf("SetProfileBlock(%q): %v", name, err)
+	}
+	if err := doc.Save(); err != nil {
+		t.Fatalf("Save document: %v", err)
 	}
 }
 
+// CloneAs backs `create --from` (CLI) and POST /api/profiles (web). A clone
+// must carry the whole profile block, not just `[opencode]`.
+func TestCloneAsPreservesSiblingAndUnknownKeys(t *testing.T) {
+	setupTestEnv(t)
+	seedProfileBlock(t, "dev", json.RawMessage(
+		`{"[opencode]":{"telemetry":false,"future_key_xyz":{"a":1}},`+
+			`"[senpi]":{"keep":"me"},"[codex]":{"s":1},"team":{"shared":true}}`,
+	))
+
+	src, err := Load("dev")
+	if err != nil {
+		t.Fatalf("Load(dev): %v", err)
+	}
+
+	if err := Save(src.CloneAs("copy")); err != nil {
+		t.Fatalf("Save(clone): %v", err)
+	}
+
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	raw, ok, err := doc.ProfileBlock("copy")
+	if err != nil || !ok {
+		t.Fatalf("ProfileBlock(copy): ok=%v err=%v", ok, err)
+	}
+	var block map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &block); err != nil {
+		t.Fatalf("unmarshal clone block: %v", err)
+	}
+
+	for key, want := range map[string]string{
+		"[senpi]": `{"keep":"me"}`,
+		"[codex]": `{"s":1}`,
+		"team":    `{"shared":true}`,
+	} {
+		got, present := block[key]
+		if !present {
+			t.Fatalf("clone dropped sibling key %s", key)
+		}
+		if !jsonEqual(t, string(got), want) {
+			t.Fatalf("clone %s = %s, want %s", key, got, want)
+		}
+	}
+
+	var openCode map[string]json.RawMessage
+	if err := json.Unmarshal(block[config.OpenCodeKey], &openCode); err != nil {
+		t.Fatalf("unmarshal clone [opencode]: %v", err)
+	}
+	if _, present := openCode["future_key_xyz"]; !present {
+		t.Fatal("clone dropped unknown key inside [opencode]")
+	}
+
+	// The source profile must be untouched by the clone.
+	if _, ok, err := doc.ProfileBlock("dev"); err != nil || !ok {
+		t.Fatalf("source profile lost: ok=%v err=%v", ok, err)
+	}
+}
+
+func jsonEqual(t *testing.T, a, b string) bool {
+	t.Helper()
+	var av, bv any
+	if err := json.Unmarshal([]byte(a), &av); err != nil {
+		t.Fatalf("unmarshal %q: %v", a, err)
+	}
+	if err := json.Unmarshal([]byte(b), &bv); err != nil {
+		t.Fatalf("unmarshal %q: %v", b, err)
+	}
+	return reflect.DeepEqual(av, bv)
+}
+
+func mustProfileBlock(t *testing.T, openCode json.RawMessage) json.RawMessage {
+	t.Helper()
+	if len(openCode) == 0 {
+		openCode = json.RawMessage(`{}`)
+	}
+	block, err := json.Marshal(map[string]json.RawMessage{
+		config.OpenCodeKey: openCode,
+	})
+	if err != nil {
+		t.Fatalf("marshal profile block: %v", err)
+	}
+	return block
+}
+
 func TestLoad(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	// Ensure directories exist
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
+	seedProfile(t, "test-profile", `{"disabled_mcps":["test-mcp"]}`)
 
-	// Create a test profile
-	cfg := config.Config{
-		DisabledMCPs: []string{"test-mcp"},
-	}
-	data, _ := json.MarshalIndent(cfg, "", "  ")
-	profilePath := filepath.Join(config.ProfilesDir(), "test-profile.json")
-	if err := os.WriteFile(profilePath, data, 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
-
-	// Test Load
 	p, err := Load("test-profile")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -51,21 +143,33 @@ func TestLoad(t *testing.T) {
 	if len(p.Config.DisabledMCPs) != 1 || p.Config.DisabledMCPs[0] != "test-mcp" {
 		t.Errorf("Config not loaded correctly")
 	}
+
+	if p.Path != config.OmoFile() {
+		t.Errorf("Path = %q, want omo document %q", p.Path, config.OmoFile())
+	}
 }
 
 func TestLoadNonexistent(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
 	_, err := Load("nonexistent")
 	if err == nil {
-		t.Error("Expected error when loading nonexistent profile")
+		t.Fatal("Expected error when loading nonexistent profile")
+	}
+	var notFound *NotFoundError
+	if !errors.As(err, &notFound) {
+		t.Fatalf("expected *NotFoundError, got %T (%v)", err, err)
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected errors.Is(err, fs.ErrNotExist), got %v", err)
+	}
+	if notFound.Name != "nonexistent" {
+		t.Fatalf("NotFoundError.Name = %q, want nonexistent", notFound.Name)
 	}
 }
 
 func TestSave(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
 	p := &Profile{
 		Name: "new-profile",
@@ -78,66 +182,215 @@ func TestSave(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Verify file was created
-	expectedPath := filepath.Join(config.ProfilesDir(), "new-profile.json")
-	if _, err := os.Stat(expectedPath); err != nil {
-		t.Errorf("Profile file not created at %s", expectedPath)
+	if p.Path != config.OmoFile() {
+		t.Errorf("Path = %q, want omo document %q", p.Path, config.OmoFile())
 	}
 
-	// Verify content
-	data, _ := os.ReadFile(expectedPath)
-	var loaded config.Config
-	_ = json.Unmarshal(data, &loaded)
+	loaded, err := Load("new-profile")
+	if err != nil {
+		t.Fatalf("Load after Save failed: %v", err)
+	}
 
-	if len(loaded.DisabledAgents) != 1 || loaded.DisabledAgents[0] != "agent1" {
+	if len(loaded.Config.DisabledAgents) != 1 || loaded.Config.DisabledAgents[0] != "agent1" {
 		t.Error("Saved config doesn't match original")
 	}
 }
 
-func TestDelete(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+func TestSavePreservesOtherProfilesAndSiblingKeys(t *testing.T) {
+	setupTestEnv(t)
 
 	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
+		t.Fatalf("EnsureDirs: %v", err)
 	}
 
-	// Create a profile to delete
-	profilePath := filepath.Join(config.ProfilesDir(), "to-delete.json")
-	_ = os.WriteFile(profilePath, []byte("{}"), 0644)
+	doc := config.NewDocument()
+	doc.SetRaw(config.SenpiKey, json.RawMessage(`{"mode":"senpi-only","n":1}`))
+	doc.SetRaw(config.CodexKey, json.RawMessage(`{"instructions":"keep me"}`))
+	doc.SetRaw("task", json.RawMessage(`{"enabled":true,"queue":["a","b"]}`))
+	doc.SetRaw(config.OpenCodeKey, json.RawMessage(`{"shared":true,"telemetry":false}`))
+
+	if err := doc.SetProfileBlock("keep-me", json.RawMessage(
+		`{"[opencode]":{"telemetry":false,"disabled_mcps":["keep"]},"custom_block":{"v":1}}`,
+	)); err != nil {
+		t.Fatalf("SetProfileBlock keep-me: %v", err)
+	}
+	if err := doc.SetProfileBlock("edit-me", json.RawMessage(
+		`{"[opencode]":{"telemetry":true},"profile_sibling":{"x":2}}`,
+	)); err != nil {
+		t.Fatalf("SetProfileBlock edit-me: %v", err)
+	}
+	if err := doc.Save(); err != nil {
+		t.Fatalf("initial Save: %v", err)
+	}
+
+	p, err := Load("edit-me")
+	if err != nil {
+		t.Fatalf("Load edit-me: %v", err)
+	}
+	p.Config.DisabledAgents = []string{"edited"}
+	if err := Save(p); err != nil {
+		t.Fatalf("Save edit-me: %v", err)
+	}
+
+	roundtrip, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+
+	for _, key := range []string{config.SenpiKey, config.CodexKey, "task", config.OpenCodeKey} {
+		got, ok := roundtrip.Raw(key)
+		if !ok {
+			t.Fatalf("sibling key %q dropped after Save", key)
+		}
+		want, _ := doc.Raw(key)
+		var gotV, wantV any
+		if err := json.Unmarshal(got, &gotV); err != nil {
+			t.Fatalf("unmarshal got %q: %v", key, err)
+		}
+		if err := json.Unmarshal(want, &wantV); err != nil {
+			t.Fatalf("unmarshal want %q: %v", key, err)
+		}
+		if !reflect.DeepEqual(gotV, wantV) {
+			t.Fatalf("sibling key %q changed\ngot:  %#v\nwant: %#v", key, gotV, wantV)
+		}
+	}
+
+	if !roundtrip.HasProfile("keep-me") {
+		t.Fatal("other profile keep-me was dropped")
+	}
+	keepBlock, ok, err := roundtrip.ProfileBlock("keep-me")
+	if err != nil || !ok {
+		t.Fatalf("keep-me ProfileBlock: ok=%v err=%v", ok, err)
+	}
+	var keepFields map[string]json.RawMessage
+	if err := json.Unmarshal(keepBlock, &keepFields); err != nil {
+		t.Fatalf("unmarshal keep-me: %v", err)
+	}
+	if _, ok := keepFields["custom_block"]; !ok {
+		t.Fatal("keep-me custom_block sibling was dropped")
+	}
+	var keepOpen map[string]any
+	if err := json.Unmarshal(keepFields[config.OpenCodeKey], &keepOpen); err != nil {
+		t.Fatalf("unmarshal keep-me opencode: %v", err)
+	}
+	mcps, ok := keepOpen["disabled_mcps"].([]any)
+	if !ok || len(mcps) != 1 || mcps[0] != "keep" {
+		t.Fatalf("keep-me [opencode] altered: %#v", keepOpen)
+	}
+
+	edited, err := Load("edit-me")
+	if err != nil {
+		t.Fatalf("reload edit-me: %v", err)
+	}
+	if len(edited.Config.DisabledAgents) != 1 || edited.Config.DisabledAgents[0] != "edited" {
+		t.Fatalf("edit-me update missing: %#v", edited.Config.DisabledAgents)
+	}
+	if _, ok := edited.PreservedBlock["profile_sibling"]; !ok {
+		t.Fatal("edit-me profile_sibling was not preserved across Save")
+	}
+}
+
+func TestDelete(t *testing.T) {
+	setupTestEnv(t)
+
+	seedProfile(t, "to-delete", `{}`)
 
 	if err := Delete("to-delete"); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	if _, err := os.Stat(profilePath); !os.IsNotExist(err) {
-		t.Error("Profile file should be deleted")
+	if Exists("to-delete") {
+		t.Error("Profile should be deleted from the document")
+	}
+}
+
+// Rename must move the whole block in one write: no lost siblings, and never
+// both names present.
+func TestRenameMovesBlockAndLeavesOneName(t *testing.T) {
+	setupTestEnv(t)
+	seedProfileBlock(t, "dev", json.RawMessage(
+		`{"[opencode]":{"telemetry":false,"future_key_xyz":1},"[senpi]":{"keep":"me"},"team":{"shared":true}}`,
+	))
+
+	if err := Rename("dev", "dev2"); err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+
+	if Exists("dev") {
+		t.Fatal("old name still present after rename")
+	}
+	if !Exists("dev2") {
+		t.Fatal("new name missing after rename")
+	}
+
+	doc, err := config.LoadDocument()
+	if err != nil {
+		t.Fatalf("LoadDocument: %v", err)
+	}
+	raw, ok, err := doc.ProfileBlock("dev2")
+	if err != nil || !ok {
+		t.Fatalf("ProfileBlock(dev2): ok=%v err=%v", ok, err)
+	}
+	var block map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &block); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !jsonEqual(t, string(block["[senpi]"]), `{"keep":"me"}`) {
+		t.Fatalf("[senpi] lost in rename: %s", block["[senpi]"])
+	}
+	if !jsonEqual(t, string(block["team"]), `{"shared":true}`) {
+		t.Fatalf("shared key lost in rename: %s", block["team"])
+	}
+	if !jsonEqual(t, string(block[config.OpenCodeKey]), `{"telemetry":false,"future_key_xyz":1}`) {
+		t.Fatalf("[opencode] altered in rename: %s", block[config.OpenCodeKey])
+	}
+}
+
+func TestRenameRejectsMissingAndTakenNames(t *testing.T) {
+	setupTestEnv(t)
+	seedProfile(t, "dev", `{}`)
+	seedProfile(t, "prod", `{}`)
+
+	var notFound *NotFoundError
+	if err := Rename("ghost", "x"); !errors.As(err, &notFound) {
+		t.Fatalf("expected *NotFoundError, got %T (%v)", err, err)
+	}
+
+	var exists *ExistsError
+	if err := Rename("dev", "prod"); !errors.As(err, &exists) {
+		t.Fatalf("expected *ExistsError, got %T (%v)", err, err)
+	}
+
+	// The rejected rename must not have disturbed either profile.
+	if !Exists("dev") || !Exists("prod") {
+		t.Fatal("a rejected rename mutated the document")
 	}
 }
 
 func TestDeleteNonexistent(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
 	err := Delete("nonexistent")
 	if err == nil {
-		t.Error("Expected error when deleting nonexistent profile")
+		t.Fatal("Expected error when deleting nonexistent profile")
+	}
+	var notFound *NotFoundError
+	if !errors.As(err, &notFound) {
+		t.Fatalf("expected *NotFoundError, got %T (%v)", err, err)
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected errors.Is(err, fs.ErrNotExist), got %v", err)
+	}
+	if notFound.Name != "nonexistent" {
+		t.Fatalf("NotFoundError.Name = %q, want nonexistent", notFound.Name)
 	}
 }
 
 func TestList(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	// Create test profiles
-	profilesDir := config.ProfilesDir()
-	_ = os.WriteFile(filepath.Join(profilesDir, "profile1.json"), []byte("{}"), 0644)
-	_ = os.WriteFile(filepath.Join(profilesDir, "profile2.json"), []byte("{}"), 0644)
-	_ = os.WriteFile(filepath.Join(profilesDir, "not-json.txt"), []byte("{}"), 0644)
+	seedProfile(t, "profile1", `{}`)
+	seedProfile(t, "profile2", `{}`)
 
 	profiles, err := List()
 	if err != nil {
@@ -148,7 +401,6 @@ func TestList(t *testing.T) {
 		t.Errorf("Expected 2 profiles, got %d", len(profiles))
 	}
 
-	// Check that both are present (order may vary)
 	found1, found2 := false, false
 	for _, p := range profiles {
 		if p == "profile1" {
@@ -164,10 +416,8 @@ func TestList(t *testing.T) {
 }
 
 func TestListEmpty(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	// Don't create profiles directory - should return empty list
 	profiles, err := List()
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -179,16 +429,9 @@ func TestListEmpty(t *testing.T) {
 }
 
 func TestExists(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	// Create a profile
-	profilePath := filepath.Join(config.ProfilesDir(), "exists-test.json")
-	_ = os.WriteFile(profilePath, []byte("{}"), 0644)
+	seedProfile(t, "exists-test", `{}`)
 
 	if !Exists("exists-test") {
 		t.Error("Expected profile to exist")
@@ -200,23 +443,13 @@ func TestExists(t *testing.T) {
 }
 
 func TestLoadWithLegacyFields(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	jsonWithLegacy := `{
+	seedProfile(t, "legacy-profile", `{
 		"disabled_mcps": ["test-mcp"],
 		"unknownLegacyField": "some value",
 		"anotherUnknown": 123
-	}`
-
-	profilePath := filepath.Join(config.ProfilesDir(), "legacy-profile.json")
-	if err := os.WriteFile(profilePath, []byte(jsonWithLegacy), 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
+	}`)
 
 	p, err := Load("legacy-profile")
 	if err != nil {
@@ -237,19 +470,9 @@ func TestLoadWithLegacyFields(t *testing.T) {
 }
 
 func TestLoadWithoutLegacyFields(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	validJSON := `{"disabled_mcps": ["valid-mcp"]}`
-
-	profilePath := filepath.Join(config.ProfilesDir(), "valid-profile.json")
-	if err := os.WriteFile(profilePath, []byte(validJSON), 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
+	seedProfile(t, "valid-profile", `{"disabled_mcps": ["valid-mcp"]}`)
 
 	p, err := Load("valid-profile")
 	if err != nil {
@@ -266,23 +489,13 @@ func TestLoadWithoutLegacyFields(t *testing.T) {
 }
 
 func TestProfileLoadPreservesUnknownJSON(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	profileJSON := `{
+	seedProfile(t, "preserve-unknown", `{
 		"disabled_mcps": ["test-mcp"],
 		"customField": {"enabled": true},
 		"anotherLegacy": [1, 2, 3]
-	}`
-
-	profilePath := filepath.Join(config.ProfilesDir(), "preserve-unknown.json")
-	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
+	}`)
 
 	p, err := Load("preserve-unknown")
 	if err != nil {
@@ -324,24 +537,14 @@ func TestProfileLoadPreservesUnknownJSON(t *testing.T) {
 }
 
 func TestProfileLoadCapturesFieldPresence(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	profileJSON := `{
+	seedProfile(t, "field-presence", `{
 		"disabled_mcps": ["test-mcp"],
 		"agents": {
 			"worker": {"model": "gpt-5"}
 		}
-	}`
-
-	profilePath := filepath.Join(config.ProfilesDir(), "field-presence.json")
-	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
+	}`)
 
 	p, err := Load("field-presence")
 	if err != nil {
@@ -366,23 +569,13 @@ func TestProfileLoadCapturesFieldPresence(t *testing.T) {
 }
 
 func TestProfileLoadCapturesLeafPresenceForNestedKnownFields(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	profileJSON := `{
+	seedProfile(t, "leaf-presence", `{
 		"agents": {
 			"build": {"model": "gpt-4"}
 		}
-	}`
-
-	profilePath := filepath.Join(config.ProfilesDir(), "leaf-presence.json")
-	if err := os.WriteFile(profilePath, []byte(profileJSON), 0644); err != nil {
-		t.Fatalf("Failed to create test profile: %v", err)
-	}
+	}`)
 
 	p, err := Load("leaf-presence")
 	if err != nil {
@@ -399,8 +592,7 @@ func TestProfileLoadCapturesLeafPresenceForNestedKnownFields(t *testing.T) {
 }
 
 func TestProfileSaveRoundTripsPreservedUnknownFragments(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
 	p := &Profile{
 		Name: "roundtrip-unknown",
@@ -446,33 +638,21 @@ func TestProfileSaveRoundTripsPreservedUnknownFragments(t *testing.T) {
 }
 
 func TestProfileLoadFailsOnMalformedJSON(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
+	setupTestEnv(t)
 
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
-
-	profilePath := filepath.Join(config.ProfilesDir(), "malformed.json")
-	if err := os.WriteFile(profilePath, []byte("}{invalid"), 0644); err != nil {
-		t.Fatalf("Failed to create malformed profile: %v", err)
-	}
+	// Valid document envelope, but profiles.<name> is not a JSON object — Load
+	// must fail when decoding the profile block.
+	seedProfileBlock(t, "malformed", json.RawMessage(`"[not-an-object]"`))
 
 	if _, err := Load("malformed"); err == nil {
-		t.Fatal("expected malformed JSON load to fail")
+		t.Fatal("expected malformed profile block load to fail")
 	}
 }
 
 func TestRegressionSparsePersistenceContract(t *testing.T) {
-	cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	if err := config.EnsureDirs(); err != nil {
-		t.Fatalf("EnsureDirs failed: %v", err)
-	}
+	setupTestEnv(t)
 
 	const profileName = "regression-sparse-contract"
-	profilePath := filepath.Join(config.ProfilesDir(), profileName+".json")
 	initialProfileJSON := `{
 		"disabled_mcps": ["legacy-mcp"],
 		"hashline_edit": true,
@@ -486,9 +666,7 @@ func TestRegressionSparsePersistenceContract(t *testing.T) {
 		"custom_flags": ["alpha", "beta"]
 	}`
 
-	if err := os.WriteFile(profilePath, []byte(initialProfileJSON), 0644); err != nil {
-		t.Fatalf("Failed to create initial regression profile: %v", err)
-	}
+	seedProfile(t, profileName, initialProfileJSON)
 
 	p, err := Load(profileName)
 	if err != nil {
@@ -623,9 +801,7 @@ func TestRegressionSparsePersistenceContract(t *testing.T) {
 		})
 	}
 
-	if err := os.WriteFile(profilePath, data, 0644); err != nil {
-		t.Fatalf("Failed to persist sparse regression profile: %v", err)
-	}
+	seedProfile(t, profileName, string(data))
 
 	reloaded, err := Load(profileName)
 	if err != nil {

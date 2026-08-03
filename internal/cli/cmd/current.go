@@ -11,7 +11,7 @@ import (
 var CurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show the name of the active profile",
-	Long:  `Displays the name of the currently active oh-my-openagent profile.`,
+	Long:  `Displays the profile whose configuration is currently written at the root of ~/.omo/omo.json.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		active, err := profile.GetActive()
 		if err != nil {
@@ -19,16 +19,15 @@ var CurrentCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if !active.Exists {
+		if active.Modified {
+			fmt.Fprintln(os.Stderr, "Warning: the root configuration matches no profile")
 			fmt.Println("(none)")
 			os.Exit(1)
 		}
-
-		if active.IsOrphan {
-			fmt.Println("(custom - unsaved)")
-			os.Exit(0)
+		if active.ProfileName == "" {
+			fmt.Println("(none)")
+			os.Exit(1)
 		}
-
 		fmt.Println(active.ProfileName)
 		os.Exit(0)
 	},

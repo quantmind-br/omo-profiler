@@ -1,0 +1,30 @@
+--- FAIL: TestHuntRestorePreservesMode (0.00s)
+    hunt_probe_test.go:41: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: 0x180
+        	            	actual  : 0x1a4
+        	Test:       	TestHuntRestorePreservesMode
+        	Messages:   	Restore widened a secrets-bearing document to -rw-r--r--
+--- FAIL: TestHuntBackupsAreRotated (0.00s)
+    hunt_probe_test.go:59: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:59
+        	Error:      	"40" is not less than "40"
+        	Test:       	TestHuntBackupsAreRotated
+        	Messages:   	40 writes left 40 backups — rotation never runs
+--- FAIL: TestHuntCleanNonPositiveKeep (0.00s)
+    hunt_probe_test.go:83: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:83
+        	Error:      	func (assert.PanicTestFunc)(0x5c3bc0) should not panic
+        	            		Panic value:	runtime error: index out of range [-1]
+        	            		Panic stack:	goroutine 10 [running]:
+        	            	runtime/debug.Stack()
+        	            		/usr/lib/go/src/runtime/debug/stack.go:26 +0x5e
+        	            	github.com/stretchr/testify/assert.didPanic.func1()
+        	            		/tmp/tmp.arEwbyb9d0/home/go/pkg/mod/github.com/stretchr/testify@v1.11.1/assert/assertions.go:1286 +0x67
+        	            	panic({0x664220?, 0x18c519820300?})
+        	            		/usr/lib/go/src/runtime/panic.go:860 +0x13a
+        	            	github.com/diogenes/omo-profiler/internal/backup.Clean(0xffffffffffffffff)
+        	            		/tmp/tmp.arEwbyb9d0/wt/internal/backup/backup.go:198 +0x165
+        	            	github.com/diogenes/omo-profiler/internal/backup.TestHuntCleanNonPositiveKeep.func1()
+        	            		/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:83 +0x1a

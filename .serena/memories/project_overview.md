@@ -1,7 +1,7 @@
 # Project Overview: omo-profiler
 
 ## Purpose
-TUI profile manager for `oh-my-opencode` configuration files. Provides a user-friendly terminal interface for managing configuration profiles, including creation, editing, switching, import/export, schema validation, and upstream schema comparison.
+TUI/CLI/Web profile manager for `oh-my-openagent` configuration. Profiles live as `profiles.<name>` entries inside the unified `~/.omo/omo.json` (or `omo.jsonc`) document; the editable payload is `profiles.<name>.[opencode]`. Activation is in-document (`Apply`). Provides creation, editing, import/export, schema validation, and upstream schema comparison.
 
 ## Version
 `0.1.0` (defined in `internal/cli/root.go`)
@@ -9,14 +9,14 @@ TUI profile manager for `oh-my-opencode` configuration files. Provides a user-fr
 ## Key Features
 - **Dashboard**: Overview of active profile with quick actions
 - **Profile Wizard**: Step-by-step profile creation/editing (6 steps)
-- **Profile List**: View, switch, edit, and delete profiles
+- **Profile List**: View, switch (emit export command), edit, and delete profiles
 - **Diff View**: Side-by-side profile comparison
 - **Import/Export**: JSON profile exchange with validation
 - **Model Registry**: Manage custom AI models (local CRUD + models.dev API import)
 - **Model Selector**: Pick models from registry when configuring agents
 - **Template Select**: Start wizard from pre-configured templates
-- **Schema Validation**: Validates against oh-my-opencode JSON schema
-- **Schema Check**: Compare embedded schema against upstream for drift detection
+- **Schema Validation**: Validates against omo document / `[opencode]` schemas
+- **Schema Check**: Compare embedded schema against upstream `assets/omo.schema.json` (monorepo: `packages/omo-config-core/src/schema/`; migration: `packages/omo-opencode/src/config-migration/`)
 
 ## Technology Stack
 - **Language**: Go 1.25.6
@@ -33,11 +33,11 @@ TUI profile manager for `oh-my-opencode` configuration files. Provides a user-fr
 |---------|------|-------------|
 | `omo-profiler` | (root) | Launch TUI |
 | `omo-profiler list` | `cmd/list.go` | List all profiles |
-| `omo-profiler current` | `cmd/current.go` | Show active profile |
-| `omo-profiler switch <name>` | `cmd/switch.go` | Activate profile |
+| `omo-profiler current` | `cmd/current.go` | Show active profile (from env) |
+| `omo-profiler switch <name>` | `cmd/switch.go` | Substitute profile keys into document root |
 | `omo-profiler create` | `cmd/create.go` | Create profile from CLI |
-| `omo-profiler import <file>` | `cmd/import.go` | Import profile from JSON |
-| `omo-profiler export <name> <path>` | `cmd/export.go` | Export profile to file |
+| `omo-profiler import <file>` | `cmd/import.go` | Import profile into omo document |
+| `omo-profiler export <name> <path>` | `cmd/export.go` | Export profile `[opencode]` to file |
 | `omo-profiler models` | `cmd/models.go` | Manage model registry |
 | `omo-profiler schema-check` | `cmd/schema_check.go` | Compare embedded vs upstream schema |
 
@@ -45,23 +45,25 @@ TUI profile manager for `oh-my-opencode` configuration files. Provides a user-fr
 ```
 omo-profiler/
 ├── cmd/omo-profiler/          # Entry point (main.go)
+├── omo.schema.json            # Root omo document schema (mirrors embedded)
 ├── internal/
 │   ├── cli/                   # Cobra CLI commands
-│   │   ├── cmd/               # Individual commands (8 commands)
+│   │   ├── cmd/               # Individual commands (incl. web)
 │   │   └── root.go            # Root command registration
-│   ├── config/                # Schema definitions & path resolution
-│   │   ├── types.go           # Config struct ecosystem (CRITICAL - matches JSON schema)
-│   │   └── paths.go           # Path helpers + DefaultSchema const
-│   ├── profile/               # CRUD logic & persistence
+│   ├── config/                # Document + [opencode] types & path resolution
+│   │   ├── types.go           # Config struct (= [opencode] block)
+│   │   ├── document.go        # Document load/save + profile blocks
+│   │   ├── jsonc.go           # StripJSONC
+│   │   └── paths.go           # OmoDir/OmoFile/ModelsFile/legacy migration helpers
+│   ├── profile/               # CRUD logic & env activation
 │   │   ├── profile.go         # Core Profile struct with Load/Save/Delete/List/Exists
-│   │   ├── active.go          # ActiveConfig, GetActive/SetActive, MatchesConfig
+│   │   ├── active.go          # Apply, ActiveName, GetActive, canonicalJSON
 │   │   └── naming.go          # Profile name validation/sanitization
 │   ├── schema/                # JSON schema validation & upstream comparison
-│   │   ├── validator.go       # Singleton validator (GetValidator, Validate, ValidateJSON)
+│   │   ├── validator.go       # Singleton validator + GetOpenCodeSchema
 │   │   ├── compare.go         # FetchUpstreamSchema, CompareSchemas, SaveDiff
-│   │   ├── schema.json        # Embedded JSON schema (go:embed)
-│   │   └── oh-my-opencode.schema.json  # Reference schema
-│   ├── backup/                # Profile backup management (Create, List, Restore, Clean)
+│   │   └── schema.json        # Embedded omo document schema (go:embed)
+│   ├── backup/                # Backup management (Create, List, Restore, Clean)
 │   ├── diff/                  # ComputeDiff (side-by-side), ComputeUnifiedDiff
 │   ├── models/                # Model registry management
 │   │   ├── models.go          # ModelsRegistry CRUD, provider grouping
@@ -95,8 +97,9 @@ omo-profiler/
 ```
 
 ## Important Files
-- `internal/config/types.go`: Schema authority - must stay in sync with upstream
+- `internal/config/types.go`: `[opencode]` type authority — must stay in sync with the sub-schema
+- `internal/config/document.go`: Unified omo document read/write
 - `internal/tui/app.go`: Root TUI state machine & router (~840 lines)
-- `internal/schema/compare.go`: Upstream schema drift detection
-- `internal/profile/profile.go`: Core persistence logic
+- `internal/schema/compare.go`: Upstream schema drift detection (`assets/omo.schema.json`)
+- `internal/profile/profile.go` / `active.go`: Persistence + env activation
 - `Makefile`: Build, test, install automation

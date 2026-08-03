@@ -1,0 +1,57 @@
+--- FAIL: TestHuntRestorePreservesMode (0.00s)
+    hunt_probe_test.go:41: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: 0x180
+        	            	actual  : 0x1a4
+        	Test:       	TestHuntRestorePreservesMode
+        	Messages:   	Restore widened a secrets-bearing document to -rw-r--r--
+--- FAIL: TestHuntCleanNonPositiveKeep (0.00s)
+    hunt_probe_test.go:65: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:65
+        	Error:      	func (assert.PanicTestFunc)(0x6cefc0) should not panic
+        	            		Panic value:	runtime error: index out of range [-1]
+        	            		Panic stack:	goroutine 21 [running]:
+        	            	runtime/debug.Stack()
+        	            		/usr/lib/go/src/runtime/debug/stack.go:26 +0x68
+        	            	github.com/stretchr/testify/assert.didPanic.func1()
+        	            		/tmp/tmp.arEwbyb9d0/home/go/pkg/mod/github.com/stretchr/testify@v1.11.1/assert/assertions.go:1286 +0x9f
+        	            	panic({0x7aa080?, 0xc0001582a0?})
+        	            		/usr/lib/go/src/runtime/panic.go:860 +0x13a
+        	            	github.com/diogenes/omo-profiler/internal/backup.Clean(0xffffffffffffffff)
+        	            		/tmp/tmp.arEwbyb9d0/wt/internal/backup/backup.go:198 +0x25d
+        	            	github.com/diogenes/omo-profiler/internal/backup.TestHuntCleanNonPositiveKeep.func1()
+        	            		/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:65 +0x25
+        	            	github.com/stretchr/testify/assert.didPanic(0x7dbe10)
+        	            		/tmp/tmp.arEwbyb9d0/home/go/pkg/mod/github.com/stretchr/testify@v1.11.1/assert/assertions.go:1291 +0xd4
+        	            	github.com/stretchr/testify/assert.NotPanics({0x7fc143951120, 0xc000180908}, 0x7dbe10, {0xc00016dec0, 0x1, 0x1})
+        	            		/tmp/tmp.arEwbyb9d0/home/go/pkg/mod/github.com/stretchr/testify@v1.11.1/assert/assertions.go:1362 +0xa5
+        	            	github.com/stretchr/testify/require.NotPanics({0x7e0a08, 0xc000180908}, 0x7dbe10, {0xc00016dec0, 0x1, 0x1})
+        	            		/tmp/tmp.arEwbyb9d0/home/go/pkg/mod/github.com/stretchr/testify@v1.11.1/require/require.go:1711 +0xb4
+        	            	github.com/diogenes/omo-profiler/internal/backup.TestHuntCleanNonPositiveKeep(0xc000180908)
+        	            		/tmp/tmp.arEwbyb9d0/wt/internal/backup/hunt_probe_test.go:65 +0x298
+        	            	testing.tRunner(0xc000180908, 0x7dbd18)
+        	            		/usr/lib/go/src/testing/testing.go:2036 +0x21d
+        	            	created by testing.(*T).Run in goroutine 1
+        	            		/usr/lib/go/src/testing/testing.go:2101 +0xb13
+        	Test:       	TestHuntCleanNonPositiveKeep
+        	Messages:   	Clean(-1) panicked
+FAIL
+FAIL	github.com/diogenes/omo-profiler/internal/backup	0.007s
+--- FAIL: TestHuntCrossOriginWriteIsRejected (0.00s)
+    hunt_probe_test.go:35: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/web/hunt_probe_test.go:35
+        	Error:      	Should not be: 201
+        	Test:       	TestHuntCrossOriginWriteIsRejected
+        	Messages:   	cross-origin POST created a profile (body={"name":"attacker"}
+        	            	)
+--- FAIL: TestHuntCrossOriginImportIsRejected (0.10s)
+    hunt_probe_test.go:45: 
+        	Error Trace:	/tmp/tmp.arEwbyb9d0/wt/internal/web/hunt_probe_test.go:45
+        	Error:      	Should not be: 200
+        	Test:       	TestHuntCrossOriginImportIsRejected
+        	Messages:   	cross-origin POST /api/import succeeded (body={"hadCollision":false,"name":"pwned"}
+        	            	)
+FAIL
+FAIL	github.com/diogenes/omo-profiler/internal/web	0.119s
+FAIL

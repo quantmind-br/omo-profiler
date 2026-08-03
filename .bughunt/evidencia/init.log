@@ -1,0 +1,18 @@
+HEAD is now at b117b82 chore(schema): sync schema and wizard with upstream
+ALTERACOES-NAO-COMMITADAS: 122 arquivo(s); aplicando dirty.patch (opção a).
+  Arquivos não rastreados NÃO entram no patch: veja $SB/nao-rastreados.txt.
+/tmp/tmp.arEwbyb9d0/dirty.patch:2566: trailing whitespace.
+**Cross-community:** Tui → Profile → Config  
+/tmp/tmp.arEwbyb9d0/dirty.patch:3383: trailing whitespace.
+112:**Phase:** probe  
+/tmp/tmp.arEwbyb9d0/dirty.patch:3384: trailing whitespace.
+113:**Evidence:** captures/EVIDENCE-q-quit-during-filter.txt  
+/tmp/tmp.arEwbyb9d0/dirty.patch:3401: trailing whitespace.
+130:**Phase:** probe  
+/tmp/tmp.arEwbyb9d0/dirty.patch:3402: trailing whitespace.
+131:**Evidence:** captures/0004-help-overlay-during-filter.txt  
+warning: squelched 15 whitespace errors
+warning: 20 lines add whitespace errors.
+arquivos=20 HEAD=b117b82 sujo=102
+INIT_RC=0
+SB=/tmp/tmp.arEwbyb9d0

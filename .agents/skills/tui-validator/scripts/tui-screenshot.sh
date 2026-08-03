@@ -101,8 +101,18 @@ EOF
     aha --no-header --black < "$last_ansi"
   } > "$html"
 
+  # Size the headless viewport from the pane geometry so wide/huge captures are
+  # not clipped at a fixed 1200x800. Per-char budget (10px wide, 18px tall at
+  # 14px/1.25 line-height) overshoots slightly; the extra area is background.
+  local cols rows win_w win_h
+  read -r cols rows < <(tmux display-message -p -t "$session" '#{pane_width} #{pane_height}' 2>/dev/null || true)
+  [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+  [[ "$rows" =~ ^[0-9]+$ ]] || rows=24
+  win_w=$(( cols * 10 + 24 ))
+  win_h=$(( rows * 18 + 24 ))
+
   "$browser" --headless --disable-gpu --no-sandbox --hide-scrollbars \
-    --window-size=1200,800 --screenshot="$out" "file://$html" >/dev/null 2>&1
+    --window-size="${win_w},${win_h}" --screenshot="$out" "file://$html" >/dev/null 2>&1
 }
 
 image_size() {
@@ -212,11 +222,10 @@ if on_wayland && command -v grim >/dev/null 2>&1; then
         warn "grim failed for focused window; using headless fallback"
       fi
     else
-      if grim "$out"; then
-        captured=1
-      else
-        warn "grim failed for full-screen capture; using headless fallback"
-      fi
+      # No per-window geometry (compositor is not Hyprland). A bare `grim "$out"`
+      # would grab the ENTIRE desktop — leaking other windows and not the TUI.
+      # Fall through to the headless pane render, which only draws this session.
+      warn "no per-window geometry (compositor is not Hyprland); using headless pane render instead of a full-screen grab"
     fi
   else
     warn "no Wayland terminal found (foot/kitty/alacritty/ghostty/wezterm); using headless fallback"

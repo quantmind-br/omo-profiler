@@ -5,6 +5,10 @@ the current design against them. Distilled from clig.dev, ncurses/TUI
 engineering tradition, and best-in-class TUIs (lazygit, k9s, btop, gh dash,
 neovim, ranger, gitui).
 
+The numbered block below is **shared verbatim with `tui-design`**. Keep the
+block between the markers byte-identical across the two skills.
+
+<!-- BEGIN canonical principles (identical in tui-design and tui-refactor) -->
 1. **Human-first.** Optimize for clarity over brevity or tradition.
 2. **Keyboard-first, mouse-optional.** Every action reachable from the keyboard.
 3. **Discoverable.** The footer always shows the most relevant keys for the
@@ -30,7 +34,7 @@ neovim, ranger, gitui).
     cursor on async events while the user is reading.
 14. **Empathic errors.** Say what failed, why, and what to do next.
 
-## Anti-patterns the target must NOT introduce
+## Anti-patterns to avoid
 
 - Hidden actions (any active key MUST appear in status bar or help).
 - Inconsistent keys (`d` deletes here, dismisses there).
@@ -43,6 +47,7 @@ neovim, ranger, gitui).
 - Full-screen redraws on every keystroke (kills screen readers and slow SSH).
 - Vim-only navigation without arrow alternatives.
 - Truecolor assumptions without fallbacks.
+<!-- END canonical principles (identical in tui-design and tui-refactor) -->
 
 ## Refactor-specific rule
 

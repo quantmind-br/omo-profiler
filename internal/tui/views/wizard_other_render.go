@@ -231,11 +231,10 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderBoolField(2, "sisyphus_agent.planner_enabled", "planner_enabled", w.saPlannerEnabled))
 		lines = append(lines, renderBoolField(3, "sisyphus_agent.replace_plan", "replace_plan", w.saReplacePlan))
 		lines = append(lines, renderBoolField(4, "sisyphus_agent.tdd", "tdd", w.saTDD))
-	case sectionRalphLoop:
-		lines = append(lines, renderBoolField(0, "ralph_loop.enabled", "enabled", w.rlEnabled))
-		lines = append(lines, renderValueField(1, "ralph_loop.default_max_iterations", "default_max_iterations", w.rlDefaultMaxIterations.View()))
-		lines = append(lines, renderValueField(2, "ralph_loop.state_dir", "state_dir", w.rlStateDir.View()))
-		lines = append(lines, renderValueField(3, "ralph_loop.default_strategy", "default_strategy", ralphLoopStrategies[w.rlDefaultStrategyIdx]))
+	case sectionGoal:
+		lines = append(lines, renderBoolField(0, "goal.enabled", "enabled", w.goalEnabled))
+		lines = append(lines, renderBoolField(1, "goal.auto_start", "auto_start", w.goalAutoStart))
+		lines = append(lines, renderValueField(2, "goal.default_max_iterations", "default_max_iterations", w.goalDefaultMaxIterations.View()))
 	case sectionBackgroundTask:
 		lines = append(lines, renderValueField(0, "background_task.provider_concurrency", "provider_concurrency", w.btProviderConcurrency.View()))
 		lines = append(lines, renderValueField(1, "background_task.model_concurrency", "model_concurrency", w.btModelConcurrency.View()))
@@ -263,6 +262,7 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderValueField(0, babysittingTimeoutFieldPath, "timeout_ms", w.babysittingTimeoutMs.View()))
 	case sectionBrowserAutomationEngine:
 		lines = append(lines, renderValueField(0, browserProviderFieldPath, "provider", browserProviders[w.browserProviderIdx]))
+		lines = append(lines, renderValueField(1, browserPlaywrightMCPArgsFieldPath, "playwright_mcp_args", w.baePlaywrightMCPArgs.View()))
 	case sectionTmux:
 		lines = append(lines, renderBoolField(0, "tmux.enabled", "enabled", w.tmuxEnabled))
 		lines = append(lines, renderValueField(1, "tmux.layout", "layout", tmuxLayouts[w.tmuxLayoutIdx]))
@@ -331,9 +331,11 @@ func (w WizardOther) renderSubSection(section otherSection) []string {
 		lines = append(lines, renderBoolField(0, "codegraph.enabled", "enabled", w.cgEnabled))
 		lines = append(lines, renderBoolField(1, "codegraph.auto_provision", "auto_provision", w.cgAutoProvision))
 		lines = append(lines, renderBoolField(2, "codegraph.auto_init", "auto_init", w.cgAutoInit))
-		lines = append(lines, renderValueField(3, "codegraph.install_dir", "install_dir", w.cgInstallDir.View()))
-		lines = append(lines, renderBoolField(4, "codegraph.telemetry", "telemetry", w.cgTelemetry))
-		lines = append(lines, renderValueField(5, "codegraph.watch_debounce_ms", "watch_debounce_ms", w.cgWatchDebounceMs.View()))
+		lines = append(lines, renderBoolField(3, "codegraph.daemon", "daemon", w.cgDaemon))
+		lines = append(lines, renderValueField(4, "codegraph.install_dir", "install_dir", w.cgInstallDir.View()))
+		lines = append(lines, renderValueField(5, "codegraph.excluded_roots", "excluded_roots", w.cgExcludedRoots.View()))
+		lines = append(lines, renderBoolField(6, "codegraph.telemetry", "telemetry", w.cgTelemetry))
+		lines = append(lines, renderValueField(7, "codegraph.watch_debounce_ms", "watch_debounce_ms", w.cgWatchDebounceMs.View()))
 	case sectionTui:
 		lines = append(lines, renderBoolField(0, "tui.sidebar.enabled", "sidebar.enabled", w.tuiSidebarEnabled))
 	}

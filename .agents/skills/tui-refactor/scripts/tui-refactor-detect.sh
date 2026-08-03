@@ -10,6 +10,8 @@ json_escape() {
   value=${value//\\/\\\\}
   value=${value//\"/\\\"}
   value=${value//$'\n'/\\n}
+  value=${value//$'\r'/\\r}
+  value=${value//$'\t'/\\t}
   printf '%s' "$value"
 }
 
@@ -48,9 +50,9 @@ add_unique_to() {
 search_root() {
   local pattern=$1
   if command -v rg >/dev/null 2>&1; then
-    (cd "$root" && rg -q --hidden --glob '!.git/**' --glob '!node_modules/**' --glob '!target/**' --glob '!dist/**' "$pattern" .)
+    (cd "$root" && rg -q --hidden --glob '!.git/**' --glob '!node_modules/**' --glob '!target/**' --glob '!dist/**' --glob '!vendor/**' "$pattern" .)
   else
-    grep -R -q -E --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=target --exclude-dir=dist "$pattern" "$root"
+    grep -R -q -E --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=target --exclude-dir=dist --exclude-dir=vendor "$pattern" "$root"
   fi
 }
 
@@ -72,7 +74,11 @@ collect_ui_files() {
         "$pattern" . 2>/dev/null || true
     )
   else
+    # No ripgrep: enumerate candidate source files by extension, then keep only
+    # those whose CONTENT matches the UI pattern. Without this content filter the
+    # fallback would add every source file in the repo as a "UI file".
     while IFS= read -r file; do
+      grep -l -E "$pattern" "$file" >/dev/null 2>&1 || continue
       file=${file#"$root/"}
       add_unique_to ui_files "$file"
     done < <(

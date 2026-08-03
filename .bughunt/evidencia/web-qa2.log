@@ -1,0 +1,9 @@
+GET  /api/profiles            same-origin   -> status=200
+POST /api/profiles            SPA origin    -> status=201
+POST /api/profiles            no origin     -> status=201
+POST /api/profiles            evil origin   -> status=403
+PUT  /api/profiles/dev        evil origin   -> status=403
+DELETE /api/profiles/dev      evil origin   -> status=403
+POST /api/import              evil origin   -> status=403
+GET  /                        SPA fallback  -> status=200
+profiles now: "profiles":[{"name":"dev" {"name":"fromcurl" {"name":"fromspa" 

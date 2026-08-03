@@ -1,0 +1,25 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/7 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 7/7 completed, now fuzzing with 32 workers
+fuzz: elapsed: 3s, execs: 1268753 (422803/sec), new interesting: 201 (total: 208)
+fuzz: elapsed: 6s, execs: 2674161 (468530/sec), new interesting: 265 (total: 272)
+fuzz: elapsed: 9s, execs: 3701366 (342382/sec), new interesting: 298 (total: 305)
+fuzz: elapsed: 12s, execs: 5429324 (576004/sec), new interesting: 315 (total: 322)
+fuzz: elapsed: 15s, execs: 7126336 (565185/sec), new interesting: 336 (total: 343)
+fuzz: elapsed: 18s, execs: 8788623 (554662/sec), new interesting: 355 (total: 362)
+fuzz: elapsed: 21s, execs: 10456671 (555928/sec), new interesting: 367 (total: 374)
+fuzz: elapsed: 24s, execs: 12101416 (548182/sec), new interesting: 381 (total: 388)
+fuzz: elapsed: 27s, execs: 13698213 (532376/sec), new interesting: 388 (total: 395)
+fuzz: elapsed: 30s, execs: 15405612 (568721/sec), new interesting: 394 (total: 401)
+fuzz: elapsed: 33s, execs: 17032381 (542559/sec), new interesting: 397 (total: 404)
+fuzz: elapsed: 36s, execs: 18629519 (532363/sec), new interesting: 402 (total: 409)
+fuzz: elapsed: 39s, execs: 20285852 (552127/sec), new interesting: 408 (total: 415)
+fuzz: elapsed: 42s, execs: 21942210 (552164/sec), new interesting: 409 (total: 416)
+fuzz: elapsed: 45s, execs: 23579956 (545861/sec), new interesting: 414 (total: 421)
+fuzz: elapsed: 48s, execs: 25230653 (550212/sec), new interesting: 415 (total: 422)
+fuzz: elapsed: 51s, execs: 26859031 (542838/sec), new interesting: 417 (total: 424)
+fuzz: elapsed: 54s, execs: 28507779 (549522/sec), new interesting: 418 (total: 425)
+fuzz: elapsed: 57s, execs: 30146118 (546291/sec), new interesting: 419 (total: 426)
+fuzz: elapsed: 1m0s, execs: 31782664 (545429/sec), new interesting: 424 (total: 431)
+fuzz: elapsed: 1m1s, execs: 31782664 (0/sec), new interesting: 424 (total: 431)
+PASS
+ok  	github.com/diogenes/omo-profiler/internal/config	61.030s

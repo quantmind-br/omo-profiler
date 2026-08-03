@@ -62,6 +62,7 @@ const (
 	skillsFieldPath                     = "skills"
 	startWorkAutoCommitFieldPath        = "start_work.auto_commit"
 	browserProviderFieldPath            = "browser_automation_engine.provider"
+	browserPlaywrightMCPArgsFieldPath   = "browser_automation_engine.playwright_mcp_args"
 	websearchProviderFieldPath          = "websearch.provider"
 	commentCheckerCustomPromptFieldPath = "comment_checker.custom_prompt"
 	babysittingTimeoutFieldPath         = "babysitting.timeout_ms"
@@ -158,6 +159,18 @@ func float64Ptr(v float64) *float64 {
 	return &v
 }
 
+// splitTrimmedList parses a comma-separated text input into a slice, dropping
+// blank entries. Returns nil when nothing meaningful was typed.
+func splitTrimmedList(input string) []string {
+	var out []string
+	for _, part := range strings.Split(input, ",") {
+		if s := strings.TrimSpace(part); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func emptySliceIfSelected(selected bool, values []string) []string {
 	if !selected {
 		return nil
@@ -233,11 +246,11 @@ func (w WizardOther) saHasData() bool {
 	return w.selectedWithPrefix("sisyphus_agent.")
 }
 
-func (w WizardOther) rlHasData() bool {
+func (w WizardOther) goalHasData() bool {
 	if w.selection == nil {
-		return w.rlEnabled || w.rlDefaultMaxIterations.Value() != "" || w.rlStateDir.Value() != "" || w.rlDefaultStrategyIdx > 0
+		return w.goalEnabled || w.goalAutoStart || w.goalDefaultMaxIterations.Value() != ""
 	}
-	return w.selectedWithPrefix("ralph_loop.")
+	return w.selectedWithPrefix("goal.")
 }
 
 func (w WizardOther) btHasData() bool {
@@ -297,7 +310,7 @@ func (w WizardOther) monHasData() bool {
 
 func (w WizardOther) cgHasData() bool {
 	if w.selection == nil {
-		return w.cgEnabled || w.cgAutoInit || w.cgAutoProvision || w.cgTelemetry || strings.TrimSpace(w.cgInstallDir.Value()) != "" || strings.TrimSpace(w.cgWatchDebounceMs.Value()) != ""
+		return w.cgEnabled || w.cgAutoInit || w.cgAutoProvision || w.cgDaemon || w.cgTelemetry || strings.TrimSpace(w.cgInstallDir.Value()) != "" || strings.TrimSpace(w.cgExcludedRoots.Value()) != "" || strings.TrimSpace(w.cgWatchDebounceMs.Value()) != ""
 	}
 	return w.selectedWithPrefix("codegraph.")
 }
@@ -398,8 +411,8 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}
-	case sectionRalphLoop:
-		paths := []string{"ralph_loop.enabled", "ralph_loop.default_max_iterations", "ralph_loop.state_dir", "ralph_loop.default_strategy"}
+	case sectionGoal:
+		paths := []string{"goal.enabled", "goal.auto_start", "goal.default_max_iterations"}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}
@@ -426,8 +439,9 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 			return babysittingTimeoutFieldPath
 		}
 	case sectionBrowserAutomationEngine:
-		if idx == 0 {
-			return browserProviderFieldPath
+		paths := []string{browserProviderFieldPath, browserPlaywrightMCPArgsFieldPath}
+		if idx >= 0 && idx < len(paths) {
+			return paths[idx]
 		}
 	case sectionTmux:
 		paths := []string{"tmux.enabled", "tmux.layout", "tmux.main_pane_size", "tmux.main_pane_min_width", "tmux.agent_pane_min_width", "tmux.isolation"}
@@ -492,7 +506,7 @@ func (w WizardOther) subSectionFieldPath(section otherSection, idx int) string {
 			return paths[idx]
 		}
 	case sectionCodegraph:
-		paths := []string{"codegraph.enabled", "codegraph.auto_provision", "codegraph.auto_init", "codegraph.install_dir", "codegraph.telemetry", "codegraph.watch_debounce_ms"}
+		paths := []string{"codegraph.enabled", "codegraph.auto_provision", "codegraph.auto_init", "codegraph.daemon", "codegraph.install_dir", "codegraph.excluded_roots", "codegraph.telemetry", "codegraph.watch_debounce_ms"}
 		if idx >= 0 && idx < len(paths) {
 			return paths[idx]
 		}

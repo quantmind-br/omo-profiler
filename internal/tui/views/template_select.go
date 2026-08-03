@@ -141,7 +141,6 @@ func (t TemplateSelect) View() string {
 		lines = append(lines, line)
 	}
 
-
 	if layout.IsShort(t.height) {
 		compact := make([]string, 0, len(lines))
 		for _, line := range lines {

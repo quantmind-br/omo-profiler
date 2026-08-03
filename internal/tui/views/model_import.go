@@ -1,7 +1,6 @@
 package views
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,6 +19,7 @@ type ModelImportBackMsg struct{}
 type ModelImportDoneMsg struct {
 	Imported int
 	Skipped  int
+	Err      error
 }
 
 type modelImportState int
@@ -32,14 +32,14 @@ const (
 )
 
 type modelImportKeyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	PageUp  key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	PageUp   key.Binding
 	PageDown key.Binding
-	Enter   key.Binding
-	Space   key.Binding
-	Esc     key.Binding
-	Retry   key.Binding
+	Enter    key.Binding
+	Space    key.Binding
+	Esc      key.Binding
+	Retry    key.Binding
 }
 
 func newModelImportKeyMap() modelImportKeyMap {
@@ -398,36 +398,24 @@ func (m ModelImport) getFilteredProviders() []models.ProviderWithCount {
 
 func (m ModelImport) importSelectedModels() tea.Cmd {
 	return func() tea.Msg {
-		imported := 0
-		skipped := 0
-
-		for modelID, selected := range m.selectedModels {
-			if !selected {
+		selected := make([]models.RegisteredModel, 0, len(m.selectedModels))
+		for modelID, isSelected := range m.selectedModels {
+			if !isSelected {
 				continue
 			}
-
-			var foundModel *models.ModelsDevModel
 			for _, model := range m.providerModels {
 				if model.ID == modelID {
-					foundModel = &model
+					selected = append(selected, model.ToRegisteredModel(m.selectedProvider))
 					break
 				}
 			}
+		}
 
-			if foundModel == nil {
-				continue
-			}
-
-			registeredModel := foundModel.ToRegisteredModel(m.selectedProvider)
-			err := m.registry.Add(registeredModel)
-			if err != nil {
-				var existsErr *models.ModelExistsError
-				if errors.As(err, &existsErr) {
-					skipped++
-				}
-			} else {
-				imported++
-			}
+		// One transaction for the whole batch: a partial import cannot be
+		// interleaved with another writer, and it is a single file write.
+		imported, skipped, err := models.AddMany(selected)
+		if err != nil {
+			return ModelImportDoneMsg{Err: err}
 		}
 
 		return ModelImportDoneMsg{
@@ -655,7 +643,7 @@ func (m ModelImport) renderModelList() string {
 func (m ModelImport) renderError() string {
 	title := titleStyle.Render("Import from models.dev")
 	errorText := errorStyle.Render(fmt.Sprintf("Error: %s", m.errorMsg))
-		help := grayStyle.Render(layout.RenderHintLine([]string{"[r] retry", "[Esc] back"}, m.width))
+	help := grayStyle.Render(layout.RenderHintLine([]string{"[r] retry", "[Esc] back"}, m.width))
 
 	if layout.IsShort(m.height) {
 		return lipgloss.JoinVertical(lipgloss.Left,

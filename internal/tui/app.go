@@ -54,8 +54,9 @@ type clearToastMsg struct{}
 
 // Operation messages
 type switchProfileDoneMsg struct {
-	name string
-	err  error
+	name    string
+	snapshot string
+	err     error
 }
 
 type deleteProfileDoneMsg struct {
@@ -263,7 +264,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case views.NavToEditorMsg:
 		// Edit current active profile using wizard
 		active, err := profile.GetActive()
-		if err != nil || active == nil || !active.Exists || active.IsOrphan {
+		if err != nil || active == nil || active.ProfileName == "" {
 			return a, a.showToast("No active profile to edit", toastError, 3*time.Second)
 		}
 		p, err := profile.Load(active.ProfileName)
@@ -288,7 +289,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case views.NavToExportMsg:
 		active, err := profile.GetActive()
-		if err != nil || active == nil || !active.Exists || active.IsOrphan {
+		if err != nil || active == nil || active.ProfileName == "" {
 			return a, a.showToast("No active profile to export", toastError, 3*time.Second)
 		}
 		a.exportView = views.NewExport(active.ProfileName)
@@ -394,6 +395,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.navigateTo(stateModels)
 
 	case views.ModelImportDoneMsg:
+		if msg.Err != nil {
+			return a, a.showToast(fmt.Sprintf("Import failed: %v", msg.Err), toastError, 5*time.Second)
+		}
 		var toastText string
 		if msg.Skipped > 0 {
 			toastText = fmt.Sprintf("Imported %d models. %d already existed.", msg.Imported, msg.Skipped)
@@ -433,7 +437,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return a, a.showToast("Switch failed: "+msg.err.Error(), toastError, 3*time.Second)
 		}
-		cmds = append(cmds, a.showToast("Switched to: "+msg.name, toastSuccess, 3*time.Second))
+		if msg.snapshot != "" {
+			cmds = append(cmds, a.showToast("Applied "+msg.name+" (previous config saved as "+msg.snapshot+")", toastSuccess, 3*time.Second))
+		} else {
+			cmds = append(cmds, a.showToast("Applied "+msg.name, toastSuccess, 3*time.Second))
+		}
 		a.dashboard = views.NewDashboard()
 		a.dashboard.SetSize(a.width, a.contentHeight())
 		cmds = append(cmds, a.dashboard.Init())
@@ -570,8 +578,8 @@ func (a App) navigateTo(state appState) (App, tea.Cmd) {
 
 func (a App) doSwitchProfile(name string) tea.Cmd {
 	return func() tea.Msg {
-		err := profile.SetActive(name)
-		return switchProfileDoneMsg{name: name, err: err}
+		applied, err := profile.Apply(name)
+		return switchProfileDoneMsg{name: name, snapshot: applied.Snapshot, err: err}
 	}
 }
 
@@ -589,8 +597,8 @@ func (a App) doImportProfile(sourcePath string) tea.Cmd {
 			return importProfileDoneMsg{err: err}
 		}
 
-		var cfg config.Config
-		if err := json.Unmarshal(data, &cfg); err != nil {
+		// Type-check the payload before storing it verbatim.
+		if err := json.Unmarshal(data, &config.Config{}); err != nil {
 			return importProfileDoneMsg{err: err}
 		}
 
@@ -615,21 +623,10 @@ func (a App) doImportProfile(sourcePath string) tea.Cmd {
 			return importProfileDoneMsg{err: fmt.Errorf("cannot derive valid profile name from filename")}
 		}
 
-		baseName := profileName
-		hadCollision := false
-		suffix := 1
-		for profile.Exists(profileName) {
-			hadCollision = true
-			profileName = fmt.Sprintf("%s-%d", baseName, suffix)
-			suffix++
-		}
-
-		p := &profile.Profile{
-			Name:   profileName,
-			Config: cfg,
-		}
-
-		if err := profile.Save(p); err != nil {
+		// Name selection and the write share one transaction, so a concurrent
+		// import from the web server cannot settle on the same suffix.
+		profileName, hadCollision, err := profile.CreateAvailable(profileName, data)
+		if err != nil {
 			return importProfileDoneMsg{err: err}
 		}
 
@@ -643,12 +640,9 @@ func (a App) doImportProfile(sourcePath string) tea.Cmd {
 
 func (a App) doExportProfile(profileName, path string) tea.Cmd {
 	return func() tea.Msg {
-		p, err := profile.Load(profileName)
-		if err != nil {
-			return exportProfileDoneMsg{err: err}
-		}
-
-		data, err := json.MarshalIndent(p.Config, "", "  ")
+		// Verbatim, like the CLI and web exports: a round-trip through the
+		// typed Config would drop explicitly present zero values.
+		data, err := profile.ExportOpenCode(profileName)
 		if err != nil {
 			return exportProfileDoneMsg{err: err}
 		}

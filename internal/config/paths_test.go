@@ -6,133 +6,17 @@ import (
 	"testing"
 )
 
-func TestSetBaseDir(t *testing.T) {
-	// Save and restore original
+func TestOmoDir(t *testing.T) {
 	defer ResetBaseDir()
 
 	tmpDir := t.TempDir()
 	SetBaseDir(tmpDir)
 
-	expected := filepath.Join(tmpDir, ".config", "opencode")
-	if got := ConfigDir(); got != expected {
-		t.Errorf("ConfigDir() = %s, want %s", got, expected)
+	got := OmoDir()
+	want := filepath.Join(tmpDir, ".omo")
+	if got != want {
+		t.Errorf("OmoDir() = %s, want %s", got, want)
 	}
-}
-
-func TestResetBaseDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	SetBaseDir(tmpDir)
-	ResetBaseDir()
-
-	// After reset, should use real home
-	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".config", "opencode")
-	if got := ConfigDir(); got != expected {
-		t.Errorf("ConfigDir() = %s, want %s", got, expected)
-	}
-}
-
-func TestConfigDir(t *testing.T) {
-	defer ResetBaseDir()
-
-	tmpDir := t.TempDir()
-	SetBaseDir(tmpDir)
-
-	got := ConfigDir()
-	expected := filepath.Join(tmpDir, ".config", "opencode")
-	if got != expected {
-		t.Errorf("ConfigDir() = %s, want %s", got, expected)
-	}
-}
-
-func TestProfilesDir(t *testing.T) {
-	defer ResetBaseDir()
-
-	tmpDir := t.TempDir()
-	SetBaseDir(tmpDir)
-
-	got := ProfilesDir()
-	expected := filepath.Join(tmpDir, ".config", "opencode", "profiles")
-	if got != expected {
-		t.Errorf("ProfilesDir() = %s, want %s", got, expected)
-	}
-}
-
-func TestConfigFile(t *testing.T) {
-	t.Run("no config files returns canonical", func(t *testing.T) {
-		defer ResetBaseDir()
-		tmpDir := t.TempDir()
-		SetBaseDir(tmpDir)
-
-		got := ConfigFile()
-		expected := filepath.Join(tmpDir, ".config", "opencode", ConfigBasename)
-		if got != expected {
-			t.Errorf("ConfigFile() = %s, want %s", got, expected)
-		}
-	})
-
-	t.Run("only canonical exists returns canonical", func(t *testing.T) {
-		defer ResetBaseDir()
-		tmpDir := t.TempDir()
-		SetBaseDir(tmpDir)
-
-		dir := filepath.Join(tmpDir, ".config", "opencode")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll failed: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644); err != nil {
-			t.Fatalf("WriteFile failed: %v", err)
-		}
-
-		got := ConfigFile()
-		expected := filepath.Join(dir, ConfigBasename)
-		if got != expected {
-			t.Errorf("ConfigFile() = %s, want %s", got, expected)
-		}
-	})
-
-	t.Run("only legacy exists returns legacy", func(t *testing.T) {
-		defer ResetBaseDir()
-		tmpDir := t.TempDir()
-		SetBaseDir(tmpDir)
-
-		dir := filepath.Join(tmpDir, ".config", "opencode")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll failed: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644); err != nil {
-			t.Fatalf("WriteFile failed: %v", err)
-		}
-
-		got := ConfigFile()
-		expected := filepath.Join(dir, LegacyConfigBasename)
-		if got != expected {
-			t.Errorf("ConfigFile() = %s, want %s", got, expected)
-		}
-	})
-
-	t.Run("both exist returns canonical", func(t *testing.T) {
-		defer ResetBaseDir()
-		tmpDir := t.TempDir()
-		SetBaseDir(tmpDir)
-
-		dir := filepath.Join(tmpDir, ".config", "opencode")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("MkdirAll failed: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, ConfigBasename), []byte("{}"), 0644); err != nil {
-			t.Fatalf("WriteFile failed: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, LegacyConfigBasename), []byte("{}"), 0644); err != nil {
-			t.Fatalf("WriteFile failed: %v", err)
-		}
-
-		got := ConfigFile()
-		expected := filepath.Join(dir, ConfigBasename)
-		if got != expected {
-			t.Errorf("ConfigFile() = %s, want %s", got, expected)
-		}
-	})
 }
 
 func TestModelsFile(t *testing.T) {
@@ -142,9 +26,166 @@ func TestModelsFile(t *testing.T) {
 	SetBaseDir(tmpDir)
 
 	got := ModelsFile()
-	expected := filepath.Join(tmpDir, ".config", "opencode", "models.json")
-	if got != expected {
-		t.Errorf("ModelsFile() = %s, want %s", got, expected)
+	want := filepath.Join(tmpDir, ".omo", "models.json")
+	if got != want {
+		t.Errorf("ModelsFile() = %s, want %s", got, want)
+	}
+}
+
+func TestOmoFile(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(dir string)
+		want  string // basename expected under .omo/
+	}{
+		{
+			name:  "fresh install defaults to omo.json",
+			setup: func(dir string) {},
+			want:  OmoBasename,
+		},
+		{
+			name: "only omo.json returns omo.json",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, OmoBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: OmoBasename,
+		},
+		{
+			name: "only omo.jsonc returns omo.jsonc",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, OmoBasenameJSONC), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: OmoBasenameJSONC,
+		},
+		{
+			name: "both present prefers omo.jsonc",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, OmoBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, OmoBasenameJSONC), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: OmoBasenameJSONC,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer ResetBaseDir()
+			tmpDir := t.TempDir()
+			SetBaseDir(tmpDir)
+
+			omoDir := filepath.Join(tmpDir, OmoDirname)
+			if err := os.MkdirAll(omoDir, 0755); err != nil {
+				t.Fatalf("MkdirAll: %v", err)
+			}
+			tt.setup(omoDir)
+
+			got := OmoFile()
+			want := filepath.Join(omoDir, tt.want)
+			if got != want {
+				t.Errorf("OmoFile() = %s, want %s", got, want)
+			}
+		})
+	}
+}
+
+func TestLegacyConfigDir(t *testing.T) {
+	defer ResetBaseDir()
+
+	tmpDir := t.TempDir()
+	SetBaseDir(tmpDir)
+
+	got := LegacyConfigDir()
+	want := filepath.Join(tmpDir, ".config", "opencode")
+	if got != want {
+		t.Errorf("LegacyConfigDir() = %s, want %s", got, want)
+	}
+}
+
+func TestLegacyProfilesDir(t *testing.T) {
+	defer ResetBaseDir()
+
+	tmpDir := t.TempDir()
+	SetBaseDir(tmpDir)
+
+	got := LegacyProfilesDir()
+	want := filepath.Join(tmpDir, ".config", "opencode", "profiles")
+	if got != want {
+		t.Errorf("LegacyProfilesDir() = %s, want %s", got, want)
+	}
+}
+
+func TestLegacyConfigFile(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(dir string)
+		want  string // empty or basename under legacy dir
+	}{
+		{
+			name:  "absent returns empty string",
+			setup: func(dir string) {},
+			want:  "",
+		},
+		{
+			name: "openagent file present returns its path",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, LegacyOpenagentBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: LegacyOpenagentBasename,
+		},
+		{
+			name: "only opencode legacy present returns its path",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, LegacyOpencodeBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: LegacyOpencodeBasename,
+		},
+		{
+			name: "both present prefers openagent basename",
+			setup: func(dir string) {
+				if err := os.WriteFile(filepath.Join(dir, LegacyOpenagentBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, LegacyOpencodeBasename), []byte("{}"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+			},
+			want: LegacyOpenagentBasename,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer ResetBaseDir()
+			tmpDir := t.TempDir()
+			SetBaseDir(tmpDir)
+
+			legacyDir := filepath.Join(tmpDir, ".config", "opencode")
+			if err := os.MkdirAll(legacyDir, 0755); err != nil {
+				t.Fatalf("MkdirAll: %v", err)
+			}
+			tt.setup(legacyDir)
+
+			got := LegacyConfigFile()
+			var want string
+			if tt.want != "" {
+				want = filepath.Join(legacyDir, tt.want)
+			}
+			if got != want {
+				t.Errorf("LegacyConfigFile() = %q, want %q", got, want)
+			}
+		})
 	}
 }
 
@@ -154,45 +195,53 @@ func TestEnsureDirs(t *testing.T) {
 	tmpDir := t.TempDir()
 	SetBaseDir(tmpDir)
 
-	// Dirs should not exist initially
-	configDir := ConfigDir()
-	profilesDir := ProfilesDir()
-
-	if _, err := os.Stat(configDir); !os.IsNotExist(err) {
-		t.Fatalf("configDir should not exist before EnsureDirs")
+	omoDir := OmoDir()
+	if _, err := os.Stat(omoDir); !os.IsNotExist(err) {
+		t.Fatalf("OmoDir should not exist before EnsureDirs")
 	}
 
-	// Call EnsureDirs
 	if err := EnsureDirs(); err != nil {
 		t.Fatalf("EnsureDirs() failed: %v", err)
 	}
 
-	// Both should exist now
-	info, err := os.Stat(configDir)
+	info, err := os.Stat(omoDir)
 	if err != nil {
-		t.Errorf("configDir should exist after EnsureDirs: %v", err)
+		t.Fatalf("OmoDir should exist after EnsureDirs: %v", err)
 	}
 	if !info.IsDir() {
-		t.Errorf("configDir should be a directory")
+		t.Errorf("OmoDir should be a directory")
 	}
 
-	info, err = os.Stat(profilesDir)
-	if err != nil {
-		t.Errorf("profilesDir should exist after EnsureDirs: %v", err)
-	}
-	if !info.IsDir() {
-		t.Errorf("profilesDir should be a directory")
-	}
-
-	// Calling EnsureDirs again should be idempotent
 	if err := EnsureDirs(); err != nil {
 		t.Errorf("EnsureDirs() should be idempotent: %v", err)
 	}
 }
 
+func TestHomeDir_UsesBaseDir(t *testing.T) {
+	defer ResetBaseDir()
+
+	tmpDir := t.TempDir()
+	SetBaseDir(tmpDir)
+	if got := HomeDir(); got != tmpDir {
+		t.Errorf("HomeDir() = %s, want %s", got, tmpDir)
+	}
+}
+
+func TestResetBaseDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	SetBaseDir(tmpDir)
+	ResetBaseDir()
+
+	home, _ := os.UserHomeDir()
+	want := filepath.Join(home, OmoDirname)
+	if got := OmoDir(); got != want {
+		t.Errorf("OmoDir() after ResetBaseDir = %s, want %s", got, want)
+	}
+}
+
 func TestDefaultSchema(t *testing.T) {
-	expected := "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json"
-	if DefaultSchema != expected {
-		t.Errorf("DefaultSchema = %s, want %s", DefaultSchema, expected)
+	want := "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json"
+	if DefaultSchema != want {
+		t.Errorf("DefaultSchema = %s, want %s", DefaultSchema, want)
 	}
 }

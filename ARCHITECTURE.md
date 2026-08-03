@@ -7,13 +7,13 @@
 
 ## Overview
 
-`omo-profiler` is a TUI profile manager for `oh-my-openagent` configuration files. Built in Go 1.25.6, it combines a Bubble Tea terminal UI with a Cobra CLI, managing profile CRUD, active-state switching, and JSON schema validation against an upstream spec.
+`omo-profiler` is a TUI profile manager for `oh-my-openagent` configuration. Built in Go 1.25.6, it combines a Bubble Tea terminal UI with a Cobra CLI, managing profile CRUD inside the unified `~/.omo/omo.json` (or `omo.jsonc`) document, in-document activation via verbatim substitution, and JSON schema validation against upstream `assets/omo.schema.json`.
 
 The architecture follows a **layered, message-driven design** with three primary layers:
 
 1. **Presentation** (`internal/tui/` + `internal/cli/`) — Bubble Tea views and Cobra commands
-2. **Business Logic** (`internal/profile/`, `internal/models/`, `internal/schema/`) — CRUD, switching, validation, model registry
-3. **Infrastructure** (`internal/config/`, `internal/diff/`, `internal/backup/`) — path resolution, diff computation, backup rotation
+2. **Business Logic** (`internal/profile/`, `internal/models/`, `internal/schema/`) — CRUD, env activation, validation, model registry
+3. **Infrastructure** (`internal/config/`, `internal/diff/`, `internal/backup/`) — Document/paths, diff computation, backup rotation
 
 ---
 
@@ -22,12 +22,12 @@ The architecture follows a **layered, message-driven design** with three primary
 | Area | Symbols | Cohesion | Role |
 |--------|---------|----------|------|
 | **Views** | ~400+ | 0.38–0.92 | 18 Bubble Tea sub-views (wizard steps, dashboard, list, diff, import, export, models, schema check) |
-| **Profile** | 33 | 0.69–0.76 | Profile CRUD, active-state management, naming validation, sparse-field detection |
-| **Config** | 17 | 0.76 | Schema authority — `Config` struct (38 top-level fields), path resolution, `SetBaseDir` test isolation |
-| **Schema** | 15 | 0.88 | Embedded JSON schema validator (`gojsonschema` singleton), upstream drift detection |
+| **Profile** | 33 | 0.69–0.76 | Profile CRUD in omo document, in-document activation, naming validation, sparse-field detection |
+| **Config** | 17 | 0.76 | `[opencode]` `Config` (46 fields) + `Document`, path resolution (`OmoDir`/`OmoFile`), `SetBaseDir` test isolation |
+| **Schema** | 15 | 0.88 | Embedded omo document schema + `[opencode]` sub-schema validator, upstream drift detection |
 | **Tui** | 14 | 0.90 | Root `App` model — state machine, message router, global overlays (toast, help, spinner) |
 | **Diff** | 14 | 0.96 | Side-by-side + unified diff computation (`go-diff` wrapper) |
-| **Backup** | 14 | 0.76 | Timestamped backup rotation before profile switch |
+| **Backup** | 14 | 0.76 | Timestamped backup rotation before mutating omo writes |
 | **Models** | 14+ | 0.82 | Local model registry CRUD + `models.dev` API client |
 | **Cmd** | 12 | 0.85 | Cobra subcommands (`list`, `switch`, `import`, `export`, `create`, `models`, `schema-check`) |
 | **Cli** | 8 | 0.80 | Root command registration, TUI-as-default `Run` behavior |
@@ -47,13 +47,13 @@ graph TD
     end
 
     subgraph Business
-        PROFILE[internal/profile<br/>CRUD, switch, naming]
+        PROFILE[internal/profile<br/>CRUD, env activate, naming]
         MODELS[internal/models<br/>Registry + API client]
         SCHEMA[internal/schema<br/>Validator + upstream sync]
     end
 
     subgraph Infrastructure
-        CONFIG[internal/config<br/>Types + paths]
+        CONFIG[internal/config<br/>Types + Document + paths]
         DIFF[internal/diff<br/>Side-by-side diff]
         BACKUP[internal/backup<br/>Timestamped backups]
     end
@@ -93,7 +93,7 @@ graph TD
 ```
 
 **Key dependency patterns:**
-- **All business logic depends on `config`** — `Config` is the universal data contract
+- **All business logic depends on `config`** — `Config` is the `[opencode]` contract; `Document` is the omo file
 - **TUI is the orchestration hub** — `App` dispatches to all business packages via `tea.Cmd`
 - **CLI is thin** — commands delegate directly to `profile`/`backup`/`models`/`schema`
 - **`diff` is a utility** — used by both `profile` (sparse detection) and `schema` (upstream drift)
@@ -108,18 +108,33 @@ graph TD
 
 ```
 App.doSwitchProfile (tui/app.go)
-  → profile.SetActive (profile/active.go)
-      → profile.Load (profile/profile.go)          — read profile JSON
-      → collectFieldPresence (profile/profile.go)  — detect sparse fields
-      → collectFieldPresenceFromRaw
-      → selectionPathCandidates (profile/profile.go)
-      → joinSelectionPath (profile/sparse.go)
-  → backup.Create (backup/backup.go)              — rotate backup before overwrite
-  → config.ConfigDir / ProfilesDir (config/paths.go) — path resolution
+  → profile.Apply (profile/active.go)
+      → doc.ProfileBlock(name) — load the profile block
+      → ActiveName(doc) — is the root already this profile?
+      → if no match and declared key is non-empty at root:
+          snapshot root as profiles.base (collides to base-1, …)
+      → doc.SetRaw(key, value) for each declared key
+      → backup.CreateOmoIfPresent (pre-save hook)
+      → doc.EnsureSchema()
+  → UI shows success toast (no shell command)
 ```
 
-**Cross-community:** Tui → Profile → Backup → Config  
-**Critical constraint:** Switching uses **COPY**, not symlinks (fsnotify compatibility).
+**Cross-community:** Tui → Profile → Config
+**Critical constraint:** Activation is **in-document**. `Apply` substitutes verbatim — no merge, no env var, no shell command. The snapshot step (`profiles.base`) is what makes a sparse root recoverable.
+
+### 1b. Sparse Wizard Save (`MarshalSparse` → `WriteOpenCodeBlockInto`)
+
+**Trigger:** Wizard Review confirms save of selected fields
+
+```
+wizard save (tui/views/wizard.go)
+  → profile.MarshalSparse(cfg, selection, preservedUnknown)
+  → config.MutateWithPreSave(backup.CreateOmoIfPresent, fn)   — one transaction
+      fn: profile.WriteOpenCodeBlockInto(doc, name, data)
+      pre-save snapshot + doc.Save() run under the same lock
+```
+
+**Critical constraint:** Do **not** route sparse payloads through `Profile.Save` / `WriteInto` — those marshal `Config` with `omitempty` and drop explicitly selected zero values. `SaveOpenCodeBlock` is the one-shot variant of the same path.
 
 ---
 
@@ -130,14 +145,15 @@ App.doSwitchProfile (tui/app.go)
 ```
 Dashboard.loadActiveProfile / List.LoadProfiles (views/)
   → profile.GetActive (profile/active.go)
-      → loadActiveState (profile/active.go)
-      → activeStateFile (profile/active.go)
-  → config.ConfigDir (config/paths.go)
+      → ActiveName(doc) — first profile whose every declared key
+        canonicalizes equal to the root
+      → decode root [opencode] straight into Config (no merge)
+      → ActiveConfig{Exists, Config, ProfileName, Modified}
+  → config.OmoFile / LoadDocument (config/)
 ```
 
-**Cross-community:** Views → Profile → Config  
-**Two-tier lookup:** Fast path reads `.active-profile` sidecar (O(1)); fallback scans all profile files by content (O(N)).
-
+**Cross-community:** Views → Profile → Config
+**No sidecar authority:** The active profile is detected by root comparison. `Modified` is true when the root matches no profile.
 ---
 
 ### 3. Upstream Schema Drift Detection (`schema_check`)
@@ -147,14 +163,14 @@ Dashboard.loadActiveProfile / List.LoadProfiles (views/)
 ```
 SchemaCheck.fetchSchemaCheckCmd (views/schema_check.go)
   → schema.CompareSchemas (schema/compare.go)
-      → schema.FetchUpstreamSchema (schema/compare.go)  — HTTP GET upstream JSON
-      → schema.GetEmbeddedSchema (schema/validator.go)  — read embedded bytes
+      → schema.FetchUpstreamSchema (schema/compare.go)  — HTTP GET assets/omo.schema.json
+      → schema.GetEmbeddedSchema (schema/validator.go)  — read embedded omo document bytes
       → diff.ComputeUnifiedDiff (diff/diff.go)          — generate diff if drift
   → schema.SaveDiff (schema/compare.go)                  — persist .diff report
 ```
 
 **Cross-community:** Views → Schema → Diff  
-**Entry point:** `update-schema.sh` shell script wraps the same flow for CI-like automation.
+**Upstream URL:** `assets/omo.schema.json` on the oh-my-openagent monorepo (`packages/omo-config-core/src/schema/`). Migration transform: `packages/omo-opencode/src/config-migration/`. Forms use `GetOpenCodeSchema()`.
 
 ---
 
@@ -184,12 +200,11 @@ WizardCategories.handleSaveCustomModel / WizardAgents.handleSaveCustomModel
   → models.ModelsRegistry.Add (models/models.go)
   → models.ModelsRegistry.Save (models/models.go)
       → config.EnsureDirs (config/paths.go)
-      → config.ProfilesDir (config/paths.go)
-      → config.ConfigDir (config/paths.go)
+      → config.ModelsFile / OmoDir (config/paths.go)
 ```
 
 **Cross-community:** Views → Models → Config  
-**Persistence:** `models.json` with auto `.bak` recovery on parse failure.
+**Persistence:** `~/.omo/models.json` with auto `.bak` recovery on parse failure. Writes are serialized (`models.Mutate`) and atomic (temp file + rename).
 
 ---
 
@@ -234,20 +249,23 @@ Key message types:
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  Strict Mode    │     │  Permissive Mode │     │  Upstream Sync  │
 │  Validate()     │     │  ValidateForSave │     │  CompareSchemas │
-│  (full schema)  │     │  (ignore missing)│     │  (diff vs HTTP) │
+│  ([opencode])   │     │  (ignore missing)│     │  (diff vs HTTP) │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
         │                        │                       │
         └────────────────────────┴───────────────────────┘
                                  │
                     ┌────────────▼────────────┐
                     │   gojsonschema.Schema     │
+                    │   document + [opencode]   │
                     │   (singleton, sync.Once)  │
                     └───────────────────────────┘
 ```
 
-- **`Validate`** — strict, used for schema-check command and integrity verification
-- **`ValidateForSave`** — permissive, default for wizard review and profile save (sparse configs intentional)
-- **`CompareSchemas`** — fetches upstream schema via HTTP, compares bytes, generates unified diff
+- **`Validate` / `ValidateJSON`** — strict on flat `[opencode]`
+- **`ValidateForSave` / `ValidateJSONForSave`** — permissive; default for wizard/profile save
+- **`ValidateDocument` / `ValidateDocumentForSave`** — whole omo document
+- **`CompareSchemas`** — fetches upstream `assets/omo.schema.json`, compares bytes, generates unified diff
+- **Forms** — `GetOpenCodeSchema()`, not `GetEmbeddedSchema()`
 
 ---
 
@@ -256,6 +274,7 @@ Key message types:
 - **36 test files** (~10,000+ lines of tests)
 - **Co-located** `*_test.go` per package
 - **Mandatory isolation:** `config.SetBaseDir(t.TempDir())` in every test that touches FS
+- **Seed profiles into the document**, not as files under a profiles directory (`writeProfile` / `SetProfileBlock` + `Save`)
 - **`setupTestEnv` helper** pattern for cross-package test setup
 - **High-coverage packages:** `profile/` (sparse detection), `config/` (round-trip), `schema/` (strict vs permissive)
 - **TUI tests** use Bubble Tea's `tea.Program` testing patterns with simulated key messages
@@ -264,12 +283,13 @@ Key message types:
 
 ## Critical Constraints & Invariants
 
-1. **Config is the source of truth** — `internal/config/types.go` must match upstream JSON schema 1:1
-2. **No symlinks** — profile switching uses file copy for fsnotify compatibility
+1. **`Config` is the `[opencode]` source of truth** — `internal/config/types.go` must match the `[opencode]` sub-schema 1:1; the whole file is `Document` / `omo.schema.json`
+2. **In-document activation** — `Apply` substitutes profile keys verbatim into the root; `ActiveName` detects the applied profile via root comparison. No env vars, no copy, no symlink.
+2b. **Sparse persists via raw block APIs** — `MarshalSparse` → `WriteOpenCodeBlockInto` / `SaveOpenCodeBlock`, never `Profile.Save` for selected zeros
 3. **No blocking in Update** — all I/O happens in `tea.Cmd`, never in `Update()` or `View()`
 4. **Views emit, App routes** — views must never mutate `App` state; navigation is message-driven
 5. **Wizard `Apply()` pattern** — steps must not mutate `Config` directly; use `SetConfig`/`Apply` lifecycle
-6. **Singleton validator** — `schema.Validator` is initialized once via `sync.Once`; always use `GetValidator()`
+6. **Singleton validator** — `schema.Validator` is initialized once via `sync.Once`; always use `GetValidator()`; forms use `GetOpenCodeSchema()`
 
 ---
 

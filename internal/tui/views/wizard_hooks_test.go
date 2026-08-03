@@ -77,7 +77,7 @@ func TestWizardHooksSetConfig(t *testing.T) {
 	cfg := &config.Config{
 		DisabledHooks: []string{
 			"todo-continuation-enforcer",
-			"session-recovery",
+			"session-notification",
 		},
 	}
 
@@ -88,13 +88,13 @@ func TestWizardHooksSetConfig(t *testing.T) {
 		t.Error("expected todo-continuation-enforcer to be disabled")
 	}
 
-	if !wh.disabled["session-recovery"] {
-		t.Error("expected session-recovery to be disabled")
+	if !wh.disabled["session-notification"] {
+		t.Error("expected session-notification to be disabled")
 	}
 
 	// Check that other hooks remain enabled
-	if wh.disabled["context-window-monitor"] {
-		t.Error("expected context-window-monitor to be enabled")
+	if wh.disabled["preemptive-compaction"] {
+		t.Error("expected preemptive-compaction to be enabled")
 	}
 }
 
@@ -103,11 +103,11 @@ func TestWizardHooksSetConfigResetsPreviousState(t *testing.T) {
 
 	// Set some disabled hooks
 	wh.disabled["todo-continuation-enforcer"] = true
-	wh.disabled["session-recovery"] = true
+	wh.disabled["session-notification"] = true
 
 	// Set config with different disabled hooks
 	cfg := &config.Config{
-		DisabledHooks: []string{"context-window-monitor"},
+		DisabledHooks: []string{"preemptive-compaction"},
 	}
 
 	wh.SetConfig(cfg, nil)
@@ -117,13 +117,13 @@ func TestWizardHooksSetConfigResetsPreviousState(t *testing.T) {
 		t.Error("expected todo-continuation-enforcer to be enabled after reset")
 	}
 
-	if wh.disabled["session-recovery"] {
-		t.Error("expected session-recovery to be enabled after reset")
+	if wh.disabled["session-notification"] {
+		t.Error("expected session-notification to be enabled after reset")
 	}
 
 	// New config should be applied
-	if !wh.disabled["context-window-monitor"] {
-		t.Error("expected context-window-monitor to be disabled")
+	if !wh.disabled["preemptive-compaction"] {
+		t.Error("expected preemptive-compaction to be disabled")
 	}
 }
 
@@ -134,7 +134,7 @@ func TestWizardHooksApply(t *testing.T) {
 
 	// Disable some hooks
 	wh.disabled["todo-continuation-enforcer"] = true
-	wh.disabled["session-recovery"] = true
+	wh.disabled["session-notification"] = true
 
 	cfg := &config.Config{}
 	wh.Apply(cfg, selection)
@@ -144,7 +144,7 @@ func TestWizardHooksApply(t *testing.T) {
 		t.Errorf("expected 2 disabled hooks, got %d", len(cfg.DisabledHooks))
 	}
 
-	expected := []string{"session-recovery", "todo-continuation-enforcer"}
+	expected := []string{"session-notification", "todo-continuation-enforcer"}
 	for i, hook := range cfg.DisabledHooks {
 		if hook != expected[i] {
 			t.Errorf("expected hook %d to be %q, got %q", i, expected[i], hook)
@@ -169,7 +169,7 @@ func TestWizardHooksLoadsDisabledHooksSelectionFromJSONPresence(t *testing.T) {
 
 	wh := NewWizardHooks()
 	selection := profile.NewSelectionFromPresence(map[string]bool{disabledHooksFieldPath: true})
-	cfg := &config.Config{DisabledHooks: []string{"session-recovery"}}
+	cfg := &config.Config{DisabledHooks: []string{"session-notification"}}
 
 	wh.SetConfig(cfg, selection)
 
@@ -195,12 +195,12 @@ func TestWizardHooksApplyWritesDisabledHooksOnlyWhenSelected(t *testing.T) {
 
 	wh := NewWizardHooks()
 	wh.disabled["todo-continuation-enforcer"] = true
-	wh.disabled["session-recovery"] = true
+	wh.disabled["session-notification"] = true
 
 	cfg := &config.Config{}
 	wh.Apply(cfg, selected)
 
-	expected := []string{"session-recovery", "todo-continuation-enforcer"}
+	expected := []string{"session-notification", "todo-continuation-enforcer"}
 	if len(cfg.DisabledHooks) != len(expected) {
 		t.Fatalf("expected %d disabled hooks, got %d", len(expected), len(cfg.DisabledHooks))
 	}
@@ -495,7 +495,7 @@ func TestWizardHooksViewWithDisabledHooks(t *testing.T) {
 
 	// Disable some hooks
 	wh.disabled["todo-continuation-enforcer"] = true
-	wh.disabled["session-recovery"] = true
+	wh.disabled["session-notification"] = true
 
 	view := wh.View()
 

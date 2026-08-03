@@ -6,54 +6,69 @@
 ```go
 p, err := profile.Load("profile-name")
 if err != nil {
-    // handle error
+    // handle error (os.IsNotExist / NotFoundError when missing)
 }
-// p.Name, p.Config, p.Path, p.HasLegacyFields, p.LegacyFieldsWarning available
+// p.Name, p.Config (== profiles.<name>.[opencode]), p.Path (omo document),
+// p.HasLegacyFields, p.LegacyFieldsWarning available
 ```
 
 ### Save a Profile
 ```go
 p := &profile.Profile{
     Name:   "my-profile",
-    Config: cfg,  // config.Config struct
+    Config: cfg,  // config.Config = [opencode] block
 }
 err := profile.Save(p)
-// or: err := p.Save()
+// or: err := p.Save()  // read-modify-write of ~/.omo/omo.json
+// Note: omitempty drops explicit zeros — not for sparse wizard saves.
+```
+
+### Sparse Save (wizard / selected fields)
+```go
+data, err := profile.MarshalSparse(&cfg, selection, preservedUnknown)
+if err != nil { /* ... */ }
+// Persist pre-marshalled [opencode] payload; preserves profile sibling keys
+err = profile.SaveOpenCodeBlock("my-profile", data)
+// or stage then save:
+// err = profile.WriteOpenCodeBlockInto(doc, "my-profile", data)
+// err = doc.Save()
 ```
 
 ### Check if Profile Exists
 ```go
 if profile.Exists("profile-name") {
-    // profile exists
+    // profiles.<name> present in the omo document
 }
 ```
 
 ### List All Profiles
 ```go
 profiles, err := profile.List()
-// Returns []string of profile names (no .json extension)
+// Returns []string of profile names from the document (sorted)
 ```
 
-### Switch Active Profile
+### Switch / Emit Activation
 ```go
-err := profile.SetActive("profile-name")
-// Copies profile content to oh-my-opencode.json
-// Updates .active-profile sidecar for O(1) lookup
+applied, err := profile.Apply("profile-name")
+// Applies profile to document root
+// Returns: export profile via `Apply`profile-name
+// Does NOT copy/symlink or mutate the omo document
 ```
 
 ### Get Current Active Profile
 ```go
 active, err := profile.GetActive()
 // Returns *ActiveConfig with:
-// - Exists: bool — whether oh-my-opencode.json exists
-// - Config: config.Config — the active config
-// - ProfileName: string — name of matching profile (or "(custom)" if orphan)
-// - IsOrphan: bool — true if active config doesn't match any profile
+// - Exists: bool — whether an omo document exists on disk
+// - Config: config.Config — effective [opencode] (base ∪ active override)
+// - ProfileName: string — active profile from env, or ""
+// - Source: ActivationSource
+// - SelectionHint / HintOnly / MissingProfile
 ```
 
-### Compare Profile to Active Config
+### Compare Profile to a Config
 ```go
-matches := p.MatchesConfig(&cfg)
+name, err := profile.ActiveName(doc)
 // Normalizes both (strips $schema) before byte-for-byte comparison
 ```
 
@@ -61,28 +76,30 @@ matches := p.MatchesConfig(&cfg)
 
 ### Get Config Paths
 ```go
-config.ConfigDir()      // ~/.config/opencode/
-config.ProfilesDir()    // ~/.config/opencode/profiles/
-config.ConfigFile()     // ~/.config/opencode/oh-my-opencode.json
-config.ModelsFile()     // ~/.config/opencode/models.json
-config.DefaultSchema    // const: upstream schema URL
+config.OmoDir()            // ~/.omo/
+config.OmoFile()           // ~/.omo/omo.jsonc if present, else ~/.omo/omo.json
+config.ModelsFile()        // ~/.omo/models.json
+config.OmoFile() // ~/.omo/omo.json
+config.DefaultSchema       // const: upstream assets/omo.schema.json URL
+config.LegacyConfigDir()   // migration detection only
 ```
 
 ### Ensure Directories Exist
 ```go
 err := config.EnsureDirs()
-// Creates config and profiles directories
+// Creates ~/.omo
 ```
 
 ### Test Path Isolation
 ```go
-config.SetBaseDir(t.TempDir())  // Redirect all paths to temp dir
+config.SetBaseDir(t.TempDir())  // Redirect all paths under <tmp>/.omo/
 defer config.ResetBaseDir()     // Restore real paths
+// Seed profiles via Document.SetProfileBlock + Save — not as separate files
 ```
 
 ## Schema Validation
 
-### Validate Config
+### Validate Config ([opencode])
 ```go
 validator, err := schema.GetValidator()
 if err != nil {
@@ -91,13 +108,19 @@ if err != nil {
 
 errors, err := validator.Validate(&cfg)  // From config.Config struct
 // or
-errors, err := validator.ValidateJSON(jsonData)  // From raw JSON bytes
+errors, err := validator.ValidateJSON(jsonData)  // From raw [opencode] JSON bytes
 
 if len(errors) > 0 {
     for _, e := range errors {
         fmt.Printf("%s: %s\n", e.Path, e.Message)
     }
 }
+```
+
+### Validate Whole Document
+```go
+errors, err := validator.ValidateDocument(omoBytes)
+errors, err := validator.ValidateDocumentForSave(omoBytes)
 ```
 
 ### Compare Embedded vs Upstream Schema
@@ -111,17 +134,19 @@ if result.Identical {
 }
 ```
 
-### Get Embedded Schema
+### Get Schemas
 ```go
-rawBytes := schema.GetEmbeddedSchema()
+rawDocument := schema.GetEmbeddedSchema()       // full omo document schema
+opencode, err := schema.GetOpenCodeSchema()     // [opencode] sub-schema for forms
 ```
 
 ## Backup Management
 
 ### Create Backup
 ```go
-backupPath, err := backup.Create(config.ConfigFile())
-// Creates: oh-my-opencode.json.bak.YYYY-MM-DD-HHMMSS
+backupPath, err := backup.Create(config.OmoFile())
+// Creates: omo.json.bak.YYYY-MM-DD-HHMMSS (under OmoDir)
+// Use before profile save/delete/import — not for switch
 ```
 
 ### List Backups
@@ -134,7 +159,7 @@ backups, err := backup.List()
 ### Restore Backup
 ```go
 err := backup.Restore(backupPath)
-// Overwrites oh-my-opencode.json with backup content
+// Overwrites current OmoFile with backup content
 ```
 
 ### Clean Old Backups
@@ -172,7 +197,7 @@ registry.Update(model)        // Update by ModelID
 registry.Delete(modelID)      // Remove by ModelID
 registry.List()               // Get all models (copy)
 registry.ListByProvider()     // Get []ProviderGroup (sorted)
-registry.Save()               // Persist to models.json
+registry.Save()               // Persist to ~/.omo/models.json
 ```
 
 ### models.dev API
@@ -200,7 +225,16 @@ func setupTestEnv(t *testing.T) func() {
 func TestSomething(t *testing.T) {
     cleanup := setupTestEnv(t)
     defer cleanup()
-    // ... test code
+    // seed profiles into the document, then exercise code
+}
+
+// Canonical seeder (profiles are document blocks, not files):
+func writeProfile(t *testing.T, name, openCodeJSON string) {
+    t.Helper()
+    doc, err := config.LoadDocument()
+    require.NoError(t, err)
+    require.NoError(t, doc.SetProfileBlock(name, json.RawMessage(`{"[opencode]":`+openCodeJSON+`}`)))
+    require.NoError(t, doc.Save())
 }
 ```
 

@@ -1,0 +1,48 @@
+===== GET /api/profiles (same origin)
+status=%{http_code}
+{"active":{"command":"","documentExists":true,"hintOnly":false,"launcher":"","missingProfile":false,"profileName":"","selectionHint":"","source":""},"profiles":[{"name":"dev","active":false,"hinted":false}]}
+
+
+===== POST /api/profiles — the SPA (Origin matches Host)
+{"name":"fromspa"}
+
+status=%{http_code}
+
+===== POST /api/profiles — no Origin at all (curl / scripts)
+{"name":"fromcurl"}
+
+status=%{http_code}
+
+===== POST /api/profiles — hostile page, CORS-simple request
+{"error":"cross-origin request rejected"}
+
+status=%{http_code}
+
+===== PUT /api/profiles/dev — hostile page
+{"error":"cross-origin request rejected"}
+
+status=%{http_code}
+
+===== DELETE /api/profiles/dev — hostile page
+{"error":"cross-origin request rejected"}
+
+status=%{http_code}
+
+===== POST /api/import — hostile page
+{"error":"cross-origin request rejected"}
+
+status=%{http_code}
+
+===== SPA root
+status=%{http_code}
+
+===== profiles after the attacks
+{"active":{"command":"","documentExists":true,"hintOnly":false,"launcher":"","missingProfile":false,"profileName":"","selectionHint":"","source":""},"profiles":[{"name":"dev","active":false,"hinted":false},{"name":"fromcurl","active":false,"hinted":false},{"name":"fromspa","active":false,"hinted":false}]}
+
+
+===== server log
+omo-profiler (omo.json profiles) → http://127.0.0.1:4747
+
+===== omo dir (backup rotation with KeepLast=10)
+3
+-rw-r--r-- 1 diogo diogo 300 jul 29 11:27 /tmp/tmp.arEwbyb9d0/webhome/.omo/omo.json

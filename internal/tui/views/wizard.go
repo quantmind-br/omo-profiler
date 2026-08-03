@@ -3,12 +3,11 @@ package views
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diogenes/omo-profiler/internal/backup"
 	"github.com/diogenes/omo-profiler/internal/config"
 	"github.com/diogenes/omo-profiler/internal/profile"
 	"github.com/diogenes/omo-profiler/internal/schema"
@@ -247,7 +246,7 @@ func (w Wizard) Update(msg tea.Msg) (Wizard, tea.Cmd) {
 				return w, nil
 			}
 		}
-		if key.Matches(msg, w.keys.Cancel) {
+		if key.Matches(msg, w.keys.Cancel) && !w.currentStepCapturing() {
 			// Guard against discarding unsaved work; cancel immediately if nothing entered.
 			if w.hasUnsavedInput() {
 				w.confirmCancel = true
@@ -382,23 +381,65 @@ func (w Wizard) nextStep() (Wizard, tea.Cmd) {
 				return wizardSaveDoneMsg{err: fmt.Errorf("validation failed: %s", validationErrors[0].Error())}
 			}
 
-			if err := config.EnsureDirs(); err != nil {
+			// One serialized transaction: this save runs in a tea.Cmd goroutine
+			// and must not interleave with a concurrent web-server mutation of
+			// the same document.
+			var doc *config.Document
+			if err := config.MutateWithPreSave(backup.CreateOmoIfPresent, func(d *config.Document) error {
+				doc = d
+
+				// The name was validated when the user typed it, but the save
+				// lands later. Re-check inside the transaction so a profile
+				// created in that gap by a concurrent web request is not
+				// silently overwritten.
+				if profileName != originalName && d.HasProfile(profileName) {
+					return &profile.ExistsError{Name: profileName}
+				}
+
+				// Edit mode asserts the profile exists. If it was deleted during
+				// the gap, saving would silently undo that delete — for an
+				// in-place edit just as much as for a rename.
+				if editMode && !d.HasProfile(originalName) {
+					return &profile.NotFoundError{Name: originalName}
+				}
+
+				// On rename, copy the old profile block first so sibling keys
+				// ([senpi], [codex], shared typed keys) move with the name.
+				if editMode && profileName != originalName {
+					existing, _, err := d.ProfileBlock(originalName)
+					if err != nil {
+						return err
+					}
+					if err := d.SetProfileBlock(profileName, existing); err != nil {
+						return err
+					}
+				}
+
+				if err := profile.WriteOpenCodeBlockInto(d, profileName, data); err != nil {
+					return err
+				}
+
+				if editMode && profileName != originalName {
+					if _, err := d.DeleteProfileBlock(originalName); err != nil {
+						return err
+					}
+				}
+
+				d.EnsureSchema()
+				return nil
+			}); err != nil {
 				return wizardSaveDoneMsg{err: err}
 			}
 
-			path := filepath.Join(config.ProfilesDir(), profileName+".json")
-			if err := os.WriteFile(path, data, 0644); err != nil {
-				return wizardSaveDoneMsg{err: err}
-			}
-
-			p := &profile.Profile{
-				Name:             profileName,
-				Config:           cfg,
-				Path:             path,
-				PreservedUnknown: preservedUnknown,
-			}
-			if editMode && p.Name != originalName {
-				_ = profile.Delete(originalName)
+			p, err := profile.LoadFromDocument(doc, profileName)
+			if err != nil {
+				// Save succeeded; fall back to the in-memory sparse inputs.
+				p = &profile.Profile{
+					Name:             profileName,
+					Config:           cfg,
+					Path:             doc.Path,
+					PreservedUnknown: preservedUnknown,
+				}
 			}
 			return wizardSaveDoneMsg{profile: p}
 		}
@@ -657,6 +698,20 @@ func (w Wizard) IsReviewStep() bool {
 // IsConfirmingCancel reports whether the discard-confirmation prompt is showing.
 func (w Wizard) IsConfirmingCancel() bool {
 	return w.confirmCancel
+}
+
+// currentStepCapturing reports whether the active step has an overlay open that
+// handles its own keys (esp. esc). When true the router must not intercept
+// Cancel, so esc reaches the step to close the overlay instead of prompting a
+// wizard-wide discard.
+func (w Wizard) currentStepCapturing() bool {
+	switch w.step {
+	case StepAgents:
+		return w.agentsStep.IsCapturing()
+	case StepCategories:
+		return w.categoriesStep.IsCapturing()
+	}
+	return false
 }
 
 // hasUnsavedInput reports whether cancelling now would discard user work.
