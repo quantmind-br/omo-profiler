@@ -1,7 +1,5 @@
 # Repository Guidelines
 
-Read `openwiki/quickstart.md` first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
-
 ## Project Overview
 
 `omo-profiler` manages named configuration profiles for **oh-my-openagent**. Three front-ends over one domain core: a Bubble Tea **TUI** (default when run bare), a Cobra **CLI** (9 subcommands), and a **web UI** (`omo-profiler web`) — a Go HTTP server with an embedded React SPA.
@@ -177,4 +175,4 @@ Run the narrowest package tests you touched, then `make test`. For TUI changes a
 5. **Changing `Config` needs three parallel edits:** the struct in `config/types.go`, `knownConfigTags` in `profile/profile.go`, and the field-path tables in `profile/selection.go`. Drift causes false validation errors and silently unsaved wizard fields.
 6. **Backups never auto-rotate.** `CreateOmoIfPresent` snapshots before every mutation; nothing calls `backup.Clean`.
 
-`ARCHITECTURE.md` and `TUI_AUDIT.md` predate current code — prefer `openwiki/` and the source.
+`ARCHITECTURE.md` and `TUI_AUDIT.md` predate current code — prefer the source.
